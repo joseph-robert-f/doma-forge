@@ -333,7 +333,7 @@ export function DrawerViewer({
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.08;
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.shadowMap.type = THREE.PCFShadowMap;
         renderer.domElement.style.width = "100%";
         renderer.domElement.style.height = "100%";
         renderer.domElement.style.display = "block";
