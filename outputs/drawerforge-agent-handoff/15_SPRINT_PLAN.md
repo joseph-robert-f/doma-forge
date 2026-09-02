@@ -1,7 +1,7 @@
 # 15. Sprint Plan and Model Routing
 
 Date: 2026-09-02
-Status: Active. Sprint specs are in `sprints/`. S01, S02, S03, S04, S05, S10, and S11 are done; see documents 16 to 20, 25, and 26. S12 is ongoing; see document 27 and `sprints/PRINT_RECORDS.md`.
+Status: Active. Sprint specs are in `sprints/`. S01 to S08, S10, and S11 are done; see documents 16 to 23, 25, and 26. S09 remains. S12 is ongoing; see document 27 and `sprints/PRINT_RECORDS.md`.
 Reads with: 10_MULTI_PRODUCT_EXPANSION_PLAN.md, documents 11 to 14
 
 This document lists the remaining major sprints, the order to run them, and the

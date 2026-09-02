@@ -117,6 +117,18 @@
       "purpose": "Kernel modules, family B rules, the socket tray, kernel timings, and decisions (S05)"
     },
     {
+      "path": "21_WAVE_1_PRODUCTS_NOTES.md",
+      "purpose": "Wave 1 products: marker cup block, battery organizer, tool fin rack, stackable parts bin (S06)"
+    },
+    {
+      "path": "22_FAMILY_A_EXTENSIONS_NOTES.md",
+      "purpose": "Layout parameter kind, dividers by position, leg posts, remote caddy, drawer riser (S07)"
+    },
+    {
+      "path": "23_REVOLVED_FORMS_NOTES.md",
+      "purpose": "Revolve module, plant pot and saucer, card holder (S08)"
+    },
+    {
       "path": "25_BROWSER_QA_NOTES.md",
       "purpose": "Playwright suite, CI browser job, runtimes, flake count, and decisions (S10)"
     },

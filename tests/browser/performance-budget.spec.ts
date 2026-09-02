@@ -20,10 +20,13 @@ const READY_BUDGET_MS = 5_000;
 const PAGE_CHUNK_BUDGET_BYTES = 650 * 1024;
 // The worker chunk holds the registry, so it grows with every product: its
 // schema, its validation, and its geometry. S10 set 80 KB with two products.
-// Four products measure 84 KB, so the budget is now 128 KB: the catalog can
-// grow, and a doubling still fails. Sprint S07,
-// 22_FAMILY_A_EXTENSIONS_NOTES.md, open issue 1.
-const WORKER_CHUNK_BUDGET_BYTES = 128 * 1024;
+// Eight products measure 122 KB and eleven are expected near 152 KB, about
+// 10 KB per product over a 46 KB fixed part, so the budget is 176 KB: the
+// wave 1 catalog fits with headroom and a doubling still fails. The lasting
+// fix is a dynamic import per product in the generation worker so the chunk
+// stops growing with the catalog; see 22_FAMILY_A_EXTENSIONS_NOTES.md open
+// issue 1 and the S06 review in 21_WAVE_1_PRODUCTS_NOTES.md.
+const WORKER_CHUNK_BUDGET_BYTES = 176 * 1024;
 
 /** Finds the one built asset file whose name matches the given pattern. */
 function findBuiltAsset(pattern: RegExp): { name: string; bytes: number } {
