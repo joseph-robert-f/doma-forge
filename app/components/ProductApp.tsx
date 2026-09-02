@@ -2,6 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type * as THREE from "three";
+import {
+  GenerationCancelledError,
+  createGenerationClient,
+  type GenerationClient,
+} from "../../lib/generation/client";
 import { getProduct } from "../../lib/products/registry";
 import type {
   AnyParameters,
@@ -101,6 +106,16 @@ export function ProductApp({ productId }: { productId: string }) {
   const [hasLoadedStorage, setHasLoadedStorage] = useState(false);
   const [saveMessage, setSaveMessage] = useState("Saved on this device");
   const generationId = useRef(0);
+  const clientRef = useRef<GenerationClient | null>(null);
+  const getClient = () => (clientRef.current ??= createGenerationClient());
+
+  useEffect(
+    () => () => {
+      clientRef.current?.dispose();
+      clientRef.current = null;
+    },
+    [],
+  );
 
   const validation = useMemo(
     () => product.validate(parameters),
@@ -172,7 +187,7 @@ export function ProductApp({ productId }: { productId: string }) {
     const timer = window.setTimeout(async () => {
       try {
         const normalized = product.normalize(parameters);
-        const model = await product.generate(normalized);
+        const model = await getClient().generate(product.id, normalized);
         const geometry = modelToBufferGeometry(model);
         const analysis = analyzeBufferGeometry(geometry);
 
@@ -214,6 +229,7 @@ export function ProductApp({ productId }: { productId: string }) {
         }
       } catch (error) {
         if (requestId !== generationId.current) return;
+        if (error instanceof GenerationCancelledError) return;
         setGenerationError(
           error instanceof Error ? error.message : "Preview generation failed.",
         );
@@ -225,6 +241,8 @@ export function ProductApp({ productId }: { productId: string }) {
       window.clearTimeout(statusTimer);
       window.clearTimeout(timer);
       if (generationId.current === requestId) generationId.current += 1;
+      // A newer edit supersedes any request still running in the worker.
+      clientRef.current?.cancel();
     };
     // The normalized signature is the intentional generation dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
