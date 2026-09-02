@@ -114,6 +114,68 @@ dimensional correction.
 | Photo | file name |
 | Notes | Measure two bores per row with a caliper: one at the end of the row and one in the middle. The bores are not compensated by the printer profile; record the bore shrink as a number. |
 
+## Marker and brush cup block
+
+### Record 5: Marker cup block defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Marker cup block, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). blockWidth 120, blockDepth 90, blockHeight 70, rows 2, cupsPerRow 4, boreDiameter 20, boreDepth 45, tiltDegrees 8, chamfer true, wallThickness 2, baseThickness 2.4, cornerRadius 6, lightenUnderside true, meshQuality standard |
+| Design file name | drawerforge-marker-cup-block-120x90x70-2x4-2a20d9.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 120 × 90 × 70 |
+| Target bore diameter, mm | 20 |
+| Measured outside width x depth x height, mm | |
+| Measured bore diameter, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | |
+| Photo | file name |
+| Notes | Measure the bore at the mouth and near the floor with a caliper; the tilt makes the mouth an oval, wider along Y than the plain bore diameter. Record both readings. |
+
+## Battery organizer
+
+### Record 6: Battery organizer, AA preset
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Battery organizer, geometry version 1 |
+| Preset or parameters | Preset: AA cells. organizerWidth 140, organizerDepth 90, organizerHeight 45, rows 3, cellsPerRow 4, cellDiameter 14.5, cellLength 50.5, cellShape round, exposedHeight 12, clearancePerSide 0.3, fingerRelief true, wallThickness 2, baseThickness 2.4, cornerRadius 4, lightenUnderside true, meshQuality standard |
+| Design file name | drawerforge-battery-organizer-140x90x45-3x4-c7f78b.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 140 × 90 × 45 |
+| Target well diameter, mm | 15.1 (14.5 mm cell plus 0.3 mm clearance per side) |
+| Measured outside width x depth x height, mm | |
+| Measured well diameter, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | too tight, fits, loose, with the gap in mm |
+| Photo | file name |
+| Notes | Test an AA cell in three wells: a corner well, an edge well, and a center well. The wells are not compensated by the printer profile. |
+
+## Tool fin rack
+
+### Record 7: Tool fin rack defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Tool fin rack, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). rackWidth 150, rackDepth 90, finCount 6, finThickness 3, finHeight 40, wallThickness 2, baseThickness 4, cornerRadius 4, meshQuality standard |
+| Design file name | drawerforge-tool-fin-rack-150x90x44-6fins-a8ef13.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 150 × 90 × 44 |
+| Target fin gap, mm | 18.3 at the top; about 14.3 at the filleted foot |
+| Measured outside width x depth x height, mm | |
+| Measured fin gap, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | |
+| Photo | file name |
+| Notes | Slide a 3 mm blade into the gap between two fins near the middle of the row, both near the top and down at the filleted foot; the foot is narrower by twice the fillet width (4 mm). Check that a fin does not flex or crack at its filleted foot when a tool leans against it. |
 ## Parts bin
 
 Two prints are necessary for this product. One bin proves the size. Two bins
@@ -159,7 +221,7 @@ with the same parameters.
 
 ## Remote caddy
 
-### Record 5: Remote caddy defaults
+### Record 10: Remote caddy defaults
 
 | Field | Value |
 |---|---|
@@ -181,7 +243,7 @@ with the same parameters.
 
 ## Drawer riser
 
-### Record 6: Drawer riser defaults
+### Record 11: Drawer riser defaults
 
 | Field | Value |
 |---|---|
@@ -207,7 +269,7 @@ with the same parameters.
 
 ## Plant pot saucer
 
-### Record 5: Plant pot saucer defaults
+### Record 12: Plant pot saucer defaults
 
 | Field | Value |
 |---|---|
@@ -228,7 +290,7 @@ with the same parameters.
 
 ## Nursery plant pot
 
-### Record 6: Nursery plant pot defaults
+### Record 13: Nursery plant pot defaults
 
 | Field | Value |
 |---|---|
@@ -251,7 +313,7 @@ with the same parameters.
 
 ## Card and cartridge slot holder
 
-### Record 7: Card holder, memory cards preset
+### Record 14: Card holder, memory cards preset
 
 | Field | Value |
 |---|---|
@@ -269,3 +331,4 @@ with the same parameters.
 | Fit result | too tight, fits, loose, with the gap in mm |
 | Photo | file name |
 | Notes | Put one card in an end slot and one card in a middle slot. A card must go in with one finger and stay in when the holder is tipped. Record the slot clearance that fits. The slots are not compensated by the printer profile. |
+

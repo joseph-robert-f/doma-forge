@@ -161,6 +161,47 @@ The presets are typical sizes for memory cards, game cartridges, and cassettes. 
 ### Print notes for the card holder
 
 Print the holder flat on the bed, slots up. Do not use supports. Use three perimeters. A slot is a thin gap, so print a test holder with two slots before a long one.
+## Marker and brush cup block
+
+The third product is a block with a cup for every marker or brush. Open it from the product switcher or at `/products/marker-cup-block`.
+
+Set the outside size, the rows, the cups per row, and one bore diameter for every cup. Every cup shares this diameter. Set a tilt from 0 to 15 degrees. A tilt leans every cup back, away from the user, about the block's X axis. Row 1 is at the front.
+
+The app checks the whole tilted bore against the outer wall, not only its top opening. It computes where the bore axis exits at the bore floor, and it checks both the mouth and the floor against the straight sides and the rounded corners. A large corner radius, or a large tilt, that would cut a cup open is rejected with the largest corner radius that fits. Underside pockets work the same way as the socket tray's.
+
+The presets are typical bore diameters for fine markers, wide markers, and round brushes. Measure your own markers and brushes and adjust.
+
+### Print notes for the marker cup block
+
+Print the block flat on the bed, cups up. Do not use supports. A tilt past 15 degrees is not offered, so no cup overhangs past the printer's normal 45 degree limit. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+
+## Battery organizer
+
+The fourth product is an organizer with a well for every cell. Open it from the product switcher or at `/products/battery-organizer`.
+
+Set the outside size, the rows, the cells per row, the cell diameter, and the cell length. Pick a cell shape: round for a cell that stands upright in a bore, or coin cell for a cell that stands on edge in a slot. A coin cell's diameter runs vertical and its length is its thickness. Set how much of the cell's standing length stays exposed above the well; the app derives the well depth from the rest. Set a clearance per side, and turn the finger relief on or off: a wider, 3 mm deep counterbore at the top of every well, so a fingertip can reach the cell.
+
+The well depth never exceeds the organizer height minus the base. The app rejects a layout that leaves less than 2.5 mm between two wells or between two rows, and it names the row and the fix. A large corner radius that would cut into an end well, once the finger relief is included, is rejected with the largest radius that fits.
+
+The presets cover AA, AAA, C, D, 18650, and 2032 coin cells. Each preset states the clearance it uses. Measure your own cells and adjust.
+
+### Print notes for the battery organizer
+
+Print the organizer flat on the bed, wells up. Do not use supports. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+
+## Tool fin rack
+
+The fifth product is a base slab with a row of fins standing up, for pliers, files, and wrenches to stand between. Open it from the product switcher or at `/products/tool-fin-rack`.
+
+Set the outside size, the fin count, the fin thickness, and the fin height. Every fin shares the same thickness and height. The app solves the fin pitch from the rack width, the fin count, and the fin thickness, keeping at least a 12 mm gap between two fins so a tool blade fits. Fin height cannot exceed 15 times the fin thickness, so a tall, thin fin does not snap. Every fin gets a filleted foot, wider than the fin itself, so it does not meet the base at a sharp corner; the gap between two fins is narrower there than at the top, by twice the fillet's own width (4 mm). The derived values show both gaps. The base slab is at least 3 mm thick.
+
+The app rejects a fin count and thickness that leave less than a 12 mm gap, naming the fix. A large corner radius that would leave an end fin hanging past the rounded corner, unsupported, is rejected with the largest radius that fits.
+
+The presets cover pliers and cutters, files and screwdrivers, and wrenches. Measure your own tools and adjust the fin thickness to the widest blade that must sit between two fins.
+
+### Print notes for the tool fin rack
+
+Print the rack flat on the bed, fins up. Do not use supports. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
 
 ## Printer profile and calibration
 
@@ -219,6 +260,9 @@ The app also shows an error when a correction takes a value past its limit. The 
 - `lib/products/plant-saucer/` — the plant pot saucer: the revolved profile, the lift ribs, validation, geometry, presets.
 - `lib/products/plant-pot/` — the nursery plant pot: the revolved profile, the drainage layout, validation, geometry, presets.
 - `lib/products/card-holder/` — the card and cartridge slot holder: the tilted slot layout, validation, geometry, presets.
+- `lib/products/marker-cup-block/` — the marker and brush cup block: schema, the tilted-bore containment check, validation, geometry, presets.
+- `lib/products/battery-organizer/` — the battery organizer: schema, the round-bore and coin-cell-slot layout, validation, geometry, presets.
+- `lib/products/tool-fin-rack/` — the tool fin rack: schema, the fin pitch solver, validation, geometry, presets.
 - `lib/products/registry.ts` — the ordered list of products the app can build.
 - `lib/generation/` — the Web Worker that runs `product.generate()` off the main thread, its message protocol, and the page-side client.
 - `lib/design-file.ts` — the portable `.drawerforge.json` format, export, and non-destructive import.
