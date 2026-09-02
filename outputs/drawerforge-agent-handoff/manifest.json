@@ -113,8 +113,20 @@
       "purpose": "Printer profile, compensation step, calibration flow, thin-wall rule, and decisions (S04)"
     },
     {
+      "path": "20_KERNEL_MODULES_NOTES.md",
+      "purpose": "Kernel modules, family B rules, the socket tray, kernel timings, and decisions (S05)"
+    },
+    {
       "path": "25_BROWSER_QA_NOTES.md",
       "purpose": "Playwright suite, CI browser job, runtimes, flake count, and decisions (S10)"
+    },
+    {
+      "path": "26_CLOUDFLARE_MIGRATION_NOTES.md",
+      "purpose": "Direct Cloudflare deployment, configured origin, CI deploy job, acceptance checklist, rollback, and decisions (S11)"
+    },
+    {
+      "path": "27_PRINT_PROGRAM_NOTES.md",
+      "purpose": "Print record program, calibration protocol, print notes, and decisions (S12)"
     },
     {
       "path": "sprints/S01_FIT_TEST_COUPON.md",
