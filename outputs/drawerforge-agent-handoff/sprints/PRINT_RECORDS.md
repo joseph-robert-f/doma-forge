@@ -113,3 +113,222 @@ dimensional correction.
 | Fit result | |
 | Photo | file name |
 | Notes | Measure two bores per row with a caliper: one at the end of the row and one in the middle. The bores are not compensated by the printer profile; record the bore shrink as a number. |
+
+## Marker and brush cup block
+
+### Record 5: Marker cup block defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Marker cup block, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). blockWidth 120, blockDepth 90, blockHeight 70, rows 2, cupsPerRow 4, boreDiameter 20, boreDepth 45, tiltDegrees 8, chamfer true, wallThickness 2, baseThickness 2.4, cornerRadius 6, lightenUnderside true, meshQuality standard |
+| Design file name | drawerforge-marker-cup-block-120x90x70-2x4-2a20d9.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 120 × 90 × 70 |
+| Target bore diameter, mm | 20 |
+| Measured outside width x depth x height, mm | |
+| Measured bore diameter, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | |
+| Photo | file name |
+| Notes | Measure the bore at the mouth and near the floor with a caliper; the tilt makes the mouth an oval, wider along Y than the plain bore diameter. Record both readings. |
+
+## Battery organizer
+
+### Record 6: Battery organizer, AA preset
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Battery organizer, geometry version 1 |
+| Preset or parameters | Preset: AA cells. organizerWidth 140, organizerDepth 90, organizerHeight 45, rows 3, cellsPerRow 4, cellDiameter 14.5, cellLength 50.5, cellShape round, exposedHeight 12, clearancePerSide 0.3, fingerRelief true, wallThickness 2, baseThickness 2.4, cornerRadius 4, lightenUnderside true, meshQuality standard |
+| Design file name | drawerforge-battery-organizer-140x90x45-3x4-c7f78b.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 140 × 90 × 45 |
+| Target well diameter, mm | 15.1 (14.5 mm cell plus 0.3 mm clearance per side) |
+| Measured outside width x depth x height, mm | |
+| Measured well diameter, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | too tight, fits, loose, with the gap in mm |
+| Photo | file name |
+| Notes | Test an AA cell in three wells: a corner well, an edge well, and a center well. The wells are not compensated by the printer profile. |
+
+## Tool fin rack
+
+### Record 7: Tool fin rack defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Tool fin rack, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). rackWidth 150, rackDepth 90, finCount 6, finThickness 3, finHeight 40, wallThickness 2, baseThickness 4, cornerRadius 4, meshQuality standard |
+| Design file name | drawerforge-tool-fin-rack-150x90x44-6fins-a8ef13.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 150 × 90 × 44 |
+| Target fin gap, mm | 18.3 at the top; about 14.3 at the filleted foot |
+| Measured outside width x depth x height, mm | |
+| Measured fin gap, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | |
+| Photo | file name |
+| Notes | Slide a 3 mm blade into the gap between two fins near the middle of the row, both near the top and down at the filleted foot; the foot is narrower by twice the fillet width (4 mm). Check that a fin does not flex or crack at its filleted foot when a tool leans against it. |
+## Parts bin
+
+Two prints are necessary for this product. One bin proves the size. Two bins
+prove the stack. Print the first bin, measure it, then print the second bin
+with the same parameters.
+
+### Record 8: Parts bin defaults, first bin
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Parts bin, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). binWidth 150, binDepth 100, binHeight 70, stacking true, lipHeight 4, lipWallThickness 1.2, stackClearance 0.3, frontScoop true, labelLedge true, wallThickness 3, baseThickness 3, cornerRadius 3, meshQuality standard |
+| Design file name | drawerforge-parts-bin-150x100x70-stack-7e1edf.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 150 × 100 × 70, and 74 over the lip |
+| Target lip wall and stacking clearance, mm | 1.2 and 0.3 |
+| Measured outside width x depth x height, mm | |
+| Measured lip wall, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | |
+| Photo | file name |
+| Notes | Measure the height twice: at the rim, and over the lip. Measure the lip wall with a caliper at the middle of a long side. |
+
+### Record 9: Parts bin defaults, stack test
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Parts bin, geometry version 1 |
+| Preset or parameters | The same parameters as record 8 |
+| Design file name | drawerforge-parts-bin-150x100x70-stack-7e1edf.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target stack pitch, mm | 70 |
+| Measured stack pitch, mm | |
+| Target stacking clearance per side, mm | 0.3 |
+| Measured side play at the top of the stack, mm | |
+| Fit result | too tight, fits, loose, with the gap in mm |
+| Photo | file name |
+| Notes | Put the second bin on the first bin. The two rims must meet. Measure the height of the pair, then subtract the height of one bin over the lip. Push the top bin sideways and record the play. Increase the stacking clearance if the bins bind. Decrease it if the play is more than 1 mm. |
+
+## Remote caddy
+
+### Record 10: Remote caddy defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Remote caddy, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). caddyWidth 220, caddyDepth 130, caddyHeight 60, wellWidths [70, 70, 72], wellDepth 45, frontWallHeight 25, wallThickness 2, baseThickness 2.4, dividerThickness 2, cornerRadius 3, meshQuality standard |
+| Design file name | drawerforge-remote-caddy-220x130x60-3w-9e09e7.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 220 x 130 x 60 |
+| Target well widths, mm | 70, 70, 72 (the third well is solved) |
+| Target front wall height, mm | 25 |
+| Measured outside width x depth x height, mm | |
+| Measured well widths, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | |
+| Photo | file name |
+| Notes | Measure each well at the top of the divider and at the floor. The third well is solved from the inside width, so a shrink on the outside width lands on that well. |
+
+## Drawer riser
+
+### Record 11: Drawer riser defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Drawer riser, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). drawerWidth 300, drawerDepth 200, drawerUsableHeight 120, clearancePerSide 0.5, clearHeight 45, trayHeight 35, legSection 12, rows 2, columns 2, wallThickness 2, baseThickness 2.4, dividerThickness 2, cornerRadius 4, meshQuality standard |
+| Design file name | drawerforge-drawer-riser-299x199x82p4-2x2-e0becc.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 299 x 199 x 82.4 |
+| Target clear height under the deck, mm | 45 |
+| Target leg section, mm | 12 |
+| Target longest bridge, mm | 96.5 (the deck over one compartment, in the print pose) |
+| Measured outside width x depth x height, mm | |
+| Measured clear height under the deck, mm | |
+| Measured leg section, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | |
+| Load result | the mass the riser carried, and whether a leg bent |
+| Bridge result | the deck over one compartment: clean, drooped, or failed. Give the droop in mm. |
+| Photo | file name |
+| Notes | Print the part upside down: the tray rim goes on the bed and the legs point up. Print it once without supports and look at the deck from below; the deck over each compartment is a 96.5 mm bridge. Measure the clear height at one leg and at the middle of a long side; a bowed deck shows there. Load the tray and look at the legs after one day. This record decides whether the product needs a maximum compartment span, a rib under the deck, or a two-part print. |
+
+## Plant pot saucer
+
+### Record 12: Plant pot saucer defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Plant pot saucer, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). innerDiameter 160, rimHeight 15, taperDegrees 6, rimRadius 1, overflowNotch false, liftRibs 2, ribHeight 3, wallThickness 2, baseThickness 2.4, meshQuality standard |
+| Design file name | drawerforge-plant-saucer-160x15-896046.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 166.5 × 166.5 × 15 |
+| Target inner floor diameter, mm | 160 |
+| Measured outside width x depth x height, mm | |
+| Measured inner floor diameter, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | too tight, fits, loose, with the gap in mm |
+| Photo | file name |
+| Notes | Stand the matching pot on the ribs. Measure the inner floor diameter across two points 90 degrees apart. Fill the saucer with water and leave it for one hour to check the floor. The saucer is not compensated by the printer profile; record the diameter shrink as a number. |
+
+## Nursery plant pot
+
+### Record 13: Nursery plant pot defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Nursery plant pot, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). baseDiameter 120, potHeight 130, wallAngleDegrees 6, rimRadius 1, drainHoles 4, drainHoleDiameter 6, wallThickness 2.2, baseThickness 3, meshQuality standard |
+| Design file name | drawerforge-plant-pot-120x130-4h-237a74.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 147.1 × 147.1 × 130 |
+| Target base diameter, mm | 120 |
+| Target drainage hole diameter, mm | 6 |
+| Measured outside width x depth x height, mm | |
+| Measured base diameter, mm | |
+| Measured drainage hole diameter, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | too tight, fits, loose, with the gap in mm |
+| Photo | file name |
+| Notes | Print the matching saucer at an inner floor diameter of 122 mm and stand the pot in it. Measure two of the four drainage holes. Check the first layer under each hole for a dropped bridge. The pot is not compensated by the printer profile; record the diameter shrink as a number. |
+
+## Card and cartridge slot holder
+
+### Record 14: Card holder, memory cards preset
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Card and cartridge slot holder, geometry version 1 |
+| Preset or parameters | Preset: Memory cards. holderWidth 100, holderDepth 32, holderHeight 20, cardGauge 2.1, slotClearance 0.4, cardWidth 24, slotCount 12, slotDepth 14, slotTilt 10, wallThickness 2, baseThickness 2.4, cornerRadius 3, meshQuality standard |
+| Design file name | drawerforge-card-holder-100x32x20-12s-85683b.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 100 × 32 × 20 |
+| Target slot width, mm | 2.5 |
+| Measured outside width x depth x height, mm | |
+| Measured slot width, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | too tight, fits, loose, with the gap in mm |
+| Photo | file name |
+| Notes | Put one card in an end slot and one card in a middle slot. A card must go in with one finger and stay in when the holder is tipped. Record the slot clearance that fits. The slots are not compensated by the printer profile. |
+

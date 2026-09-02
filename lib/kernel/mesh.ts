@@ -19,6 +19,22 @@ export interface GeneratedModel<P> {
 }
 
 /**
+ * Copies a parameter object one level deep, and copies every array value
+ * inside it. A layout parameter holds an array, so a shallow copy alone
+ * would leave the result sharing that array with the caller. A value that is
+ * not an object is returned as it is.
+ */
+function copyParameters<P>(parameters: P): P {
+  if (!parameters || typeof parameters !== "object") return parameters;
+  const copy = { ...(parameters as Record<string, unknown>) };
+  for (const key of Object.keys(copy)) {
+    const value = copy[key];
+    if (Array.isArray(value)) copy[key] = [...value];
+  }
+  return copy as P;
+}
+
+/**
  * Validates a finished solid, copies its mesh out of WebAssembly memory, and
  * deletes the solid. Throws when the kernel reports an error or an empty body.
  */
@@ -45,7 +61,7 @@ export function finishSolid<P>(
   solid.delete();
   return {
     mesh,
-    parameters: { ...parameters },
+    parameters: copyParameters(parameters),
     bounds: [
       [box.min[0], box.min[1], box.min[2]],
       [box.max[0], box.max[1], box.max[2]],

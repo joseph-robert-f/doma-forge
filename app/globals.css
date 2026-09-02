@@ -1312,3 +1312,48 @@ button:disabled {
   line-height: 1.4;
   margin: 0;
 }
+
+.layout-wells {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+}
+
+.layout-well {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.layout-well label {
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 640;
+}
+
+.layout-solved {
+  font-weight: 500;
+  font-style: italic;
+}
+
+.layout-well input[readonly] {
+  color: var(--ink-soft);
+}
+
+.layout-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.layout-actions .button {
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.layout-hint {
+  color: var(--ink-soft);
+  font-size: 10px;
+  line-height: 1.35;
+  margin: 8px 0 0;
+}

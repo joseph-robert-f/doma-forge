@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PRINTER_PROFILE_DEFAULTS } from "../lib/printer-profile";
 import { DRAWER_TRAY_ID } from "../lib/products/drawer-tray";
+import { REMOTE_CADDY_ID } from "../lib/products/remote-caddy";
 import { getProduct } from "../lib/products/registry";
 import {
   LEGACY_DESIGN_KEY,
@@ -18,6 +19,7 @@ import {
 } from "../lib/workspace";
 
 const drawerTray = getProduct(DRAWER_TRAY_ID);
+const remoteCaddy = getProduct(REMOTE_CADDY_ID);
 const fixedNow = () => new Date("2026-09-02T12:00:00.000Z");
 
 class FakeStorage implements StorageLike {
@@ -160,6 +162,56 @@ describe("workspace envelope", () => {
     const first = readDesign(storage, drawerTray, getProduct, clock)?.updatedAt;
     expect(writeDesign(storage, drawerTray, { name: " Same ", parameters: { ...drawerTray.defaults } }, getProduct, clock)).toBe(true);
     expect(readDesign(storage, drawerTray, getProduct, clock)?.updatedAt).toBe(first);
+  });
+
+  it("round-trips a layout parameter through the envelope", () => {
+    const storage = new FakeStorage();
+    const parameters = remoteCaddy.normalize({
+      ...remoteCaddy.defaults,
+      wellWidths: [50, 60, 40],
+    });
+    expect(parameters.wellWidths).toEqual([50, 60, 102]);
+    expect(
+      writeDesign(storage, remoteCaddy, { name: "Shelf", parameters }, getProduct, fixedNow),
+    ).toBe(true);
+
+    // The stored JSON holds the list as a JSON array, not as a string.
+    const raw = JSON.parse(storage.data.get(WORKSPACE_KEY) ?? "{}");
+    expect(raw.designs[REMOTE_CADDY_ID].parameters.wellWidths).toEqual([50, 60, 102]);
+
+    const stored = readDesign(storage, remoteCaddy, getProduct, fixedNow);
+    expect(stored?.parameters.wellWidths).toEqual([50, 60, 102]);
+    expect(remoteCaddy.signature(stored!.parameters)).toBe(remoteCaddy.signature(parameters));
+    // The read gives its own array, and an unchanged design is not rewritten.
+    expect(stored?.parameters.wellWidths).not.toBe(parameters.wellWidths);
+    expect(
+      writeDesign(storage, remoteCaddy, { name: "Shelf", parameters }, getProduct, fixedNow),
+    ).toBe(true);
+    expect(readDesign(storage, remoteCaddy, getProduct, fixedNow)?.updatedAt).toBe(
+      stored?.updatedAt,
+    );
+  });
+
+  it("refuses a stored layout that no longer validates", () => {
+    const storage = new FakeStorage();
+    storage.data.set(
+      WORKSPACE_KEY,
+      JSON.stringify({
+        format: "drawerforge-workspace",
+        version: 2,
+        updatedAt: "2026-09-02T12:00:00.000Z",
+        designs: {
+          [REMOTE_CADDY_ID]: {
+            productId: REMOTE_CADDY_ID,
+            geometryVersion: 1,
+            name: "Too narrow",
+            parameters: { ...remoteCaddy.defaults, wellWidths: [100, 95, 40] },
+            updatedAt: "2026-09-02T12:00:00.000Z",
+          },
+        },
+      }),
+    );
+    expect(readDesign(storage, remoteCaddy, getProduct, fixedNow)).toBeNull();
   });
 
   it("stores an own entry even for a product id named __proto__", () => {

@@ -74,6 +74,135 @@ The presets are typical outside diameters for quarter-inch and half-inch drive s
 
 Print the tray flat on the bed, bores up. Do not use supports. Use three perimeters. Use a stiff filament. PLA and PETG are satisfactory. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
 
+## Stackable parts bin
+
+The stackable parts bin is an open bin that stacks on an identical bin. Open it from the product switcher or at `/products/parts-bin`.
+
+Set the width, the depth, and the height of the bin body. These are outside sizes. The bin has no fit clearance, so the size you set is the size the app builds. Measure your shelf, then divide the shelf width by a whole number of bins.
+
+The stacking lip stands on the top rim. The recess in the underside of the next bin receives that lip. The app builds the recess from the lip and the stacking clearance. Two bins with equal parameters stack. Increase the clearance if the bins bind. Decrease the clearance if the stack is loose. Print one bin first. Print a second bin. Keep the clearance that fits your printer.
+
+Two rules protect the stack. The outer wall is at least 1.6 mm when the bin stacks. A bin carries the bins above it. The lip wall and the two clearances take at most the outer wall minus 0.8 mm. The recess must leave material on each side. The app names the field and the fixes when a value breaks a rule. The calculated results show the material that stays on each side of the recess.
+
+The lip stands above the bin height. The **Outside** result therefore shows a taller box than the bin body. The app checks the mesh against that box. The **Stack pitch** result is the height that one more bin adds to a stack.
+
+The front scoop is a round notch in the front rim. It also cuts a gap in the lip at the front. The gap keeps the notch open to the top. The label ledge is a slot at the front foot. Push a card into the slot. The ledge stands 2.8 mm in front of the bin. It adds to the depth of the bin on the shelf. Both features are optional.
+
+Turn the stacking lip off for a plain bin. The plain bin keeps the shell, the scoop, and the ledge. It drops the lip and the recess.
+
+### Print notes for the parts bin
+
+Print the bin in the pose the app shows: the open side up, the underside on the bed. Do not use supports. The recess is a groove in the underside, so it prints against the bed. Use three perimeters. Use four perimeters for a bin that carries heavy parts. Use a stiff filament. PLA and PETG are satisfactory. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+## Remote and controller caddy
+
+The third product is a caddy with a well for every remote and every controller. Open it from the product switcher or at `/products/remote-caddy`.
+
+Set the outside size, then give each well its own width. Use **Add well** and **Remove well** to change the number of wells, from two to five. The last well is solved: it takes the width that is left inside the caddy after the other wells and the dividers, so the wells always fill the caddy exactly. The list you type is the design; the calculated result card shows the widths the caddy is built from.
+
+Every well must be at least 25 mm wide. If the solved well is too narrow, the app names the well to shrink and the number of millimeters to take off it. The well depth is measured down from the top, and the material under a well is the caddy height minus the well depth. The front wall is lower than the sides and the back, so you can lift a remote out with one hand. The front wall must stand at least 3 mm above the well floor.
+
+### Print notes for the caddy
+
+Print the caddy flat on the bed, wells up. Do not use supports. Use three perimeters. Use a stiff filament. PLA and PETG are satisfactory. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+
+## Two-tier drawer riser
+
+The fourth product is a drawer tray on four legs. It makes a second level in a drawer that is deeper than the items in it. Open it from the product switcher or at `/products/drawer-riser`.
+
+Measure four values in the drawer: the interior width, the interior depth, the usable height, and the height of the tallest item that stays on the drawer floor. Set the clear height to that item height plus your own clearance. The riser height is the clear height plus the deck plus the tray height. That total must be at most the drawer usable height minus 5 mm; the app names the number of millimeters to remove when it is not.
+
+The legs carry the load of the upper tray. Two rules protect them. The leg section is at least 8 mm. The clear height is at most 12 times the leg section; the app names the smallest section and the tallest leg that pass. Each leg flares into the deck with a gusset, so the joint is never a sharp corner.
+
+The tray above the deck holds an even grid of rows and columns, the same grid the drawer organizer tray uses. Each compartment is at least 10 mm.
+
+### Print notes for the riser
+
+Print the riser upside down: the tray rim goes on the bed and the legs point up. Select **Print pose** in the viewer to see this pose. In that pose every gusset carries the layer above it, so no gusset needs support.
+
+The deck is a bridge in this pose. Each compartment is an upside-down box, and its ceiling is the deck. The **Longest bridge** line in the calculated result card gives the span: the shorter side of one compartment, 96.5 mm with the defaults. That span is longer than the 40 mm this app allows for an underside pocket, so read it before you slice. Three ways to shorten it: use more rows or more columns, use a smaller drawer, or slice the part with supports under the deck. Nobody has printed this part yet, so the app sets no rule here. Record what you find.
+
+Use four perimeters and at least 25 percent infill in the legs. Use a stiff filament. PLA and PETG are satisfactory. Do not stand on the riser and do not load it with more than a few kilograms. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+## Plant pot saucer
+
+The third product is a round saucer that matches the base of a plant pot. Open it from the product switcher or at `/products/plant-saucer`.
+
+Measure the base of the pot with a caliper. Set the inner floor diameter to that measurement plus 2 mm. Set the rim height and the wall taper. The wall opens upward, between 3 and 12 degrees from vertical, so the saucer lifts off the bed cleanly and stacks with another saucer. The inner floor diameter stops at 208 mm, the 220 mm printer bed less 12 mm. The app rejects a saucer whose outside diameter passes the same 208 mm, and names the taper.
+
+The rolled rim is a bead that rolls inward from the top of the wall. It never overhangs the outside, so the saucer prints without supports. The app reduces the bead radius when the setting does not fit: the bead is never more than a quarter of the rim height, never wider than the wall it rolls over, and never near the axis. The calculated result names the radius the app used and the radius you asked for.
+
+Lift ribs hold the pot above the water. Each rib crosses the whole floor through the center and is 3 mm wide. Set the count to 0 for a flat floor. The overflow notch is a 12 mm notch in one side of the rim. Extra water leaves through the notch instead of over the whole rim.
+
+### Print notes for the saucer
+
+Print the saucer upright, floor on the bed. Do not use supports. Use three perimeters and four solid bottom layers, so the floor holds water. Use PLA or PETG.
+
+## Nursery plant pot
+
+The fourth product is a round plant pot with drainage. Open it from the product switcher or at `/products/plant-pot`.
+
+Set the outside diameter at the base, the height, and the wall angle. The base diameter is the measurement the saucer must match, so the calculated result shows **Matching saucer floor**: the base diameter plus 2 mm. Enter that number as the saucer's inner floor diameter. The saucer floor is then 2 mm wider than the pot base all round, which is a 1 mm gap on each side.
+
+The wall angle runs from 0 to 45 degrees from vertical. The app rejects a pot that is more than 208 mm across at the rim, the 220 mm printer bed less 12 mm, and names the wall angle. The drainage holes are 4 to 8 mm, and they go through the flat base only. They never cut the wall: a single hole sits at the center, and two or more sit on a circle of half the floor radius. The app rejects holes that leave less than 2.5 mm between two neighbours, or less than 2.5 mm between a hole and the wall.
+
+### Print notes for the pot
+
+Print the pot upright, base on the bed. Do not use supports. Each drainage hole bridges nothing, because it goes straight through a flat base. Use three perimeters and four solid bottom layers. Use PLA or PETG. This pot is for a plant. It is not for anything else.
+
+## Card and cartridge slot holder
+
+The fifth product is a slab with a slot for every card. Open it from the product switcher or at `/products/card-holder`.
+
+Measure one card with a caliper. The card thickness plus the slot clearance is the gap the card sits in. The card width is the edge that goes into the slot. Set the slot count, the slot depth, and the tilt.
+
+The tilt leans every card to one side, from 0 to 20 degrees. A tilted slot needs more width than an upright one. Its mouth is wider, and its floor moves sideways by the slot depth times the tangent of the tilt. The app solves the pitch on that whole footprint, keeps at least 2.5 mm between two slots and between a slot and the rim, and rejects a corner radius that would cut into an end slot. The calculated result shows the pitch, the web, and the floor offset.
+
+The presets are typical sizes for memory cards, game cartridges, and cassettes. They are starting points, not a brand's sizes.
+
+### Print notes for the card holder
+
+Print the holder flat on the bed, slots up. Do not use supports. Use three perimeters. A slot is a thin gap, so print a test holder with two slots before a long one.
+## Marker and brush cup block
+
+The third product is a block with a cup for every marker or brush. Open it from the product switcher or at `/products/marker-cup-block`.
+
+Set the outside size, the rows, the cups per row, and one bore diameter for every cup. Every cup shares this diameter. Set a tilt from 0 to 15 degrees. A tilt leans every cup back, away from the user, about the block's X axis. Row 1 is at the front.
+
+The app checks the whole tilted bore against the outer wall, not only its top opening. It computes where the bore axis exits at the bore floor, and it checks both the mouth and the floor against the straight sides and the rounded corners. A large corner radius, or a large tilt, that would cut a cup open is rejected with the largest corner radius that fits. Underside pockets work the same way as the socket tray's.
+
+The presets are typical bore diameters for fine markers, wide markers, and round brushes. Measure your own markers and brushes and adjust.
+
+### Print notes for the marker cup block
+
+Print the block flat on the bed, cups up. Do not use supports. A tilt past 15 degrees is not offered, so no cup overhangs past the printer's normal 45 degree limit. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+
+## Battery organizer
+
+The fourth product is an organizer with a well for every cell. Open it from the product switcher or at `/products/battery-organizer`.
+
+Set the outside size, the rows, the cells per row, the cell diameter, and the cell length. Pick a cell shape: round for a cell that stands upright in a bore, or coin cell for a cell that stands on edge in a slot. A coin cell's diameter runs vertical and its length is its thickness. Set how much of the cell's standing length stays exposed above the well; the app derives the well depth from the rest. Set a clearance per side, and turn the finger relief on or off: a wider, 3 mm deep counterbore at the top of every well, so a fingertip can reach the cell.
+
+The well depth never exceeds the organizer height minus the base. The app rejects a layout that leaves less than 2.5 mm between two wells or between two rows, and it names the row and the fix. A large corner radius that would cut into an end well, once the finger relief is included, is rejected with the largest radius that fits.
+
+The presets cover AA, AAA, C, D, 18650, and 2032 coin cells. Each preset states the clearance it uses. Measure your own cells and adjust.
+
+### Print notes for the battery organizer
+
+Print the organizer flat on the bed, wells up. Do not use supports. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+
+## Tool fin rack
+
+The fifth product is a base slab with a row of fins standing up, for pliers, files, and wrenches to stand between. Open it from the product switcher or at `/products/tool-fin-rack`.
+
+Set the outside size, the fin count, the fin thickness, and the fin height. Every fin shares the same thickness and height. The app solves the fin pitch from the rack width, the fin count, and the fin thickness, keeping at least a 12 mm gap between two fins so a tool blade fits. Fin height cannot exceed 15 times the fin thickness, so a tall, thin fin does not snap. Every fin gets a filleted foot, wider than the fin itself, so it does not meet the base at a sharp corner; the gap between two fins is narrower there than at the top, by twice the fillet's own width (4 mm). The derived values show both gaps. The base slab is at least 3 mm thick.
+
+The app rejects a fin count and thickness that leave less than a 12 mm gap, naming the fix. A large corner radius that would leave an end fin hanging past the rounded corner, unsupported, is rejected with the largest radius that fits.
+
+The presets cover pliers and cutters, files and screwdrivers, and wrenches. Measure your own tools and adjust the fin thickness to the widest blade that must sit between two fins.
+
+### Print notes for the tool fin rack
+
+Print the rack flat on the bed, fins up. Do not use supports. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+
 ## Printer profile and calibration
 
 A printer profile holds what one machine needs: the bed size, the nozzle diameter, and the X and Y correction. The profile stays in this browser. It is not part of a design file, and it is not sent anywhere.
@@ -119,11 +248,21 @@ The app also shows an error when a correction takes a value past its limit. The 
 
 ## Code layout
 
-- `lib/kernel/` — shared geometry code: the Manifold loader, profile builders (`profiles.ts`), the shell pattern (`shell.ts`), cutter arrays and the pitch solver (`arrays.ts`), underside lightening (`lightening.ts`), and the mesh copy.
+- `lib/kernel/` — shared geometry code: the Manifold loader, profile builders (`profiles.ts`), the shell pattern (`shell.ts`), cutter arrays, the pitch solver and dividers at explicit positions (`arrays.ts`), leg posts with hull gussets (`legs.ts`), underside lightening (`lightening.ts`), and the mesh copy.
+- `lib/kernel/` — shared geometry code: the Manifold loader, profile builders (`profiles.ts`), the shell pattern (`shell.ts`), cutter arrays and the pitch solver (`arrays.ts`), underside lightening (`lightening.ts`), revolved profiles and shells (`revolve.ts`), and the mesh copy.
 - `lib/products/types.ts` — the `ProductDefinition` contract every product satisfies.
 - `lib/products/shared.ts` — normalization, range validation, signature, slug, and hash helpers.
 - `lib/products/drawer-tray/` — the drawer organizer: schema, validation, geometry, presets.
 - `lib/products/socket-tray/` — the bit, socket, and driver tray: schema, the layout solver, validation, geometry, presets.
+- `lib/products/parts-bin/` — the stackable parts bin: schema, the stacking layout, validation, geometry, presets.
+- `lib/products/remote-caddy/` — the remote and controller caddy: schema with the well-width layout, validation, geometry, presets.
+- `lib/products/drawer-riser/` — the two-tier drawer riser: schema with the leg plan, validation, geometry, presets.
+- `lib/products/plant-saucer/` — the plant pot saucer: the revolved profile, the lift ribs, validation, geometry, presets.
+- `lib/products/plant-pot/` — the nursery plant pot: the revolved profile, the drainage layout, validation, geometry, presets.
+- `lib/products/card-holder/` — the card and cartridge slot holder: the tilted slot layout, validation, geometry, presets.
+- `lib/products/marker-cup-block/` — the marker and brush cup block: schema, the tilted-bore containment check, validation, geometry, presets.
+- `lib/products/battery-organizer/` — the battery organizer: schema, the round-bore and coin-cell-slot layout, validation, geometry, presets.
+- `lib/products/tool-fin-rack/` — the tool fin rack: schema, the fin pitch solver, validation, geometry, presets.
 - `lib/products/registry.ts` — the ordered list of products the app can build.
 - `lib/generation/` — the Web Worker that runs `product.generate()` off the main thread, its message protocol, and the page-side client.
 - `lib/design-file.ts` — the portable `.drawerforge.json` format, export, and non-destructive import.
@@ -142,6 +281,8 @@ The drawer tray is constructed as one solid with a rounded outer profile. A mani
 Automated geometry checks cover representative 1×1, 1×3, 2×3, and 4×4 organizers. They verify requested bounds, finite coordinates, positive signed volume, non-degenerate triangles, outward winding, and exactly two oppositely directed faces per mesh edge. Cross-section and point-in-solid regressions also prove that extreme valid radii and the Hand tools preset retain a continuous perimeter around every compartment. Export tests independently parse the binary STL and compare its bounds to the preview mesh.
 
 The socket tray starts as a rounded slab. One batched union of every bore cutter is subtracted in one Boolean, then the underside pockets. Its tests slice the mesh above the base and count one outer contour and one hole per bore, and slice through the pockets and count the pocket grid.
+
+The card holder starts as the same rounded slab and subtracts one batched union of tilted slot cutters. The plant pot and the plant pot saucer are revolved forms: a two-dimensional profile in the radius-height plane is revolved about the Z axis, and a second revolved profile is subtracted as the cavity. Mesh quality sets the segments in one revolution, 48, 96, or 192. Their tests slice the mesh at many heights and check that the part is one closed solid at every level, that the saucer floor has no hole in it, and that the pot's drainage holes never reach the wall.
 
 STL has no embedded unit metadata. DrawerForge models coordinates as millimeters, so import downloads into a millimeter-based slicer without scaling.
 

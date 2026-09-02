@@ -61,11 +61,14 @@ The user has reported that a generated STL imports and slices successfully in Ba
 19. [`18_VIEWER_SCALE_NOTES.md`](18_VIEWER_SCALE_NOTES.md) — the viewer scale formula, the print-pose hint, screenshot evidence, and decisions from sprint S03.
 20. [`19_PRINTER_PROFILE_NOTES.md`](19_PRINTER_PROFILE_NOTES.md) — the printer profile, the compensation step, the calibration flow, the thin-wall rule, and decisions from sprint S04.
 21. [`20_KERNEL_MODULES_NOTES.md`](20_KERNEL_MODULES_NOTES.md) — the shell, array, profile, and lightening modules, the rules every family B product follows, the socket tray, kernel timings, and decisions from sprint S05.
-22. [`25_BROWSER_QA_NOTES.md`](25_BROWSER_QA_NOTES.md) — the Playwright suite, the CI browser job, runtimes, flake count, and decisions from sprint S10.
-23. [`26_CLOUDFLARE_MIGRATION_NOTES.md`](26_CLOUDFLARE_MIGRATION_NOTES.md) — the direct Cloudflare deployment, the configured origin, the CI deploy job, the acceptance checklist, rollback, and decisions from sprint S11.
-24. [`27_PRINT_PROGRAM_NOTES.md`](27_PRINT_PROGRAM_NOTES.md) — the print record program and decisions from sprint S12; the records themselves are in `sprints/PRINT_RECORDS.md`.
-25. [`sprints/`](sprints/) — one spec per sprint, S01 to S12, plus the print records.
-26. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
+22. [`21_WAVE_1_PRODUCTS_NOTES.md`](21_WAVE_1_PRODUCTS_NOTES.md) — the marker cup block, the battery organizer, the tool fin rack, and the stackable parts bin, with their rules, timings, and decisions from sprint S06.
+23. [`22_FAMILY_A_EXTENSIONS_NOTES.md`](22_FAMILY_A_EXTENSIONS_NOTES.md) — the layout parameter kind, dividers by position, leg posts, the remote caddy, the drawer riser, and decisions from sprint S07.
+24. [`23_REVOLVED_FORMS_NOTES.md`](23_REVOLVED_FORMS_NOTES.md) — the revolve module and its profile builder, the plant pot and saucer, the card holder, segment counts, and decisions from sprint S08.
+25. [`25_BROWSER_QA_NOTES.md`](25_BROWSER_QA_NOTES.md) — the Playwright suite, the CI browser job, runtimes, flake count, and decisions from sprint S10.
+26. [`26_CLOUDFLARE_MIGRATION_NOTES.md`](26_CLOUDFLARE_MIGRATION_NOTES.md) — the direct Cloudflare deployment, the configured origin, the CI deploy job, the acceptance checklist, rollback, and decisions from sprint S11.
+27. [`27_PRINT_PROGRAM_NOTES.md`](27_PRINT_PROGRAM_NOTES.md) — the print record program and decisions from sprint S12; the records themselves are in `sprints/PRINT_RECORDS.md`.
+28. [`sprints/`](sprints/) — one spec per sprint, S01 to S12, plus the print records.
+29. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
 
 `CHECKSUMS.sha256` contains SHA-256 hashes for every document and the manifest so a copied or extracted package can be verified.
 

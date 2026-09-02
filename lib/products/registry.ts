@@ -1,5 +1,14 @@
+import { batteryOrganizer } from "./battery-organizer";
+import { cardHolder } from "./card-holder";
+import { drawerRiser } from "./drawer-riser";
 import { drawerTray } from "./drawer-tray";
+import { markerCupBlock } from "./marker-cup-block";
+import { partsBin } from "./parts-bin";
+import { plantPot } from "./plant-pot";
+import { plantSaucer } from "./plant-saucer";
+import { remoteCaddy } from "./remote-caddy";
 import { socketTray } from "./socket-tray";
+import { toolFinRack } from "./tool-fin-rack";
 import type { AnyProduct, ParameterSpec, ProductDefinition } from "./types";
 
 /** Erases the spec types of a checked ProductDefinition for the registry. */
@@ -16,6 +25,15 @@ function register<Specs extends Record<string, ParameterSpec>>(
 export const PRODUCTS: readonly AnyProduct[] = [
   register(drawerTray),
   register(socketTray),
+  register(markerCupBlock),
+  register(batteryOrganizer),
+  register(toolFinRack),
+  register(partsBin),
+  register(remoteCaddy),
+  register(drawerRiser),
+  register(plantSaucer),
+  register(plantPot),
+  register(cardHolder),
 ];
 
 export const DEFAULT_PRODUCT_ID = drawerTray.id;

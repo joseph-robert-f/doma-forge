@@ -5,6 +5,7 @@ import { parameterSlug } from "../../lib/products/shared";
 import type {
   BooleanSpec,
   EnumSpec,
+  LayoutSpec,
   NumberSpec,
   ParameterSpec,
 } from "../../lib/products/types";
@@ -162,6 +163,115 @@ export function BooleanControl({
   );
 }
 
+/**
+ * The editor for a layout parameter: one number input per well, plus a
+ * button to add a well and a button to remove one. The product solves the
+ * last well from the inner width and writes that width back into the list
+ * (D-1415), so the last input shows the solved width and is read-only. Add
+ * and remove work on the well before that one, so the solved well stays the
+ * last one and takes up the change. Every edit sends the whole list to the
+ * caller.
+ */
+export function LayoutControl({
+  parameterKey,
+  spec,
+  value,
+  errors,
+  onChange,
+}: ControlProps<LayoutSpec, number[]>) {
+  const slug = parameterSlug(parameterKey);
+  const errorId = `${slug}-error`;
+  const isInvalid = Boolean(errors?.length);
+  const widths = Array.isArray(value) ? value : [];
+
+  const updateWell = (index: number, text: string) => {
+    const next = [...widths];
+    next[index] = text === "" ? Number.NaN : Number(text);
+    onChange(parameterKey, next);
+  };
+  // The last well is solved, so a new well goes in front of it and a removed
+  // well comes from in front of it. The solved well then grows or shrinks by
+  // the change, and the caddy stays full.
+  const addWell = () =>
+    onChange(parameterKey, [...widths.slice(0, -1), spec.newValue, ...widths.slice(-1)]);
+  const removeWell = () =>
+    onChange(parameterKey, [...widths.slice(0, -2), ...widths.slice(-1)]);
+
+  return (
+    <div
+      className={`parameter-control layout-control${isInvalid ? " parameter-control--invalid" : ""}`}
+      role="group"
+      aria-labelledby={`${slug}-label`}
+    >
+      <div className="parameter-label-row">
+        <span id={`${slug}-label`} className="parameter-label">
+          {spec.label}
+        </span>
+        <span className="parameter-range-hint">
+          {spec.min}–{spec.max} {spec.unit}
+        </span>
+      </div>
+      <div className="layout-wells">
+        {widths.map((width, index) => {
+          const solved = index === widths.length - 1;
+          return (
+            <div className="layout-well" key={index}>
+              <label htmlFor={`${slug}-well-${index + 1}`}>
+                Well {index + 1}
+                {solved ? <span className="layout-solved"> solved</span> : null}
+              </label>
+              <div className="number-input-wrap">
+                <input
+                  id={`${slug}-well-${index + 1}`}
+                  data-testid={`param-${slug}-well-${index + 1}`}
+                  className="parameter-number"
+                  type="number"
+                  inputMode="decimal"
+                  min={spec.min}
+                  max={spec.max}
+                  step={spec.step}
+                  value={Number.isFinite(width) ? width : ""}
+                  readOnly={solved}
+                  aria-readonly={solved || undefined}
+                  // The validation result carries messages, not well
+                  // numbers, so the editor cannot mark one well. Every input
+                  // carries the state of the list. See open issue 7.
+                  aria-invalid={isInvalid || undefined}
+                  aria-errormessage={isInvalid ? errorId : undefined}
+                  onChange={(event) => updateWell(index, event.target.value)}
+                />
+                <span className="number-unit">{spec.unit}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="layout-actions">
+        <button
+          type="button"
+          className="button button--quiet"
+          data-testid={`param-${slug}-add-well`}
+          disabled={widths.length >= spec.maxCount}
+          onClick={addWell}
+        >
+          Add well
+        </button>
+        <button
+          type="button"
+          className="button button--quiet"
+          data-testid={`param-${slug}-remove-well`}
+          disabled={widths.length <= spec.minCount}
+          onClick={removeWell}
+        >
+          Remove well
+        </button>
+      </div>
+      <p className="layout-hint">{spec.description}</p>
+      <FieldError slug={slug} errors={errors} />
+    </div>
+  );
+}
+
 export function EnumControl({
   parameterKey,
   spec,
@@ -231,6 +341,16 @@ export function ParameterControl({
           parameterKey={parameterKey}
           spec={spec}
           value={value as boolean}
+          errors={errors}
+          onChange={onChange}
+        />
+      );
+    case "layout":
+      return (
+        <LayoutControl
+          parameterKey={parameterKey}
+          spec={spec}
+          value={value as number[]}
           errors={errors}
           onChange={onChange}
         />

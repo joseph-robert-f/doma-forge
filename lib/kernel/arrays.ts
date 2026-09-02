@@ -153,3 +153,68 @@ export function boreCutter(
   coneAtOrigin.delete();
   return unionSolids(kernel, [body, cone]);
 }
+
+export interface DividerArrayOptions {
+  /** Divider center positions along `axis`, in millimeters. */
+  positions: readonly number[];
+  /** Divider thickness along `axis`. */
+  thickness: number;
+  /** Divider length across `axis`. Add the overlap before you call. */
+  length: number;
+  /** Divider height. Add the overlap before you call. */
+  height: number;
+  /** Z of the divider center. */
+  centerZ: number;
+  /** The axis the positions run along. A divider stands across it. */
+  axis?: "x" | "y";
+}
+
+/**
+ * Dividers at explicit positions, unioned into one solid and clipped to
+ * `outer`. This is the drawer tray's own construction: a full-length box per
+ * divider, intersected with the outer body, so a divider follows the rounded
+ * outer corners instead of cutting through them. A product solves the
+ * positions in a pure layout function; this module places what it is given.
+ *
+ * `outer` is not deleted. An empty position list returns null, so a product
+ * with one well needs no special case.
+ */
+export function dividerArrayAtPositions(
+  kernel: ManifoldToplevel,
+  outer: Solid,
+  options: DividerArrayOptions,
+): Solid | null {
+  const { positions, thickness, length, height, centerZ } = options;
+  if (positions.length === 0) return null;
+  if (
+    !Number.isFinite(thickness) ||
+    !Number.isFinite(length) ||
+    !Number.isFinite(height) ||
+    !Number.isFinite(centerZ) ||
+    thickness <= 0 ||
+    length <= 0 ||
+    height <= 0
+  ) {
+    throw new Error(
+      "dividerArrayAtPositions needs a finite, positive thickness, length, and height.",
+    );
+  }
+  if (positions.some((position) => !Number.isFinite(position))) {
+    throw new Error("dividerArrayAtPositions needs finite positions.");
+  }
+  const alongX = (options.axis ?? "x") === "x";
+  const size: [number, number, number] = alongX
+    ? [thickness, length, height]
+    : [length, thickness, height];
+  const clipped = positions.map((position) => {
+    const atOrigin = kernel.Manifold.cube(size, true);
+    const positioned = atOrigin.translate(
+      alongX ? [position, 0, centerZ] : [0, position, centerZ],
+    );
+    atOrigin.delete();
+    const inside = positioned.intersect(outer);
+    positioned.delete();
+    return inside;
+  });
+  return unionSolids(kernel, clipped);
+}
