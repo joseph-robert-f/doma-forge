@@ -15,7 +15,11 @@
     "test:integration": "vitest run tests/app.integration.test.tsx",
     "test:ssr": "npm run build && node --test tests/rendered-html.test.mjs",
     "test:browser": "playwright test",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
+    "test:deploy-config": "CLOUDFLARE_ENV=preview npm run build && node --test tests/wrangler-preview-env.test.mjs",
+    "check:public-origin": "node scripts/check-public-origin.mjs",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "deploy": "vinext deploy",
+    "deploy:preview": "CLOUDFLARE_ENV=preview vinext deploy --preview"
   },
   "dependencies": {
     "manifold-3d": "^3.5.1",

@@ -3,8 +3,6 @@ import { existsSync } from "node:fs";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
-const projectRoot = new URL("../", import.meta.url);
-
 function escapeRegExp(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -201,5 +199,4 @@ test("removes disposable starter assets and backend scaffolding", async () => {
   await assert.rejects(
     access(new URL("../drizzle/meta/_journal.json", import.meta.url)),
   );
-  await access(new URL(".openai/hosting.json", projectRoot));
 });

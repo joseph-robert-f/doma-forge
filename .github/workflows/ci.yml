@@ -92,3 +92,90 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+
+  deploy:
+    name: Deploy to Cloudflare
+    needs: [verify, browser]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # A production deploy must not be cancelled by a second push to main
+    # landing while it is still running. The workflow-level `concurrency`
+    # above cancels an entire in-progress run (every job in it) on a new
+    # run for the same ref; a job-level `concurrency` block replaces that
+    # group for this job only, so `verify` and `browser` keep the original
+    # cancel-on-supersede behavior while this job does not.
+    concurrency:
+      group: deploy-cloudflare-${{ github.ref }}
+      cancel-in-progress: false
+    # Secrets cannot be read directly in a job- or step-level `if:`. Export
+    # the presence check into a job env value here, once, and gate the two
+    # real deploy steps below on that value. When the two repository
+    # secrets are absent (a fork pull request, or a repository that has not
+    # configured Cloudflare yet), neither deploy step runs and the job
+    # succeeds without deploying, so it never fails or blocks a pull
+    # request. The two proof/check steps below need no secrets and no
+    # Cloudflare account, so they always run — a configuration regression
+    # is caught on every push and pull request, not only on a run that
+    # actually deploys.
+    env:
+      WRANGLER_SEND_METRICS: "false"
+      DEPLOY_ENABLED: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      # Proves that a CLOUDFLARE_ENV=preview build actually produces the
+      # separate preview Worker's config (name drawerforge-preview, not
+      # drawerforge). Needs no Cloudflare account. A regression here means
+      # `npm run deploy:preview` would silently overwrite production. See
+      # 26_CLOUDFLARE_MIGRATION_NOTES.md (the blocking review finding and
+      # Decision D-1106) and tests/wrangler-preview-env.test.mjs.
+      - name: Prove the preview build targets the separate Worker
+        run: npm run test:deploy-config
+
+      # Warns, loudly, if PUBLIC_ORIGIN is not wired up and the built page
+      # would still carry the http://localhost:3000 default. Never fails
+      # the job — see scripts/check-public-origin.mjs. Reuses the build the
+      # step above just produced; origin rendering does not depend on
+      # CLOUDFLARE_ENV, so no separate build is needed here. Setting the
+      # PUBLIC_ORIGIN repository variable makes this check pass; it does
+      # not, by itself, change the real deployed origin, which still comes
+      # from wrangler.jsonc's `vars` (see Decision D-1105 and the comment
+      # in wrangler.jsonc) — this step is a proactive warning, not that
+      # mechanism.
+      - name: Check PUBLIC_ORIGIN is wired up
+        env:
+          PUBLIC_ORIGIN: ${{ vars.PUBLIC_ORIGIN }}
+        run: npm run check:public-origin
+
+      # A pull request deploys a preview version, on its own named
+      # environment (env.preview in wrangler.jsonc), which never touches
+      # the production Worker. "deploy:preview" itself sets
+      # CLOUDFLARE_ENV=preview before building — see wrangler.jsonc's own
+      # comment and 26_CLOUDFLARE_MIGRATION_NOTES.md, Decision D-1106.
+      - name: Deploy preview
+        if: env.DEPLOY_ENABLED == 'true' && github.event_name == 'pull_request'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run deploy:preview
+
+      # main deploys production. github.ref is also checked, in case this
+      # job is ever triggered by something other than a push to main.
+      - name: Deploy production
+        if: env.DEPLOY_ENABLED == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run deploy
+
+      - name: Cloudflare secrets are not configured
+        if: env.DEPLOY_ENABLED != 'true'
+        run: echo "CLOUDFLARE_API_TOKEN and/or CLOUDFLARE_ACCOUNT_ID repository secrets are not set. Skipping the actual deploy; the checks above still ran."

@@ -22,6 +22,10 @@ npm run typecheck        # strict TypeScript check
 npm test                 # unit, geometry, STL, and app integration tests
 npm run build            # production/Cloudflare Worker build
 npm run test:ssr         # production build plus server-render smoke test
+npm run test:deploy-config  # proves a preview build targets the separate preview Worker
+npm run check:public-origin # warns if the built page still ships the localhost default
+npm run deploy           # build, then deploy to Cloudflare Workers (production)
+npm run deploy:preview   # build under CLOUDFLARE_ENV=preview, then deploy to the "preview" Worker environment
 ```
 
 ## Parameters and validation
@@ -140,6 +144,18 @@ Automated geometry checks cover representative 1×1, 1×3, 2×3, and 4×4 organi
 The socket tray starts as a rounded slab. One batched union of every bore cutter is subtracted in one Boolean, then the underside pockets. Its tests slice the mesh above the base and count one outer contour and one hole per bore, and slice through the pockets and count the pocket grid.
 
 STL has no embedded unit metadata. DrawerForge models coordinates as millimeters, so import downloads into a millimeter-based slicer without scaling.
+
+## Deployment
+
+DrawerForge deploys to Cloudflare Workers, from `wrangler.jsonc` at the repository root. `npm run deploy` builds and deploys the production Worker. `npm run deploy:preview` builds and deploys the separate `preview` Worker environment; it never touches production. Both need `wrangler login` locally, or the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` environment variables in CI.
+
+The Cloudflare environment (production or `preview`) is selected at build time, through the `CLOUDFLARE_ENV` variable, not at deploy time. `npm run deploy:preview` sets it for you (`CLOUDFLARE_ENV=preview vinext deploy --preview`) — do not replace it with a plain `vinext deploy --preview`, which silently deploys production under the preview label instead. `npm run test:deploy-config` proves this stays correct.
+
+CI deploys a preview on every pull request and production on every push to `main`. It also runs the preview-config proof above and a `PUBLIC_ORIGIN` warning check (below) on every push and pull request, with no Cloudflare account needed; only the two actual deploy commands are skipped when the `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` repository secrets are not set.
+
+`app/layout.tsx` builds every absolute URL (Open Graph, canonical links) from a configured `PUBLIC_ORIGIN` Worker variable, resolved by `lib/origin.ts`. It defaults to `http://localhost:3000`. Set `vars.PUBLIC_ORIGIN` in `wrangler.jsonc` once the deployed Worker's real URL is known — this is a config-file edit, not something CI can set for you. CI separately reads a `PUBLIC_ORIGIN` **repository variable** (not a secret) and runs `npm run check:public-origin`, which prints a visible warning (never a failure) if the built page would still ship the `localhost:3000` default; setting that repository variable silences the warning but does not, by itself, change the real deployed origin.
+
+See [`outputs/drawerforge-agent-handoff/26_CLOUDFLARE_MIGRATION_NOTES.md`](outputs/drawerforge-agent-handoff/26_CLOUDFLARE_MIGRATION_NOTES.md) for the rollback plan and the deployed-origin acceptance checklist.
 
 ## v1 limitations
 

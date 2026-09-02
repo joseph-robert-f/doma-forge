@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { headers } from "next/headers";
 import Link from "next/link";
 import { ProductSwitcher } from "./components/ProductSwitcher";
+import { resolvePublicOrigin } from "../lib/origin";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,21 +18,8 @@ const geistMono = Geist_Mono({
 const description =
   "A browser-based parametric generator for simple, 3D-printable drawer organizers.";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const requestHeaders = await headers();
-  const forwardedHost = requestHeaders.get("x-forwarded-host")?.split(",")[0];
-  const host = forwardedHost?.trim() || requestHeaders.get("host") || "localhost:3000";
-  const forwardedProtocol = requestHeaders
-    .get("x-forwarded-proto")
-    ?.split(",")[0]
-    ?.trim();
-  const protocol =
-    forwardedProtocol === "http" || forwardedProtocol === "https"
-      ? forwardedProtocol
-      : host.startsWith("localhost")
-        ? "http"
-        : "https";
-  const origin = `${protocol}://${host}`;
+export function generateMetadata(): Metadata {
+  const origin = resolvePublicOrigin();
 
   return {
     metadataBase: new URL(origin),
