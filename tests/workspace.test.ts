@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PRINTER_PROFILE_DEFAULTS } from "../lib/printer-profile";
 import { DRAWER_TRAY_ID } from "../lib/products/drawer-tray";
 import { getProduct } from "../lib/products/registry";
 import {
@@ -8,9 +9,11 @@ import {
   loadWorkspace,
   readDesign,
   readLegacyDesign,
+  readPrinterEntry,
   readWorkspace,
   writeDesign,
   writeDesignName,
+  writePrinterProfile,
   type StorageLike,
 } from "../lib/workspace";
 
@@ -286,5 +289,143 @@ describe("version 1 migration", () => {
     readDesign(storage, drawerTray, getProduct, fixedNow);
     writeDesign(storage, drawerTray, { name: "New", parameters: drawerTray.defaults }, getProduct, fixedNow);
     expect(readDesign(storage, drawerTray, getProduct, fixedNow)?.name).toBe("New");
+  });
+});
+
+describe("printer profile in the envelope", () => {
+  function envelopeWithoutPrinter() {
+    return JSON.stringify({
+      format: "drawerforge-workspace",
+      version: 2,
+      updatedAt: "2026-09-01T00:00:00.000Z",
+      designs: {
+        "drawer-tray": {
+          productId: "drawer-tray",
+          geometryVersion: 1,
+          name: "Left bench",
+          parameters: { ...drawerTray.defaults, drawerDepth: 245 },
+          updatedAt: "2026-09-01T00:00:00.000Z",
+        },
+      },
+    });
+  }
+
+  it("reads an envelope written before printer profiles existed", () => {
+    const storage = new FakeStorage();
+    storage.data.set(WORKSPACE_KEY, envelopeWithoutPrinter());
+
+    const entry = readPrinterEntry(storage, getProduct, fixedNow);
+    expect(entry.profile).toEqual(PRINTER_PROFILE_DEFAULTS);
+    expect(entry.saved).toBe(false);
+    const design = readDesign(storage, drawerTray, getProduct, fixedNow);
+    expect(design?.name).toBe("Left bench");
+    expect(design?.parameters.drawerDepth).toBe(245);
+    expect(storage.data.get(WORKSPACE_KEY)).toBe(envelopeWithoutPrinter());
+  });
+
+  it("adds no printer field to an envelope until a profile is written", () => {
+    const storage = new FakeStorage();
+    storage.data.set(WORKSPACE_KEY, envelopeWithoutPrinter());
+    writeDesign(
+      storage,
+      drawerTray,
+      { name: "Left bench", parameters: { ...drawerTray.defaults, drawerDepth: 250 } },
+      getProduct,
+      fixedNow,
+    );
+    const stored = JSON.parse(storage.data.get(WORKSPACE_KEY) ?? "{}");
+    expect(stored.printer).toBeUndefined();
+    expect(stored.version).toBe(2);
+  });
+
+  it("keeps the version at 2 and keeps every design when a profile is written", () => {
+    const storage = new FakeStorage();
+    storage.data.set(WORKSPACE_KEY, envelopeWithoutPrinter());
+    expect(
+      writePrinterProfile(
+        storage,
+        { ...PRINTER_PROFILE_DEFAULTS, correctionX: 0.5 },
+        getProduct,
+        fixedNow,
+      ),
+    ).toBe(true);
+    const stored = JSON.parse(storage.data.get(WORKSPACE_KEY) ?? "{}");
+    expect(stored.version).toBe(2);
+    expect(stored.printer.correctionX).toBe(0.5);
+    expect(stored.designs["drawer-tray"].name).toBe("Left bench");
+    expect(readDesign(storage, drawerTray, getProduct, fixedNow)?.name).toBe("Left bench");
+  });
+
+  it("keeps the profile when a design is written after it", () => {
+    const storage = new FakeStorage();
+    writePrinterProfile(
+      storage,
+      { ...PRINTER_PROFILE_DEFAULTS, correctionY: -0.25 },
+      getProduct,
+      fixedNow,
+    );
+    writeDesign(
+      storage,
+      drawerTray,
+      { name: "Bench", parameters: drawerTray.defaults },
+      getProduct,
+      fixedNow,
+    );
+    const kept = readPrinterEntry(storage, getProduct, fixedNow);
+    expect(kept.profile.correctionY).toBe(-0.25);
+    expect(kept.saved).toBe(true);
+    expect(readDesign(storage, drawerTray, getProduct, fixedNow)?.name).toBe("Bench");
+  });
+
+  it("normalizes a stored profile that holds a bad value", () => {
+    const storage = new FakeStorage();
+    storage.data.set(
+      WORKSPACE_KEY,
+      JSON.stringify({
+        format: "drawerforge-workspace",
+        version: 2,
+        updatedAt: "2026-09-01T00:00:00.000Z",
+        designs: {},
+        printer: { correctionX: "wide", correctionY: 900, bedWidth: 250 },
+      }),
+    );
+    const profile = readPrinterEntry(storage, getProduct, fixedNow).profile;
+    expect(profile.correctionX).toBe(0);
+    expect(profile.correctionY).toBe(25);
+    expect(profile.bedWidth).toBe(250);
+  });
+
+  it("refuses to write a profile when the workspace is not writable", () => {
+    const newer = new FakeStorage();
+    newer.data.set(
+      WORKSPACE_KEY,
+      JSON.stringify({ format: "drawerforge-workspace", version: 9, designs: {} }),
+    );
+    expect(
+      writePrinterProfile(newer, PRINTER_PROFILE_DEFAULTS, getProduct, fixedNow),
+    ).toBe(false);
+
+    const unreadable = new FakeStorage();
+    unreadable.failReads = 1;
+    expect(
+      writePrinterProfile(unreadable, PRINTER_PROFILE_DEFAULTS, getProduct, fixedNow),
+    ).toBe(false);
+
+    const full = new FakeStorage();
+    full.quotaFull = true;
+    expect(
+      writePrinterProfile(full, PRINTER_PROFILE_DEFAULTS, getProduct, fixedNow),
+    ).toBe(false);
+  });
+
+  it("does not rewrite an unchanged profile", () => {
+    const storage = new FakeStorage();
+    writePrinterProfile(storage, PRINTER_PROFILE_DEFAULTS, getProduct, fixedNow);
+    const first = storage.data.get(WORKSPACE_KEY);
+    storage.quotaFull = true;
+    expect(
+      writePrinterProfile(storage, PRINTER_PROFILE_DEFAULTS, getProduct, fixedNow),
+    ).toBe(true);
+    expect(storage.data.get(WORKSPACE_KEY)).toBe(first);
   });
 });

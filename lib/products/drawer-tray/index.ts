@@ -67,6 +67,10 @@ export const drawerTray: ProductDefinition<DrawerTraySpecs> = {
   },
   generate: generateDrawerTray,
   coupon: generateFitTestCoupon,
+  // The outside width follows drawerWidth, and the outside depth follows
+  // drawerDepth, one to one: a millimeter added here is a millimeter added
+  // to the printed part. Clearance, walls, and dividers are not compensated.
+  compensable: { x: ["drawerWidth"], y: ["drawerDepth"] },
   boundsContract: (parameters) => {
     const derived = deriveDimensions(parameters);
     return {
