@@ -23,15 +23,46 @@ import {
 // A later product's coupon should replace this with a per-product coupon
 // bounds contract instead of a second constant import here.
 import { FIT_TEST_COUPON_HEIGHT } from "../../lib/products/drawer-tray";
+import {
+  PRINTER_LIMITS,
+  PRINTER_NAME_MAX_LENGTH,
+  PRINTER_PROFILE_DEFAULTS,
+  activeCorrections,
+  bedWarnings,
+  calibrationProposal,
+  compensate,
+  compensationNotes,
+  correctionRangeMessages,
+  extentsFromBounds,
+  thinWallIssues,
+  normalizePrinterName,
+  normalizePrinterProfile,
+  validatePrinterProfile,
+  wallLikeKeys,
+  withCorrectionTag,
+  type CalibrationProposal,
+  type Extents,
+  type PrinterNumberField,
+  type PrinterProfileV1,
+} from "../../lib/printer-profile";
 import { getProduct } from "../../lib/products/registry";
-import { fitTestCouponFilename } from "../../lib/products/shared";
+import {
+  fitTestCouponFilename,
+  formatMillimeters,
+} from "../../lib/products/shared";
 import type {
   AnyParameters,
   BoundsContract,
   DerivedValue,
 } from "../../lib/products/types";
 import { inspectBinaryStl, serializeBinaryStl } from "../../lib/stl";
-import { readDesign, writeDesign, writeDesignName } from "../../lib/workspace";
+import {
+  readDesign,
+  readPrinterEntry,
+  writeDesign,
+  writeDesignName,
+  writePrinterProfile,
+} from "../../lib/workspace";
 import {
   analyzeBufferGeometry,
   modelToBufferGeometry,
@@ -46,8 +77,14 @@ type Parameters = AnyParameters;
 
 interface PreviewModel {
   geometry: THREE.BufferGeometry;
+  /** The target parameters: what the user asked for. */
   parameters: Parameters;
+  /** The parameters the mesh was built from, after the printer correction. */
+  compensatedParameters: Parameters;
+  /** The identity of the design. Files and the viewer use it. */
   signature: string;
+  /** The identity of this mesh. It also holds the correction. */
+  meshSignature: string;
   triangleCount: number;
 }
 
@@ -57,6 +94,29 @@ interface FileMessage {
 }
 
 const NAME_SAVE_DELAY_MS = 300;
+
+/** One string for a stored design, so an unchanged save can stay silent. */
+function designKey(name: string, parameters: Parameters): string {
+  return JSON.stringify({ name: name.trim(), parameters });
+}
+
+const PRINTER_SAVE_DELAY_MS = 300;
+
+/** The size of the part along each axis, or null when it cannot be found. */
+function partExtents(
+  bounds: () => BoundsContract,
+): Extents | null {
+  try {
+    const extents = extentsFromBounds(bounds());
+    return Number.isFinite(extents.x) &&
+      Number.isFinite(extents.y) &&
+      Number.isFinite(extents.z)
+      ? extents
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -117,6 +177,51 @@ function DerivedValuesCard({
   );
 }
 
+function PrinterNumberInput({
+  field,
+  testId,
+  label,
+  value,
+  message,
+  onChange,
+  onCommit,
+}: {
+  field: PrinterNumberField;
+  testId: string;
+  label: string;
+  value: string;
+  message: string;
+  onChange: (field: PrinterNumberField, text: string) => void;
+  onCommit: (field: string) => void;
+}) {
+  const limit = PRINTER_LIMITS[field];
+  const messageId = `${testId}-message`;
+  return (
+    <label className="printer-field">
+      <span>{label}</span>
+      <input
+        type="number"
+        inputMode="decimal"
+        data-testid={testId}
+        value={value}
+        min={limit.min}
+        max={limit.max}
+        step={limit.step}
+        autoComplete="off"
+        aria-describedby={message ? messageId : undefined}
+        onChange={(event) => onChange(field, event.target.value)}
+        onBlur={() => onCommit(field)}
+      />
+      <span
+        className={`printer-field-message${message ? "" : " printer-field-message--empty"}`}
+        id={messageId}
+      >
+        {message}
+      </span>
+    </label>
+  );
+}
+
 export function ProductApp({ productId }: { productId: string }) {
   const product = useMemo(() => getProduct(productId), [productId]);
   const [parameters, setParameters] = useState<Parameters>(() => ({
@@ -131,9 +236,25 @@ export function ProductApp({ productId }: { productId: string }) {
   const [designName, setDesignName] = useState("");
   const [fileMessage, setFileMessage] = useState<FileMessage | null>(null);
   const [fitTestBusy, setFitTestBusy] = useState(false);
+  const [printer, setPrinter] = useState<PrinterProfileV1>(() => ({
+    ...PRINTER_PROFILE_DEFAULTS,
+  }));
+  const [printerOpen, setPrinterOpen] = useState(false);
+  /** True once this browser holds a profile the user confirmed. */
+  const [printerSaved, setPrinterSaved] = useState(false);
+  const [printerDrafts, setPrinterDrafts] = useState<Record<string, string>>({});
+  const [printerFieldMessages, setPrinterFieldMessages] = useState<
+    Record<string, string>
+  >({});
+  const [measured, setMeasured] = useState({ x: "", y: "" });
+  const [calibrationMessage, setCalibrationMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const generationId = useRef(0);
   const designNameRef = useRef("");
+  /** The design already in storage. A write that changes nothing is silent. */
+  const savedDesignRef = useRef("");
+  /** True once the user has edited the profile. Guards the first write. */
+  const printerTouched = useRef(false);
   const clientRef = useRef<GenerationClient | null>(null);
   const getClient = () => (clientRef.current ??= createGenerationClient());
 
@@ -167,19 +288,128 @@ export function ProductApp({ productId }: { productId: string }) {
     () => product.derive(parameters),
     [product, parameters],
   );
-  const currentSignature = useMemo(
-    () => product.signature(parameters),
+  // Compensation runs in exactly one place: here. Every consumer downstream
+  // takes either the target parameters or the compensated parameters from
+  // these two values, and never applies a correction of its own.
+  const targetParameters = useMemo(
+    () => product.normalize(parameters),
     [product, parameters],
   );
-  const previewIsCurrent = preview?.signature === currentSignature;
+  const compensatedParameters = useMemo(
+    () => compensate(targetParameters, printer, product.compensable),
+    [targetParameters, printer, product],
+  );
+  // The corrections that actually reach this product. A product with no
+  // compensable list is never corrected, so it shows no compensation line,
+  // its file names carry no marker, and its calibration proposes from zero.
+  const activeProfile = useMemo<PrinterProfileV1>(
+    () => activeCorrections(printer, product.compensable),
+    [product, printer],
+  );
+  // The mesh identity holds the correction, so a changed correction rebuilds
+  // the preview. The design identity, product.signature(target), does not: it
+  // names what the user asked for, and it names the files.
+  const meshSignature = useMemo(
+    () => product.signature(compensatedParameters),
+    [product, compensatedParameters],
+  );
+  const previewIsCurrent = preview?.meshSignature === meshSignature;
+
+  // A target value can be legal while the corrected value is not. The field
+  // then shows a legal number, so the message names the correction instead
+  // of the field limit, and the download stays refused until it is fixed.
+  const compensatedValidation = useMemo(
+    () => product.validate(compensatedParameters),
+    [product, compensatedParameters],
+  );
+  const correctionMessages = useMemo(() => {
+    if (!validation.valid || compensatedValidation.valid) return [];
+    const named = correctionRangeMessages(
+      Object.keys(compensatedValidation.byField),
+      product.compensable,
+      activeProfile,
+      (field) => {
+        const spec = product.specs[field];
+        return spec && spec.kind === "number" ? spec.shortLabel : field;
+      },
+    );
+    return named.length
+      ? named
+      : ["The printer correction takes this design past a limit."];
+  }, [validation, compensatedValidation, product, activeProfile]);
+  const correctionBlocked = correctionMessages.length > 0;
+
+  const targetExtents = useMemo(
+    () => partExtents(() => product.boundsContract(targetParameters)),
+    [product, targetParameters],
+  );
+  const modeledExtents = useMemo(
+    () => partExtents(() => product.boundsContract(compensatedParameters)),
+    [product, compensatedParameters],
+  );
+  const compensation = useMemo(
+    () =>
+      targetExtents && modeledExtents
+        ? compensationNotes(targetExtents, modeledExtents, activeProfile)
+        : [],
+    [targetExtents, modeledExtents, activeProfile],
+  );
+  // The bed values are placeholders until the user saves a profile. A
+  // warning about a bed nobody entered is noise, and noise trains a person
+  // to ignore the warning that matters.
+  const printerWarnings = useMemo(
+    () => bedWarnings(modeledExtents, activeProfile, printerSaved),
+    [modeledExtents, activeProfile, printerSaved],
+  );
+  // Rule 9 of the expansion plan: a wall below two nozzle widths is a
+  // validation error, not a warning. It refuses the download.
+  const wallIssues = useMemo(
+    () =>
+      thinWallIssues(
+        wallLikeKeys(product.specs).map((key) => ({
+          key,
+          label: product.specs[key].label,
+          value: targetParameters[key] as number,
+        })),
+        activeProfile,
+      ),
+    [product, targetParameters, activeProfile],
+  );
+  const calibrationProposals = useMemo(() => {
+    if (!modeledExtents) return [] as CalibrationProposal[];
+    const entries: Array<["x" | "y", number, string]> = [
+      ["x", activeProfile.correctionX, measured.x],
+      ["y", activeProfile.correctionY, measured.y],
+    ];
+    const proposals: CalibrationProposal[] = [];
+    for (const [axis, existing, text] of entries) {
+      if (text.trim() === "") continue;
+      const proposal = calibrationProposal(
+        axis,
+        existing,
+        modeledExtents[axis],
+        Number(text),
+      );
+      if (proposal) proposals.push(proposal);
+    }
+    return proposals;
+  }, [modeledExtents, activeProfile, measured]);
 
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
+      try {
+        const entry = readPrinterEntry(window.localStorage);
+        setPrinter(entry.profile);
+        setPrinterSaved(entry.saved);
+      } catch {
+        // Storage is unavailable; the default profile applies no correction.
+      }
       try {
         const stored = readDesign(window.localStorage, product);
         if (stored) {
           setParameters({ ...stored.parameters });
           setDesignName(stored.name);
+          savedDesignRef.current = designKey(stored.name, stored.parameters);
           setSaveMessage("Restored your last valid design");
         }
       } catch {
@@ -207,11 +437,30 @@ export function ProductApp({ productId }: { productId: string }) {
     return () => window.clearTimeout(timer);
   }, [designName, hasLoadedStorage, product]);
 
+  // The profile is written only after the user edits it. A visit that only
+  // reads the profile never writes one, so an envelope stays as it is.
+  useEffect(() => {
+    if (!hasLoadedStorage || !printerTouched.current) return;
+    const timer = window.setTimeout(() => {
+      let saved = false;
+      try {
+        saved = writePrinterProfile(window.localStorage, printer);
+      } catch {
+        saved = false;
+      }
+      if (saved) setPrinterSaved(true);
+      setSaveMessage(
+        saved ? "Printer saved on this device" : "Local save unavailable",
+      );
+    }, PRINTER_SAVE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [printer, hasLoadedStorage]);
+
   useEffect(() => {
     if (!hasLoadedStorage) return;
     const requestId = ++generationId.current;
 
-    if (!validation.valid) {
+    if (!validation.valid || correctionBlocked) {
       const pauseTimer = window.setTimeout(() => {
         if (requestId === generationId.current) {
           setViewerStatus("paused");
@@ -229,8 +478,9 @@ export function ProductApp({ productId }: { productId: string }) {
     }, 0);
     const timer = window.setTimeout(async () => {
       try {
-        const normalized = product.normalize(parameters);
-        const model = await getClient().generate(product.id, normalized);
+        const normalized = targetParameters;
+        const forGeneration = compensatedParameters;
+        const model = await getClient().generate(product.id, forGeneration);
         const geometry = modelToBufferGeometry(model);
         const analysis = analyzeBufferGeometry(geometry);
 
@@ -242,9 +492,11 @@ export function ProductApp({ productId }: { productId: string }) {
           !analysis.finite ||
           analysis.minimumTriangleArea <= 0 ||
           analysis.signedVolume <= 0 ||
+          // The mesh comes from the compensated parameters, so its contract
+          // does too. The user's own target is checked by product.validate().
           !boundsSatisfyContract(
             analysis.bounds,
-            product.boundsContract(normalized),
+            product.boundsContract(forGeneration),
           )
         ) {
           geometry.dispose();
@@ -254,12 +506,16 @@ export function ProductApp({ productId }: { productId: string }) {
         const nextPreview: PreviewModel = {
           geometry,
           parameters: normalized,
+          compensatedParameters: forGeneration,
           signature: product.signature(normalized),
+          meshSignature: product.signature(forGeneration),
           triangleCount: analysis.triangleCount,
         };
         setPreview(nextPreview);
         setViewerStatus("ready");
         let saved = false;
+        const nextKey = designKey(designNameRef.current, normalized);
+        const designChanged = nextKey !== savedDesignRef.current;
         try {
           saved = writeDesign(window.localStorage, product, {
             name: designNameRef.current,
@@ -268,7 +524,14 @@ export function ProductApp({ productId }: { productId: string }) {
         } catch {
           saved = false;
         }
-        setSaveMessage(saved ? "Saved on this device" : "Local save unavailable");
+        // A printer-only edit rebuilds the mesh but changes no design. The
+        // save line then keeps whatever it said, instead of claiming a
+        // design save that did not happen.
+        if (!saved) setSaveMessage("Local save unavailable");
+        else if (designChanged) {
+          savedDesignRef.current = nextKey;
+          setSaveMessage("Saved on this device");
+        }
       } catch (error) {
         if (requestId !== generationId.current) return;
         if (error instanceof GenerationCancelledError) return;
@@ -286,9 +549,10 @@ export function ProductApp({ productId }: { productId: string }) {
       // A newer edit supersedes any request still running in the worker.
       clientRef.current?.cancel();
     };
-    // The normalized signature is the intentional generation dependency.
+    // The compensated signature is the intentional generation dependency. It
+    // changes with a parameter edit and with a printer correction edit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product, currentSignature, hasLoadedStorage]);
+  }, [product, meshSignature, hasLoadedStorage]);
 
   const updateParameter = (key: string, value: unknown) => {
     setSelectedPreset(CUSTOM_PRESET_ID);
@@ -378,8 +642,84 @@ export function ProductApp({ productId }: { productId: string }) {
     });
   };
 
+  const setPrinterMessage = (field: string, message: string) => {
+    setPrinterFieldMessages((current) => ({ ...current, [field]: message }));
+  };
+
+  /**
+   * Removes the draft and its message, so the field shows the value the app
+   * holds and no message describes text the user has left.
+   */
+  const commitPrinterField = (field: string) => {
+    setPrinterDrafts((current) => {
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+    setPrinterMessage(field, "");
+  };
+
+  const updatePrinterField = (field: PrinterNumberField, text: string) => {
+    setPrinterDrafts((current) => ({ ...current, [field]: text }));
+    // An empty field is a field in the middle of an edit, not a bad value.
+    if (text.trim() === "") {
+      setPrinterMessage(field, "");
+      return;
+    }
+    setPrinterMessage(field, validatePrinterProfile({ [field]: text })[0]?.message ?? "");
+    const numeric = Number(text);
+    if (!Number.isFinite(numeric)) return;
+    printerTouched.current = true;
+    setPrinter((current) => normalizePrinterProfile({ ...current, [field]: numeric }));
+  };
+
+  const updatePrinterName = (text: string) => {
+    setPrinterDrafts((current) => ({ ...current, name: text }));
+    printerTouched.current = true;
+    setPrinter((current) => ({ ...current, name: normalizePrinterName(text) }));
+  };
+
+  const updateMeasured = (axis: "x" | "y", text: string) => {
+    setCalibrationMessage("");
+    setMeasured((current) => ({ ...current, [axis]: text }));
+  };
+
+  /**
+   * Replaces the correction with the proposal. It never adds to it. The
+   * measurement is then cleared, because it describes a part printed with
+   * the old correction. A second Apply therefore cannot double the change.
+   */
+  const applyCalibration = () => {
+    if (!calibrationProposals.length) return;
+    printerTouched.current = true;
+    const applied = [...calibrationProposals];
+    setPrinter((current) => {
+      const next = { ...current };
+      for (const proposal of applied) {
+        if (proposal.axis === "x") next.correctionX = proposal.proposed;
+        else next.correctionY = proposal.proposed;
+      }
+      return next;
+    });
+    for (const proposal of applied) {
+      commitPrinterField(proposal.axis === "x" ? "correctionX" : "correctionY");
+    }
+    setMeasured({ x: "", y: "" });
+    setCalibrationMessage(
+      `${applied
+        .map(
+          (proposal) =>
+            `The ${proposal.axisLabel} correction is now ${proposal.proposed} mm.`,
+        )
+        .join(" ")} Print the fit test again to check it.`,
+    );
+  };
+
+  const designChecksPassed = validation.valid && !correctionBlocked;
   const downloadDisabled =
     !validation.valid ||
+    correctionBlocked ||
+    wallIssues.length > 0 ||
     !preview ||
     !previewIsCurrent ||
     viewerStatus === "loading" ||
@@ -387,12 +727,16 @@ export function ProductApp({ productId }: { productId: string }) {
     viewerStatus === "error";
   const downloadDisabledReason = !validation.valid
     ? `Fix ${validation.issues.length} setting${validation.issues.length === 1 ? "" : "s"} before downloading.`
-    : !preview ||
-        !previewIsCurrent ||
-        viewerStatus === "loading" ||
-        viewerStatus === "updating"
-      ? "Wait for the current preview to finish generating."
-      : (generationError ?? "The current preview is ready.");
+    : correctionBlocked
+      ? correctionMessages.join(" ")
+      : wallIssues.length > 0
+        ? wallIssues.map((issue) => issue.text).join(" ")
+        : !preview ||
+            !previewIsCurrent ||
+            viewerStatus === "loading" ||
+            viewerStatus === "updating"
+          ? "Wait for the current preview to finish generating."
+          : (generationError ?? "The current preview is ready.");
 
   const downloadStl = () => {
     if (downloadDisabled || !preview) return;
@@ -412,7 +756,12 @@ export function ProductApp({ productId }: { productId: string }) {
       }
       triggerDownload(
         new Blob([data], { type: "model/stl" }),
-        namedMeshFilename(designName, product.filename(preview.parameters)),
+        // The hash names the design, which is the target. The tag names the
+        // correction, so two prints of one design never share a file name.
+        withCorrectionTag(
+          namedMeshFilename(designName, product.filename(preview.parameters)),
+          activeProfile,
+        ),
       );
     } catch (error) {
       setGenerationError(
@@ -426,10 +775,12 @@ export function ProductApp({ productId }: { productId: string }) {
     if (downloadDisabled || !preview || !product.coupon || fitTestBusy) return;
     setFitTestBusy(true);
     try {
-      const model = await product.coupon(preview.parameters);
+      // The coupon carries the same correction the full part carries, so the
+      // ring a person measures is the ring the tray will print.
+      const model = await product.coupon(preview.compensatedParameters);
       const geometry = modelToBufferGeometry(model);
       const analysis = analyzeBufferGeometry(geometry);
-      const trayContract = product.boundsContract(preview.parameters);
+      const trayContract = product.boundsContract(preview.compensatedParameters);
       const couponContract: BoundsContract = {
         min: [trayContract.min[0], trayContract.min[1], 0],
         max: [trayContract.max[0], trayContract.max[1], FIT_TEST_COUPON_HEIGHT],
@@ -462,9 +813,12 @@ export function ProductApp({ productId }: { productId: string }) {
       }
       triggerDownload(
         new Blob([data], { type: "model/stl" }),
-        namedMeshFilename(
-          designName,
-          fitTestCouponFilename(model, product.signature(preview.parameters)),
+        withCorrectionTag(
+          namedMeshFilename(
+            designName,
+            fitTestCouponFilename(model, preview.signature),
+          ),
+          activeProfile,
         ),
       );
       geometry.dispose();
@@ -478,9 +832,16 @@ export function ProductApp({ productId }: { productId: string }) {
     }
   };
 
+  const printerSummary = `Bed ${printer.bedWidth} × ${printer.bedDepth} × ${printer.bedHeight} mm · nozzle ${printer.nozzleDiameter} mm · correction X ${printer.correctionX} mm, Y ${printer.correctionY} mm`;
+  const expectedText = modeledExtents
+    ? `Expected width ${formatMillimeters(modeledExtents.x, 3)} mm and depth ${formatMillimeters(modeledExtents.y, 3)} mm.`
+    : "";
+
   const statusDetail =
     viewerStatus === "paused"
-      ? `Fix ${validation.issues.length} setting${validation.issues.length === 1 ? "" : "s"}; showing the last valid model.`
+      ? correctionBlocked
+        ? `${correctionMessages.join(" ")} Showing the last valid model.`
+        : `Fix ${validation.issues.length} setting${validation.issues.length === 1 ? "" : "s"}; showing the last valid model.`
       : viewerStatus === "loading"
         ? "Building your first preview…"
         : viewerStatus === "updating"
@@ -616,10 +977,167 @@ export function ProductApp({ productId }: { productId: string }) {
             </p>
           </section>
 
+          <section className="printer-section" aria-labelledby="printer-title">
+            <button
+              type="button"
+              className="printer-toggle"
+              data-testid="printer-section-toggle"
+              aria-expanded={printerOpen}
+              aria-controls={printerOpen ? "printer-body" : undefined}
+              onClick={() => setPrinterOpen((open) => !open)}
+            >
+              <span id="printer-title" className="design-heading">
+                Printer
+              </span>
+              <span className="printer-summary">{printerSummary}</span>
+            </button>
+
+            {compensation.length ? (
+              <ul className="compensation-list">
+                {compensation.map((note) => (
+                  <li key={note.axis} data-testid="compensation-note">
+                    <span className="compensation-axis">{`${note.axisLabel} · `}</span>
+                    {note.text}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {printerOpen ? (
+              <div id="printer-body" className="printer-body">
+                <label className="design-name">
+                  <span>Printer name</span>
+                  <input
+                    type="text"
+                    data-testid="printer-name"
+                    value={printerDrafts.name ?? printer.name}
+                    maxLength={PRINTER_NAME_MAX_LENGTH}
+                    autoComplete="off"
+                    spellCheck={false}
+                    onChange={(event) => updatePrinterName(event.target.value)}
+                    onBlur={() => commitPrinterField("name")}
+                  />
+                </label>
+
+                <div className="printer-grid">
+                  {(
+                    [
+                      ["bedWidth", "printer-bed-width", "Bed width, X"],
+                      ["bedDepth", "printer-bed-depth", "Bed depth, Y"],
+                      ["bedHeight", "printer-bed-height", "Bed height, Z"],
+                      ["nozzleDiameter", "printer-nozzle", "Nozzle diameter"],
+                      ["correctionX", "printer-correction-x", "X correction"],
+                      ["correctionY", "printer-correction-y", "Y correction"],
+                    ] as Array<[PrinterNumberField, string, string]>
+                  ).map(([field, testId, label]) => (
+                    <PrinterNumberInput
+                      key={field}
+                      field={field}
+                      testId={testId}
+                      label={label}
+                      value={printerDrafts[field] ?? String(printer[field])}
+                      message={printerFieldMessages[field] ?? ""}
+                      onChange={updatePrinterField}
+                      onCommit={commitPrinterField}
+                    />
+                  ))}
+                </div>
+
+                {printerSaved ? null : (
+                  <p className="design-hint" data-testid="printer-bed-hint">
+                    Enter your bed size to get build-volume warnings.
+                  </p>
+                )}
+
+                <p className="design-hint">
+                  A correction is the millimeters this printer prints small.
+                  The app adds the correction to the modeled part. It does not
+                  change your target, your design file, or your saved design.
+                </p>
+
+                <div className="printer-calibration">
+                  <h3 className="design-heading">Calibration</h3>
+                  <p className="design-hint">
+                    Print the fit test. Measure the outside width and depth of
+                    the print. Enter the two measurements. Select Apply to
+                    replace the correction.
+                  </p>
+                  <div className="printer-grid">
+                    <label className="printer-field">
+                      <span>Measured width, X</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        data-testid="calibration-measured-x"
+                        value={measured.x}
+                        min={0}
+                        step={0.01}
+                        autoComplete="off"
+                        onChange={(event) =>
+                          updateMeasured("x", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label className="printer-field">
+                      <span>Measured depth, Y</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        data-testid="calibration-measured-y"
+                        value={measured.y}
+                        min={0}
+                        step={0.01}
+                        autoComplete="off"
+                        onChange={(event) =>
+                          updateMeasured("y", event.target.value)
+                        }
+                      />
+                    </label>
+                  </div>
+                  <div
+                    className="calibration-proposal"
+                    data-testid="calibration-proposal"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {modeledExtents ? (
+                      <p>{expectedText}</p>
+                    ) : (
+                      <p>
+                        Fix the settings above to get an expected size to
+                        compare.
+                      </p>
+                    )}
+                    {calibrationProposals.map((proposal) => (
+                      <p key={proposal.axis}>{proposal.text}</p>
+                    ))}
+                  </div>
+                  <button
+                    className="button button--quiet"
+                    type="button"
+                    data-testid="calibration-apply"
+                    disabled={calibrationProposals.length === 0}
+                    onClick={applyCalibration}
+                  >
+                    Apply correction
+                  </button>
+                  <p
+                    className={`design-message${calibrationMessage ? " design-message--info" : " design-message--empty"}`}
+                    data-testid="calibration-message"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {calibrationMessage}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </section>
+
           <DerivedValuesCard
             title={product.copy.derivedTitle}
             values={derivedValues}
-            valid={validation.valid}
+            valid={designChecksPassed}
           />
 
           {product.groups.map((group) => (
@@ -647,25 +1165,53 @@ export function ProductApp({ productId }: { productId: string }) {
           ))}
 
           <div
-            className={`validation-summary${validation.valid ? " validation-summary--valid" : ""}`}
+            className={`validation-summary${designChecksPassed ? " validation-summary--valid" : ""}`}
             data-testid="validation-summary"
-            role={validation.valid ? "status" : "alert"}
+            role={designChecksPassed ? "status" : "alert"}
           >
             <span className="validation-icon" aria-hidden="true">
-              {validation.valid ? "✓" : "!"}
+              {designChecksPassed ? "✓" : "!"}
             </span>
             <div>
               <strong>
-                {validation.valid
-                  ? "Design checks passed"
-                  : `${validation.issues.length} setting${validation.issues.length === 1 ? " needs" : "s need"} attention`}
+                {correctionBlocked
+                  ? "The printer correction leaves a limit"
+                  : designChecksPassed
+                    ? "Design checks passed"
+                    : `${validation.issues.length} setting${validation.issues.length === 1 ? " needs" : "s need"} attention`}
               </strong>
               <span>
-                {validation.valid
-                  ? "The current dimensions are safe to generate and export."
-                  : "The last valid preview stays visible while you make corrections."}
+                {correctionBlocked
+                  ? `${correctionMessages.join(" ")} Lower the correction, or change the value.`
+                  : designChecksPassed
+                    ? "The current dimensions are safe to generate and export."
+                    : "The last valid preview stays visible while you make corrections."}
               </span>
             </div>
+          </div>
+
+          <div
+            className={`printer-warnings${printerWarnings.length ? "" : " printer-warnings--empty"}`}
+            data-testid="printer-warnings"
+            role="status"
+            aria-live="polite"
+          >
+            {printerWarnings.length ? (
+              <>
+                <strong>Printer check</strong>
+                {printerWarnings.map((warning) => (
+                  <p
+                    key={warning.id}
+                    className="printer-warning"
+                    data-testid="printer-warning"
+                    data-tone="warning"
+                  >
+                    {warning.text}
+                  </p>
+                ))}
+                <span>These are warnings. The download stays available.</span>
+              </>
+            ) : null}
           </div>
 
           <div className="export-bar">
@@ -710,7 +1256,7 @@ export function ProductApp({ productId }: { productId: string }) {
         <section className="preview-panel" aria-label={product.copy.previewLabel}>
           <ModelViewer
             geometry={preview?.geometry ?? null}
-            modelKey={preview?.signature ?? ""}
+            modelKey={preview?.meshSignature ?? ""}
             status={viewerStatus}
             statusDetail={statusDetail}
             printOrientation={product.printOrientation}

@@ -1,4 +1,9 @@
 import { normalizeDesignName } from "./design-file";
+import {
+  PRINTER_PROFILE_DEFAULTS,
+  normalizePrinterProfile,
+  type PrinterProfileV1,
+} from "./printer-profile";
 import { DRAWER_TRAY_ID } from "./products/drawer-tray";
 import { getProduct } from "./products/registry";
 import type { AnyParameters, AnyProduct } from "./products/types";
@@ -23,6 +28,13 @@ export interface WorkspaceV2 {
   version: 2;
   updatedAt: string;
   designs: Record<string, StoredDesign>;
+  /**
+   * The printer profile for this device. Optional: a version 2 envelope
+   * written before printer profiles existed has no `printer` field, and a
+   * reader that finds none uses the defaults. The version stays 2 because
+   * absence is valid in both directions.
+   */
+  printer?: PrinterProfileV1;
 }
 
 export const WORKSPACE_FORMAT = "drawerforge-workspace";
@@ -105,15 +117,18 @@ export function readWorkspace(storage: StorageLike): WorkspaceRead {
   }
   if (isRecord(parsed) && parsed.format === WORKSPACE_FORMAT) {
     if (parsed.version === WORKSPACE_VERSION && isRecord(parsed.designs)) {
-      return {
-        state: "ok",
-        workspace: {
-          format: WORKSPACE_FORMAT,
-          version: WORKSPACE_VERSION,
-          updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
-          designs: parsed.designs as Record<string, StoredDesign>,
-        },
+      const workspace: WorkspaceV2 = {
+        format: WORKSPACE_FORMAT,
+        version: WORKSPACE_VERSION,
+        updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
+        designs: parsed.designs as Record<string, StoredDesign>,
       };
+      // A stored profile is normalized here, so one bad number cannot reach
+      // the geometry. An absent profile stays absent; it is not written back.
+      if (isRecord(parsed.printer)) {
+        workspace.printer = normalizePrinterProfile(parsed.printer);
+      }
+      return { state: "ok", workspace };
     }
     if (typeof parsed.version === "number" && parsed.version > WORKSPACE_VERSION) {
       return { state: "newer" };
@@ -254,6 +269,59 @@ export function readDesign(
   const checked = validateStoredDesign(ownDesign(workspace.designs, product.id), resolveProduct);
   if (!checked || checked.product.id !== product.id) return null;
   return checked.design;
+}
+
+/** A stored profile, and whether the envelope actually holds one. */
+export interface PrinterEntry {
+  profile: PrinterProfileV1;
+  /**
+   * True when the envelope holds a `printer` field. False means the app is
+   * using placeholder defaults that the user has never confirmed, so a
+   * build-volume warning would describe a bed nobody entered.
+   */
+  saved: boolean;
+}
+
+/**
+ * The printer profile for this device. An envelope without one, an absent
+ * envelope, and an unreadable envelope all give the defaults with
+ * `saved: false`, so the app always has a usable profile.
+ */
+export function readPrinterEntry(
+  storage: StorageLike,
+  resolveProduct: ResolveProduct = getProduct,
+  now: () => Date = () => new Date(),
+): PrinterEntry {
+  const { workspace } = loadWorkspace(storage, resolveProduct, now);
+  return workspace.printer
+    ? { profile: workspace.printer, saved: true }
+    : { profile: { ...PRINTER_PROFILE_DEFAULTS }, saved: false };
+}
+
+/**
+ * Replaces the printer profile. Every design in the envelope is kept as it
+ * is. Returns false when storage refuses the write or could not be read,
+ * with the same rules the design writes follow.
+ */
+export function writePrinterProfile(
+  storage: StorageLike,
+  profile: PrinterProfileV1,
+  resolveProduct: ResolveProduct = getProduct,
+  now: () => Date = () => new Date(),
+): boolean {
+  const { workspace, writable } = loadWorkspace(storage, resolveProduct, now);
+  if (!writable) return false;
+  const normalized = normalizePrinterProfile(profile);
+  if (
+    workspace.printer &&
+    JSON.stringify(workspace.printer) === JSON.stringify(normalized)
+  ) {
+    return true;
+  }
+  const stamp = now().toISOString();
+  workspace.printer = normalized;
+  workspace.updatedAt = stamp;
+  return writeWorkspace(storage, workspace);
 }
 
 function sameDesign(

@@ -443,7 +443,10 @@ button:disabled {
   background: var(--paper-deep);
   border: 1px solid var(--line);
   border-radius: 6px;
-  color: var(--copper);
+  /* --copper falls to a 4.39:1 contrast ratio against --paper-deep at this
+     text size; --copper-dark clears the WCAG AA 4.5:1 bar (6.08:1). See
+     25_BROWSER_QA_NOTES.md, decision D-1006. */
+  color: var(--copper-dark);
   display: inline-flex;
   flex: 0 0 auto;
   font-family: var(--font-mono);
@@ -1145,4 +1148,167 @@ button:disabled {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+.printer-section {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 20px;
+}
+
+.printer-toggle {
+  align-items: center;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  font: inherit;
+  gap: 10px;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.printer-toggle .design-heading {
+  margin: 0;
+}
+
+.printer-toggle::after {
+  color: var(--ink-soft);
+  content: "+";
+  font-family: var(--font-mono);
+  margin-left: auto;
+}
+
+.printer-toggle[aria-expanded="true"]::after {
+  content: "−";
+}
+
+.printer-summary {
+  color: var(--ink-soft);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.printer-body {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.printer-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.printer-field {
+  display: grid;
+  gap: 4px;
+}
+
+.printer-field > span:first-child {
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.printer-field > input {
+  background: var(--panel-bright);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: inherit;
+  font: inherit;
+  padding: 7px 9px;
+  width: 100%;
+}
+
+.printer-field > input:focus-visible {
+  outline: 2px solid var(--accent, currentColor);
+  outline-offset: 1px;
+}
+
+.printer-field-message {
+  color: var(--error);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.printer-field-message--empty {
+  display: none;
+}
+
+.compensation-list {
+  background: var(--panel-bright);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  font-size: 11px;
+  gap: 4px;
+  line-height: 1.45;
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 8px 10px;
+}
+
+.compensation-axis {
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+}
+
+.printer-calibration {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+.printer-calibration .design-heading,
+.printer-calibration .design-hint {
+  margin: 0;
+}
+
+.calibration-proposal {
+  background: var(--panel-bright);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  font-size: 11px;
+  gap: 4px;
+  line-height: 1.45;
+  padding: 8px 10px;
+}
+
+.calibration-proposal p {
+  margin: 0;
+}
+
+.printer-warnings {
+  background: rgb(190 130 20 / 10%);
+  border: 1px solid rgb(190 130 20 / 40%);
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 12px;
+}
+
+.printer-warnings--empty {
+  display: none;
+}
+
+.printer-warnings strong {
+  font-size: 11px;
+}
+
+.printer-warnings p,
+.printer-warnings span {
+  color: var(--ink-soft);
+  font-size: 10px;
+  line-height: 1.4;
+  margin: 0;
 }

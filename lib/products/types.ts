@@ -1,4 +1,5 @@
 import type { GeneratedModel } from "../kernel/mesh";
+import type { CompensableParameters } from "../printer-profile";
 
 export type MeshQuality = "draft" | "standard" | "fine";
 
@@ -145,6 +146,12 @@ export interface ProductDefinition<
    * without this member shows no fit-test download.
    */
   coupon?(parameters: P): Promise<GeneratedModel<P>>;
+  /**
+   * The parameters that set an outside dimension along X and along Y. The
+   * app adds the printer's dimensional correction to them before it builds
+   * the mesh. A product without this member is never compensated.
+   */
+  compensable?: CompensableParameters;
   boundsContract(parameters: P): BoundsContract;
   filename(parameters: P): string;
   /** Short summary shown beside the viewer status, e.g. "299 × 199 × 50 mm". */

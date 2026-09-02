@@ -14,6 +14,7 @@
     "test:unit": "vitest run tests/drawer-tray.test.ts tests/products.test.ts tests/design-file.test.ts tests/workspace.test.ts tests/generation.test.ts tests/geometry.test.ts tests/stl.test.ts",
     "test:integration": "vitest run tests/app.integration.test.tsx",
     "test:ssr": "npm run build && node --test tests/rendered-html.test.mjs",
+    "test:browser": "playwright test",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
   "dependencies": {
@@ -24,7 +25,9 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@cloudflare/vite-plugin": "1.37.1",
+    "@playwright/test": "1.56.1",
     "@tailwindcss/postcss": "4.2.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -37,6 +40,7 @@
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
     "jsdom": "26.1.0",
+    "playwright-core": "1.56.1",
     "react-server-dom-webpack": "19.2.6",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
