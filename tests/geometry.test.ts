@@ -1,18 +1,28 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { generateOrganizer } from "../lib/organizer-geometry";
 import {
-  DEFAULT_PARAMETERS,
-  normalizeParameters,
-  type OrganizerParameters,
-} from "../lib/parameters";
-import { loadPreset } from "../lib/presets";
+  DRAWER_TRAY_DEFAULTS as DEFAULT_PARAMETERS,
+  deriveDimensions,
+  drawerTray,
+  type DrawerTrayParameters,
+} from "../lib/products/drawer-tray";
 import {
   analyzeBufferGeometry,
-  organizerToBufferGeometry,
+  modelToBufferGeometry,
 } from "../lib/three-geometry";
 
-const fixtures: Array<[string, Partial<OrganizerParameters>]> = [
+const { normalize, generate } = drawerTray;
+
+function loadPreset(id: string): DrawerTrayParameters {
+  const preset = drawerTray.presets.find((candidate) => candidate.id === id);
+  if (!preset) throw new Error(`Unknown preset: ${id}`);
+  return { ...preset.parameters };
+}
+
+const GOLDEN_TRIANGLES = 362;
+const GOLDEN_VOLUME = 277462.54;
+
+const fixtures: Array<[string, Partial<DrawerTrayParameters>]> = [
   ["1x1", { rows: 1, columns: 1, fingerScoop: false }],
   ["1x3", { rows: 1, columns: 3, fingerScoop: false }],
   ["2x3 scoop", { rows: 2, columns: 3, fingerScoop: true }],
@@ -97,7 +107,7 @@ function connectedComponentCount(indices: Uint32Array): number {
  * the 3D result can still be a formally closed manifold.
  */
 function horizontalSliceTopology(
-  mesh: Awaited<ReturnType<typeof generateOrganizer>>["mesh"],
+  mesh: Awaited<ReturnType<typeof generate>>["mesh"],
   z: number,
 ): {
   contours: number;
@@ -234,9 +244,10 @@ function horizontalSliceTopology(
 }
 
 function expectRoundedCornerWallIsContinuous(
-  model: Awaited<ReturnType<typeof generateOrganizer>>,
+  model: Awaited<ReturnType<typeof generate>>,
 ) {
-  const { parameters, derived } = model;
+  const { parameters } = model;
+  const derived = deriveDimensions(parameters);
   const topology = horizontalSliceTopology(
     model.mesh,
     parameters.baseThickness + 0.731,
@@ -261,9 +272,9 @@ function expectRoundedCornerWallIsContinuous(
 
 describe("organizer geometry", () => {
   it.each(fixtures)("creates a finite, outward, closed %s organizer", async (_name, changes) => {
-    const parameters = normalizeParameters({ ...DEFAULT_PARAMETERS, ...changes });
-    const organizer = await generateOrganizer(parameters);
-    const geometry = organizerToBufferGeometry(organizer);
+    const parameters = normalize({ ...DEFAULT_PARAMETERS, ...changes });
+    const organizer = await generate(parameters);
+    const geometry = modelToBufferGeometry(organizer);
     const analysis = analyzeBufferGeometry(geometry);
     const size = analysis.bounds.getSize(new THREE.Vector3());
 
@@ -275,8 +286,8 @@ describe("organizer geometry", () => {
     expect(analysis.minimumNormalLength).toBeCloseTo(1, 5);
     expect(analysis.signedVolume).toBeGreaterThan(0);
     expect(connectedComponentCount(organizer.mesh.triVerts)).toBe(1);
-    expect(size.x).toBeCloseTo(organizer.derived.outsideWidth, 4);
-    expect(size.y).toBeCloseTo(organizer.derived.outsideDepth, 4);
+    expect(size.x).toBeCloseTo(deriveDimensions(parameters).outsideWidth, 4);
+    expect(size.y).toBeCloseTo(deriveDimensions(parameters).outsideDepth, 4);
     expect(size.z).toBeCloseTo(parameters.organizerHeight, 4);
     expect(analysis.bounds.min.z).toBeCloseTo(0, 5);
 
@@ -288,11 +299,11 @@ describe("organizer geometry", () => {
   });
 
   it("keeps bounds while a scoop removes material above the base", async () => {
-    const plain = normalizeParameters({ ...DEFAULT_PARAMETERS, fingerScoop: false });
-    const scooped = normalizeParameters({ ...DEFAULT_PARAMETERS, fingerScoop: true });
+    const plain = normalize({ ...DEFAULT_PARAMETERS, fingerScoop: false });
+    const scooped = normalize({ ...DEFAULT_PARAMETERS, fingerScoop: true });
     const [plainModel, scoopedModel] = await Promise.all([
-      generateOrganizer(plain),
-      generateOrganizer(scooped),
+      generate(plain),
+      generate(scooped),
     ]);
     expect(scoopedModel.bounds).toEqual(plainModel.bounds);
     expect(scoopedModel.volume).toBeLessThan(plainModel.volume);
@@ -301,8 +312,8 @@ describe("organizer geometry", () => {
   it("increases round-feature fidelity with mesh quality", async () => {
     const counts: number[] = [];
     for (const meshQuality of ["draft", "standard", "fine"] as const) {
-      const model = await generateOrganizer(
-        normalizeParameters({ ...DEFAULT_PARAMETERS, meshQuality }),
+      const model = await generate(
+        normalize({ ...DEFAULT_PARAMETERS, meshQuality }),
       );
       counts.push(model.mesh.triVerts.length / 3);
     }
@@ -310,9 +321,9 @@ describe("organizer geometry", () => {
     expect(counts[2]).toBeGreaterThan(counts[1]);
   });
 
-  it("keeps every Cutlery compartment closed inside the rounded perimeter", async () => {
-    const parameters = loadPreset("cutlery");
-    const model = await generateOrganizer(parameters);
+  it("keeps every Hand tools compartment closed inside the rounded perimeter", async () => {
+    const parameters = loadPreset("tools");
+    const model = await generate(parameters);
     const topology = horizontalSliceTopology(
       model.mesh,
       parameters.baseThickness + 0.731,
@@ -336,7 +347,7 @@ describe("organizer geometry", () => {
   ])(
     "preserves a continuous 1x1 perimeter at radius %s and wall %s",
     async (cornerRadius, wallThickness) => {
-      const parameters = normalizeParameters({
+      const parameters = normalize({
         ...DEFAULT_PARAMETERS,
         cornerRadius,
         wallThickness,
@@ -344,7 +355,7 @@ describe("organizer geometry", () => {
         columns: 1,
         fingerScoop: false,
       });
-      const model = await generateOrganizer(parameters);
+      const model = await generate(parameters);
       const topology = horizontalSliceTopology(
         model.mesh,
         parameters.baseThickness + 0.731,
@@ -357,4 +368,16 @@ describe("organizer geometry", () => {
       expectRoundedCornerWallIsContinuous(model);
     },
   );
+  it("matches the geometry version 1 golden record for the defaults", async () => {
+    // Recorded at geometryVersion 1. A change here is a geometry change:
+    // bump DRAWER_TRAY_GEOMETRY_VERSION and re-record on purpose.
+    const model = await generate(normalize(DEFAULT_PARAMETERS));
+    expect(drawerTray.geometryVersion).toBe(1);
+    expect(model.mesh.triVerts.length / 3).toBe(GOLDEN_TRIANGLES);
+    expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(0.001);
+    expect(model.bounds).toEqual([
+      [-149.5, -99.5, 0],
+      [149.5, 99.5, 50],
+    ]);
+  });
 });

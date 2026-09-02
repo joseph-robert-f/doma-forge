@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import type { OrganizerParameters } from "./parameters";
 
 const STL_HEADER_BYTES = 80;
 const STL_TRIANGLE_BYTES = 50;
@@ -64,18 +63,6 @@ export function serializeBinaryStl(geometry: THREE.BufferGeometry): ArrayBuffer 
   }
 
   return buffer;
-}
-
-function filenameNumber(value: number): string {
-  return Number(value.toFixed(2)).toString().replace(".", "p");
-}
-
-export function deterministicStlFilename(
-  parameters: OrganizerParameters,
-  outsideWidth: number,
-  outsideDepth: number,
-): string {
-  return `drawerforge-${filenameNumber(outsideWidth)}x${filenameNumber(outsideDepth)}x${filenameNumber(parameters.organizerHeight)}-${parameters.rows}x${parameters.columns}.stl`;
 }
 
 export interface BinaryStlInspection {

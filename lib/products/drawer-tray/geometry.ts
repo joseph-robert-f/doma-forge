@@ -1,101 +1,42 @@
-import ManifoldModule, {
-  type CrossSection,
-  type ManifoldToplevel,
-} from "manifold-3d";
-import manifoldWasmUrl from "manifold-3d/manifold.wasm?url";
+import { getKernel, type Solid } from "../../kernel/manifold";
+import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
+import { roundedRectangle } from "../../kernel/profiles";
 import {
+  QUALITY_SEGMENTS,
   deriveDimensions,
-  validateParameters,
-  type DerivedDimensions,
-  type MeshQuality,
-  type OrganizerParameters,
-} from "./parameters";
+  type DrawerTrayParameters,
+} from "./schema";
+import { validateDrawerTray } from "./validate";
 
-export interface OrganizerMesh {
-  numProp: number;
-  vertProperties: Float32Array;
-  triVerts: Uint32Array;
-}
-
-export interface GeneratedOrganizer {
-  mesh: OrganizerMesh;
-  parameters: OrganizerParameters;
-  derived: DerivedDimensions;
-  bounds: [[number, number, number], [number, number, number]];
-  volume: number;
-  status: string;
-}
-
+/** Hidden overlap so Boolean faces never sit exactly coplanar. */
 const BOOLEAN_OVERLAP = 0.2;
-let manifoldModulePromise: Promise<ManifoldToplevel> | null = null;
 
-export const QUALITY_SEGMENTS: Record<MeshQuality, number> = {
-  draft: 12,
-  standard: 24,
-  fine: 48,
-};
-
-async function getManifoldModule(): Promise<ManifoldToplevel> {
-  const isNodeRuntime =
-    typeof process !== "undefined" && Boolean(process.versions?.node);
-  manifoldModulePromise ??= ManifoldModule(
-    isNodeRuntime
-      ? undefined
-      : { locateFile: () => manifoldWasmUrl },
-  )
-    .then((kernel) => {
-      kernel.setup();
-      return kernel;
-    })
-    .catch((error: unknown) => {
-      manifoldModulePromise = null;
-      throw error;
-    });
-  return manifoldModulePromise;
-}
-
-function roundedRectangle(
-  module: ManifoldToplevel,
-  width: number,
-  depth: number,
-  radius: number,
-  segments: number,
-): CrossSection {
-  const safeRadius = Math.max(
-    0,
-    Math.min(radius, width / 2 - 0.01, depth / 2 - 0.01),
-  );
-  if (safeRadius < 0.01) {
-    return module.CrossSection.square([width, depth], true);
-  }
-  const core = module.CrossSection.square(
-    [width - safeRadius * 2, depth - safeRadius * 2],
-    true,
-  );
-  const rounded = core.offset(safeRadius, "Round", 2, segments);
-  core.delete();
-  return rounded;
-}
-
-export function getFingerScoopRadius(parameters: OrganizerParameters): number {
+export function getFingerScoopRadius(parameters: DrawerTrayParameters): number {
   const derived = deriveDimensions(parameters);
-  const availableWallHeight = parameters.organizerHeight - parameters.baseThickness;
+  const availableWallHeight =
+    parameters.organizerHeight - parameters.baseThickness;
   return Math.max(
     1.5,
     Math.min(12, derived.outsideWidth * 0.075, availableWallHeight - 2),
   );
 }
 
-export async function generateOrganizer(
-  parameters: OrganizerParameters,
-): Promise<GeneratedOrganizer> {
-  const validation = validateParameters(parameters);
+/**
+ * Builds the tray as one solid: a rounded outer extrusion, minus an exact
+ * inward-offset cavity, plus dividers clipped to the outer profile, minus the
+ * optional front finger scoop. Coordinates are millimeters, X/Y centered on
+ * the origin, base at Z = 0.
+ */
+export async function generateDrawerTray(
+  parameters: DrawerTrayParameters,
+): Promise<GeneratedModel<DrawerTrayParameters>> {
+  const validation = validateDrawerTray(parameters);
   if (!validation.valid) {
     throw new Error(validation.issues.map((issue) => issue.message).join(" "));
   }
 
-  const kernel = await getManifoldModule();
-  const derived = validation.derived;
+  const kernel = await getKernel();
+  const derived = deriveDimensions(parameters);
   const segments = QUALITY_SEGMENTS[parameters.meshQuality];
 
   const outerProfile = roundedRectangle(
@@ -130,7 +71,7 @@ export async function generateOrganizer(
 
   const shell = outer.subtract(cavity);
   cavity.delete();
-  const unionInputs: InstanceType<ManifoldToplevel["Manifold"]>[] = [shell];
+  const unionInputs: Solid[] = [shell];
   const dividerHeight =
     parameters.organizerHeight - parameters.baseThickness + BOOLEAN_OVERLAP * 2;
   const dividerCenterZ =
@@ -181,7 +122,7 @@ export async function generateOrganizer(
     );
   }
 
-  let solid: InstanceType<ManifoldToplevel["Manifold"]>;
+  let solid: Solid;
   if (unionInputs.length === 1) {
     solid = shell;
   } else {
@@ -213,31 +154,5 @@ export async function generateOrganizer(
     solid = scooped;
   }
 
-  const status = solid.status();
-  if (status !== "NoError" || solid.isEmpty()) {
-    solid.delete();
-    throw new Error(`The geometry kernel could not create this organizer (${status}).`);
-  }
-
-  const box = solid.boundingBox();
-  const volume = solid.volume();
-  const outputMesh = solid.getMesh();
-  const mesh: OrganizerMesh = {
-    numProp: outputMesh.numProp,
-    vertProperties: Float32Array.from(outputMesh.vertProperties),
-    triVerts: Uint32Array.from(outputMesh.triVerts),
-  };
-  solid.delete();
-
-  return {
-    mesh,
-    parameters: { ...parameters },
-    derived,
-    bounds: [
-      [box.min[0], box.min[1], box.min[2]],
-      [box.max[0], box.max[1], box.max[2]],
-    ],
-    volume,
-    status,
-  };
+  return finishSolid(solid, parameters, "organizer");
 }

@@ -1,20 +1,15 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
-import { generateOrganizer } from "../lib/organizer-geometry";
-import { DEFAULT_PARAMETERS, normalizeParameters } from "../lib/parameters";
-import {
-  deterministicStlFilename,
-  inspectBinaryStl,
-  serializeBinaryStl,
-} from "../lib/stl";
-import { organizerToBufferGeometry } from "../lib/three-geometry";
+import { drawerTray } from "../lib/products/drawer-tray";
+import { inspectBinaryStl, serializeBinaryStl } from "../lib/stl";
+import { modelToBufferGeometry } from "../lib/three-geometry";
 
 describe("binary STL export", () => {
   it("serializes the exact preview triangles with matching bounds", async () => {
-    const parameters = normalizeParameters(DEFAULT_PARAMETERS);
-    const model = await generateOrganizer(parameters);
-    const geometry = organizerToBufferGeometry(model);
+    const parameters = drawerTray.normalize(drawerTray.defaults);
+    const model = await drawerTray.generate(parameters);
+    const geometry = modelToBufferGeometry(model);
     const data = serializeBinaryStl(geometry);
     const inspected = inspectBinaryStl(data);
     geometry.computeBoundingBox();
@@ -46,18 +41,6 @@ describe("binary STL export", () => {
     ).toBeLessThan(1e-5);
     independentlyParsed.dispose();
     geometry.dispose();
-  });
-
-  it("creates a deterministic, locale-independent filename", () => {
-    const parameters = normalizeParameters({
-      ...DEFAULT_PARAMETERS,
-      organizerHeight: 47.5,
-      rows: 2,
-      columns: 3,
-    });
-    expect(deterministicStlFilename(parameters, 299.5, 199)).toBe(
-      "drawerforge-299p5x199x47p5-2x3.stl",
-    );
   });
 
   it("rejects malformed binary STL data", () => {

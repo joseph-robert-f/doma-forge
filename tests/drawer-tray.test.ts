@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_PARAMETERS,
+  DRAWER_TRAY_DEFAULTS as DEFAULT_PARAMETERS,
   deriveDimensions,
-  normalizeParameters,
-  validateParameters,
-} from "../lib/parameters";
+  drawerTray,
+} from "../lib/products/drawer-tray";
+
+const { normalize, validate } = drawerTray;
 
 describe("parameter normalization and derivation", () => {
   it("coerces persisted values into one canonical parameter model", () => {
-    const normalized = normalizeParameters({
+    const normalized = normalize({
       drawerWidth: "350.125",
       rows: 2.6,
       columns: "4",
@@ -25,7 +26,7 @@ describe("parameter normalization and derivation", () => {
   });
 
   it("derives outside and compartment dimensions", () => {
-    const parameters = normalizeParameters({
+    const parameters = normalize({
       ...DEFAULT_PARAMETERS,
       drawerWidth: 302,
       drawerDepth: 202,
@@ -45,7 +46,7 @@ describe("parameter normalization and derivation", () => {
   });
 
   it("rounds tiny numeric input without replacing it with a default", () => {
-    const normalized = normalizeParameters({
+    const normalized = normalize({
       ...DEFAULT_PARAMETERS,
       clearancePerSide: 0.0001,
     });
@@ -61,15 +62,15 @@ describe("parameter validation", () => {
     ["too many columns", { drawerWidth: 80, columns: 8 }, "columns"],
     ["too many rows", { drawerDepth: 80, dividerThickness: 4, rows: 6 }, "rows"],
   ])("rejects %s", (_label, changes, expectedField) => {
-    const result = validateParameters(
-      normalizeParameters({ ...DEFAULT_PARAMETERS, ...changes }),
+    const result = validate(
+      normalize({ ...DEFAULT_PARAMETERS, ...changes }),
     );
     expect(result.valid).toBe(false);
     expect(result.byField[expectedField as keyof typeof result.byField]).toBeTruthy();
   });
 
   it("accepts a compartment that is exactly 10 mm wide", () => {
-    const parameters = normalizeParameters({
+    const parameters = normalize({
       ...DEFAULT_PARAMETERS,
       drawerWidth: 86,
       clearancePerSide: 0,
@@ -78,13 +79,13 @@ describe("parameter validation", () => {
       columns: 7,
       rows: 1,
     });
-    const result = validateParameters(parameters);
-    expect(result.derived.compartmentWidth).toBe(10);
+    const result = validate(parameters);
+    expect(deriveDimensions(parameters).compartmentWidth).toBe(10);
     expect(result.byField.columns).toBeUndefined();
   });
 
   it("rejects a compartment just below 10 mm", () => {
-    const parameters = normalizeParameters({
+    const parameters = normalize({
       ...DEFAULT_PARAMETERS,
       drawerWidth: 85.9,
       clearancePerSide: 0,
@@ -93,8 +94,8 @@ describe("parameter validation", () => {
       columns: 7,
       rows: 1,
     });
-    const result = validateParameters(parameters);
-    expect(result.derived.compartmentWidth).toBeLessThan(10);
+    const result = validate(parameters);
+    expect(deriveDimensions(parameters).compartmentWidth).toBeLessThan(10);
     expect(result.byField.columns?.join(" ")).toMatch(/at least 10 mm/i);
   });
 });

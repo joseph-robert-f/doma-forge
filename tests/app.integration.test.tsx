@@ -8,10 +8,11 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DrawerForgeApp } from "../app/components/DrawerForgeApp";
+import { DRAWER_TRAY_ID, drawerTray } from "../lib/products/drawer-tray";
+import { ProductApp, STORAGE_KEY } from "../app/components/ProductApp";
 
-vi.mock("../app/components/DrawerViewer", () => ({
-  DrawerViewer: ({
+vi.mock("../app/components/ModelViewer", () => ({
+  ModelViewer: ({
     modelKey,
     status,
     statusDetail,
@@ -29,7 +30,7 @@ vi.mock("../app/components/DrawerViewer", () => ({
 }));
 
 async function renderReadyApp() {
-  const result = render(<DrawerForgeApp />);
+  const result = render(<ProductApp productId={DRAWER_TRAY_ID} />);
   await waitFor(() =>
     expect(screen.getByTestId("preview-status").textContent).toMatch(/^ready:/),
   );
@@ -163,7 +164,7 @@ describe("DrawerForge app integration", () => {
 
   it("loads a preset and marks manual edits as Custom", async () => {
     await renderReadyApp();
-    fireEvent.click(screen.getByTestId("preset-cutlery"));
+    fireEvent.click(screen.getByTestId("preset-tools"));
 
     expect(screen.getByTestId("param-drawer-width-number")).toHaveProperty(
       "value",
@@ -181,6 +182,10 @@ describe("DrawerForge app integration", () => {
       .getByTestId("preset-custom")
       .querySelector("input") as HTMLInputElement;
     expect(custom.checked).toBe(true);
+    expect(
+      drawerTray.presets.find((preset) => preset.id === "tools")?.parameters
+        .organizerHeight,
+    ).toBe(55);
   });
 
   it("downloads a nonempty binary STL from the current preview", async () => {
@@ -211,7 +216,9 @@ describe("DrawerForge app integration", () => {
     expect(createUrl).toHaveBeenCalledOnce();
     const blob = createUrl.mock.calls[0][0] as Blob;
     expect(blob.size).toBeGreaterThan(84);
-    expect(downloadName).toBe("drawerforge-299x199x50-2x3.stl");
+    expect(downloadName).toMatch(
+      /^drawerforge-drawer-tray-299x199x50-2x3-[0-9a-f]{6}\.stl$/,
+    );
   });
 
   it("blocks a stale download until a valid regeneration finishes", async () => {
@@ -230,7 +237,7 @@ describe("DrawerForge app integration", () => {
 
   it("resets a preset design to the practical defaults", async () => {
     await renderReadyApp();
-    fireEvent.click(screen.getByTestId("preset-cutlery"));
+    fireEvent.click(screen.getByTestId("preset-tools"));
     expect(screen.getByTestId("param-drawer-width-number")).toHaveProperty(
       "value",
       "360",
@@ -255,6 +262,63 @@ describe("DrawerForge app integration", () => {
     );
   });
 
+  it("regenerates when a boolean or enum parameter changes", async () => {
+    await renderReadyApp();
+    const viewer = screen.getByTestId("model-viewer");
+    const download = screen.getByTestId("download-stl-button");
+    const originalKey = viewer.getAttribute("data-model-key");
+
+    const scoop = screen.getByTestId("param-finger-scoop-toggle") as HTMLInputElement;
+    expect(scoop.checked).toBe(true);
+    fireEvent.click(scoop);
+    expect(scoop.checked).toBe(false);
+    expect(download).toHaveProperty("disabled", true);
+    await waitFor(() =>
+      expect(viewer.getAttribute("data-model-key")).not.toBe(originalKey),
+    );
+    await waitFor(() => expect(download).toHaveProperty("disabled", false));
+    const scoopedKey = viewer.getAttribute("data-model-key");
+
+    fireEvent.click(screen.getByTestId("param-mesh-quality-fine"));
+    await waitFor(() =>
+      expect(viewer.getAttribute("data-model-key")).not.toBe(scoopedKey),
+    );
+    await waitFor(() => expect(download).toHaveProperty("disabled", false));
+    expect(
+      (screen.getByTestId("param-mesh-quality-fine") as HTMLInputElement).checked,
+    ).toBe(true);
+    const custom = screen
+      .getByTestId("preset-custom")
+      .querySelector("input") as HTMLInputElement;
+    expect(custom.checked).toBe(true);
+  });
+
+  it("shows the calculated result rows from the product definition", async () => {
+    await renderReadyApp();
+    expect(screen.getByTestId("derived-outside-dimensions").textContent).toBe(
+      "299 × 199 × 50 mm",
+    );
+    expect(
+      screen.getByTestId("derived-compartment-dimensions").textContent,
+    ).toMatch(/^≈ /);
+  });
+
+  it("ignores a saved design that belongs to another product", async () => {
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        productId: "some-other-product",
+        parameters: { drawerWidth: 400 },
+      }),
+    );
+    await renderReadyApp();
+    expect(screen.getByTestId("param-drawer-width-number")).toHaveProperty(
+      "value",
+      "300",
+    );
+  });
+
   it("persists and restores the latest valid design", async () => {
     const first = await renderReadyApp();
     fireEvent.change(screen.getByTestId("param-drawer-depth-number"), {
@@ -264,8 +328,9 @@ describe("DrawerForge app integration", () => {
       expect(screen.getByTestId("preview-status").textContent).toMatch(/^ready:/),
     );
     await waitFor(() => {
-      const stored = window.localStorage.getItem("drawerforge-design-v1") ?? "";
+      const stored = window.localStorage.getItem(STORAGE_KEY) ?? "";
       expect(stored).toContain('"drawerDepth":245');
+      expect(stored).toContain('"productId":"drawer-tray"');
     });
     first.unmount();
 
