@@ -12,6 +12,10 @@ This document has two parts.
 Part 2 does not replace 08_EXPANSION_ROADMAP.md. It sits on top of it.
 Phase A (design files) and Phase C (Web Worker) of that roadmap are prerequisites.
 
+Scope rule, 2026-09-02: No product may touch food, hold food, or hold an item that
+touches food. No product may serve a health or medical use. The knife block is tabled
+for the same reason. See 1.6 rule 13 and 2.1.
+
 ---
 
 ## Part 1. Expand and govern the drawer-tray generator
@@ -125,6 +129,10 @@ Keep the order from 08_EXPANSION_ROADMAP.md Phase E.
 | 5 | Label pocket on the front wall | labelWidth, labelHeight | Low |
 | 6 | Auto split for trays over the bed size | printBed profile | High. Do last. |
 
+Preset change: the `cutlery` preset places the tray in a kitchen drawer with food-contact
+items. Replace it with a `tools` preset that has the same long-lane geometry. Update
+`tests/presets.test.ts` in the same commit.
+
 ### 1.6 Governance rules
 
 Apply these rules to every product and every feature.
@@ -141,6 +149,7 @@ Apply these rules to every product and every feature.
 10. A feature that needs supports is a failed feature. Clamp the geometry, or reject the input.
 11. A validation message names the field and the fix. Example: "Each compartment must be at least 10 mm wide."
 12. Merge gate: `lint`, `typecheck`, `test`, `build`, `test:ssr` pass in CI. Add the CI workflow before step 1 of 1.4.
+13. No product, preset, label, or example copy may refer to food, drink, kitchen storage, cutlery, or a health or medical use. Review each new product and preset against this rule before it is merged.
 
 ---
 
@@ -153,6 +162,18 @@ Include a product only if all of these are true.
 - The custom size is the reason to print it. A fixed-size shop product does not fit.
 - The engine builds it from extrude, offset, revolve, hull, and booleans. No freeform surfaces, no threads.
 - It prints on a 220 x 220 x 250 mm bed without supports, or it splits into parts that do.
+- It does not touch food or drink. It does not hold an item that touches food. It has no health or medical use.
+
+Products removed under the last rule, with the reason:
+
+| Product | Reason |
+|---|---|
+| Knife and utensil slot block | Tabled. Holds knives. Secondary connection to food. |
+| Pantry or fridge bin | Holds food. |
+| Spice jar riser | Holds food containers. |
+| Lid and cutting-board rack | Holds food-contact surfaces. |
+| Funnel and decant adapter | Can be used with food or drink. |
+| Hair dryer holster | Hot tool against printed plastic. Safety concern. |
 
 ### 2.2 Product families
 
@@ -160,7 +181,7 @@ One family module gives several products. Build the module once.
 
 | Family | Shared module | Products | New kernel code |
 |---|---|---|---|
-| A. Shelled trays and bins | rounded-rect shell + cavity + dividers (exists) | 0, 1, 2, 3, 4 | stacking lip, handle cutter, leg posts, uneven divider positions |
+| A. Shelled trays and bins | rounded-rect shell + cavity + dividers (exists) | 0, 1, 2, 3, 4 | stacking lip, leg posts, uneven divider positions, angled rest |
 | B. Comb and bore arrays | slab + cutter array (prism, cylinder, cone) | 5, 6, 7, 8, 9 | cutter array, pitch solver, underside lightening |
 | C. Brackets and wall mounts | back plate + screw bores + gussets | 10, 11, 12 | J-profile extrude, countersink, hull gusset |
 | D. Revolved forms | 2D profile + revolve + offset shell | 13, 14 | profile builder, revolve |
@@ -171,33 +192,35 @@ M = measure your space or object. C = construction. Effort is relative to the dr
 
 | # | Product | Room | Why custom | Key M inputs | Family | Effort | Wave |
 |---|---|---|---|---|---|---|---|
-| 0 | Drawer organizer tray | Any | Fits the drawer interior | drawer width, depth | A | Exists | - |
+| 0 | Drawer organizer tray | Desk, garage, closet | Fits the drawer interior | drawer width, depth | A | Exists | - |
 | 1 | Stackable parts bin | Garage, craft | Fills the shelf width, stacks | bin width, depth, height | A | S | 1 |
-| 2 | Pantry or fridge bin with handle | Kitchen | Exact shelf depth and door clearance | shelf depth, bin height | A | S-M | 2 |
-| 3 | Two-tier drawer riser insert | Bath, desk | Height matches the items below | clear height over contents | A | M | 2 |
+| 2 | Remote and controller caddy | Living room | Wells match each remote and controller | well widths, well depth | A | M | 2 |
+| 3 | Two-tier drawer riser insert | Desk, vanity | Height matches the items below | clear height over contents | A | M | 2 |
 | 4 | Entryway valet with phone rest | Entry | Wells sized to phone, keys, watch | well widths, phone slot | A | M | 3 |
-| 5 | Knife and utensil slot block | Kitchen | Slot width matches the blade | slot width, slot length | B | M | 1 |
+| 5 | Battery organizer | Garage, desk | Bores match AA, AAA, 18650, or coin cells | cell diameter, cell length, count | B | S | 1 |
 | 6 | Bit, socket, and driver tray | Garage | Bores match the socket set | bore diameter per row | B | S | 1 |
 | 7 | Marker and brush cup block | Kids, craft | Bore matches the pen | bore diameter, count | B | S | 1 |
-| 8 | Spice jar tiered riser | Kitchen | Rise matches jar and cabinet height | jar diameter, cabinet height | B | M-L | 2 |
-| 9 | Lid and cutting-board fin rack | Kitchen | Fin pitch matches the board thickness | fin pitch, rack width | B | S-M | 1 |
+| 8 | Tool fin rack for pliers and files | Garage | Fin pitch matches the tool thickness | fin pitch, rack width | B | S-M | 1 |
+| 9 | Card and cartridge slot holder | Living room, desk | Slot matches SD cards, game cartridges, cassettes | card thickness, width, count | B | S | 2 |
 | 10 | Wall hook rail with key shelf | Entry | Screw spacing matches the wall | rail length, screw spacing | C | L | 3 |
-| 11 | Hair dryer or iron holster | Bath | Pocket matches the barrel | pocket diameter, depth | C | M | 3 |
-| 12 | Shelf riser or shoe stacker | Closet, pantry | Leg height matches the shoes or cans | leg height, deck size | C | M | 3 |
-| 13 | Funnel and decant adapter | Laundry, garage | Mouth and spout match the containers | top diameter, spout diameter | D | M | 2 |
+| 11 | Headphone and controller wall mount | Desk, living room | Hook and pocket match the device | device width, band thickness | C | M | 3 |
+| 12 | Shelf riser or shoe stacker | Closet, garage | Leg height matches the shoes or boxes | leg height, deck size | C | M | 3 |
+| 13 | Nursery plant pot with drainage | Any | Fits the shelf, the saucer, and the plant | outer diameter, height | D | S-M | 2 |
 | 14 | Plant pot saucer | Any | Inner diameter matches the pot base | inner diameter | D | S-M | 2 |
 
 Each product keeps five to nine primary inputs. The construction group is shared. See 2.5.
 
+Products 5, 7, 8, and 9 are presets of the same cutter-array module with a different cutter shape. That is the leverage of family B.
+
 ### 2.4 Build waves
 
-Wave 1 gives five products in four rooms with the least new code. It builds family B and two family A extensions.
+Wave 1 gives five products in three rooms with the least new code. It builds family B and one family A extension.
 
 | Wave | Products | Modules delivered | Exit gate |
 |---|---|---|---|
-| 1 | 6, 7, 1, 9, 5 | Cutter array, pitch solver, stacking lip | Five products pass rule 1.6.6. Ten coupons printed. |
-| 2 | 2, 3, 14, 13, 8 | Handle cutter, leg posts, revolve, staircase profile | Same gate. Auto-split prompt for bins over 210 mm. |
-| 3 | 12, 11, 10, 4 | Screw bores, gussets, J-profile, uneven dividers | Same gate. Load note on each bracket product. |
+| 1 | 6, 7, 5, 1, 8 | Cutter array, pitch solver, stacking lip | Five products pass rule 1.6.6. Ten coupons printed. |
+| 2 | 9, 2, 3, 14, 13 | Uneven divider positions, leg posts, revolve | Same gate. Pot and saucer print as a matched pair. |
+| 3 | 12, 11, 10, 4 | Screw bores, gussets, J-profile, angled rest | Same gate. Load note on each bracket product. |
 
 Do not start wave 1 before steps 1 to 8 of section 1.4 are merged.
 
@@ -222,12 +245,12 @@ The printer profile is the `PrinterProfileV1` record from roadmap Phase B. Store
 | Product | Failure | Hard rule |
 |---|---|---|
 | 10 Wall hook rail | Hook snaps across layer lines | Hook root at least 8 mm. Projection at most 2.5 x root, never over 60 mm. Fillet at root. |
-| 9 Fin rack | Tall fin snaps or warps | finHeight / finThickness at most 18. Fillet at base. |
+| 11 Headphone wall mount | Hook snaps under a heavy headset | Same root rule. Hook width at least 20 mm. |
+| 8 Tool fin rack | Tall fin snaps under a plier handle | finHeight / finThickness at most 15. Fillet at base. Base at least 3 mm. |
 | 12 Shelf riser, 3 Drawer riser | Leg buckles | legHeight / legSection at most 12. Gussets always on. Ribs when the span is over 150 mm. |
-| 13 Funnel | Cone needs supports | Clamp the cone so the wall is at most 45 degrees from vertical. |
-| 8 Spice riser | Tread underside needs supports | Chamfer under each tread at 45 degrees. |
+| 13 Nursery pot | Drain holes bridge badly | Hole diameter 4 to 8 mm. Holes in the flat base only. Wall at most 45 degrees from vertical. |
 
-Show the print orientation in the viewer for family C products. The plate goes on the bed. The hook or tube points up.
+Show the print orientation in the viewer for family C products. The plate goes on the bed. The hook or pocket points up.
 
 ### 2.7 What to defer
 
@@ -235,6 +258,7 @@ Show the print orientation in the viewer for family C products. The plate goes o
 - 3MF export. Add it when a product needs multiple parts or part names.
 - Accounts, sharing, and a print-service link. Wait for proven demand, as roadmap Phase G states.
 - Threads, living hinges, and snap fits. The engine can model them, but the print tolerance work is not done.
+- Any kitchen, bath-cabinet, or medicine product. Revisit only after a material and safety review.
 
 ---
 
@@ -244,7 +268,7 @@ Show the print orientation in the viewer for family C products. The plate goes o
 2. Do section 1.4 steps 1 to 7. Keep the diff to one product.
 3. Do step 8, the Web Worker.
 4. Do step 9, the persisted record migration.
-5. Add the fit-test coupon export.
-6. Build the cutter-array module and product 6. Print one coupon. Record the fit.
+5. Add the fit-test coupon export. Replace the `cutlery` preset with `tools`.
+6. Build the cutter-array module and product 6, the socket tray. Print one coupon. Record the fit.
 
 Stop after item 6. Review the printed result before wave 1 continues.
