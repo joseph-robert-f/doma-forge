@@ -358,7 +358,8 @@ Found in review, two caveats on the "First Ready" figure above:
    hardware from this worktree. That first real run is also the first
    chance to confirm the "Ready" budget holds on unfamiliar, possibly
    slower, runner hardware and not only on this environment's own
-   software-WebGL setup.
+   software-WebGL setup. Measured: 1.6 s on the first GitHub-hosted run
+   (see Open issue 2). The 5 s budget holds with headroom.
 
 Also found in review: `playwright.config.ts`'s `webServer.reuseExistingServer`
 is `true` locally (`!process.env.CI`). If a developer runs
@@ -479,7 +480,12 @@ ranged 1.5-1.9 minutes, averaging about 1.6 minutes.
    download (commonly on the order of one minute on GitHub-hosted runners,
    from public data on similar projects) suggests headroom under 8 minutes,
    but this is an estimate, not a measurement on the actual runner class.
-   Record the first real run's actual duration here once it exists.
+   **Measured.** The first run on a GitHub-hosted runner (pull request 8,
+   commit 50b47e7, cache miss) took 2 min 19 s for the whole job. The
+   Chromium download was 104 MB. The Playwright suite took 1.3 min for
+   10 tests. The first Ready preview test passed in 1.6 s against the
+   5 s budget. The job stays well inside the 8-minute timeout, and the
+   Chromium cache is now saved, so later runs are shorter.
 3. **Only one product exists.** `route-navigation.spec.ts` and
    `design-file.spec.ts` exercise the one registered product,
    `drawer-tray`. `17_PRODUCT_ROUTES_NOTES.md` open issue 2 already flags
@@ -497,6 +503,7 @@ ranged 1.5-1.9 minutes, averaging about 1.6 minutes.
    if it serves correctly there, the filter in Decision D-1003 could
    eventually be narrowed to a comment noting it is dev/local-only, though
    leaving it in place costs nothing either way.
-3. Measure the `browser` CI job's actual wall-clock time on a real
-   GitHub-hosted runner once this sprint's branch runs there, and record it
-   against the 8-minute budget (see Open issue 2).
+3. Done. The `browser` CI job's first real run measured 2 min 19 s (see
+   Open issue 2). Re-check the time when the suite grows past 20 tests.
+4. The runner warns that `actions/cache@v4` targets Node 20, which the
+   runner image deprecates. Bump the action when a Node 24 release exists.
