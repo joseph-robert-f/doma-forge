@@ -65,6 +65,13 @@ describe("product registry", () => {
         expect(contract.tolerance).toBeGreaterThan(0);
       });
 
+      it("carries a page title and description for its route metadata", () => {
+        expect(typeof product.copy.title).toBe("string");
+        expect(product.copy.title.trim().length).toBeGreaterThan(0);
+        expect(typeof product.copy.description).toBe("string");
+        expect(product.copy.description.trim().length).toBeGreaterThan(0);
+      });
+
       it("does not refer to food or health uses", () => {
         const text = JSON.stringify({
           label: product.label,

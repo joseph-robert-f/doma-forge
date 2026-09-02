@@ -17,7 +17,14 @@ import {
   createGenerationClient,
   type GenerationClient,
 } from "../../lib/generation/client";
+// FIT_TEST_COUPON_HEIGHT is drawer-tray specific. Every other import in this
+// file is product-agnostic; this one exists because S01 scopes the fit-test
+// coupon to the drawer tray only (see 16_FIT_TEST_COUPON_NOTES.md, followups).
+// A later product's coupon should replace this with a per-product coupon
+// bounds contract instead of a second constant import here.
+import { FIT_TEST_COUPON_HEIGHT } from "../../lib/products/drawer-tray";
 import { getProduct } from "../../lib/products/registry";
+import { fitTestCouponFilename } from "../../lib/products/shared";
 import type {
   AnyParameters,
   BoundsContract,
@@ -123,6 +130,7 @@ export function ProductApp({ productId }: { productId: string }) {
   const [saveMessage, setSaveMessage] = useState("Saved on this device");
   const [designName, setDesignName] = useState("");
   const [fileMessage, setFileMessage] = useState<FileMessage | null>(null);
+  const [fitTestBusy, setFitTestBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const generationId = useRef(0);
   const designNameRef = useRef("");
@@ -136,6 +144,20 @@ export function ProductApp({ productId }: { productId: string }) {
     },
     [],
   );
+
+  // The document title carries the design name while one is set, so a saved
+  // browser tab or bookmark reads by name. Cleared, it reverts to this
+  // product's own page title, read fresh from product.copy each time (not
+  // captured once) so a soft navigation stays correct: the product switcher
+  // renders a Link, which does not reload the page, so a captured title
+  // would otherwise carry the previous route's title over when a design
+  // name was already set.
+  useEffect(() => {
+    const trimmedName = designName.trim();
+    document.title = trimmedName
+      ? `${trimmedName} · DrawerForge`
+      : product.copy.title;
+  }, [designName, product]);
 
   const validation = useMemo(
     () => product.validate(parameters),
@@ -400,6 +422,62 @@ export function ProductApp({ productId }: { productId: string }) {
     }
   };
 
+  const downloadFitTest = async () => {
+    if (downloadDisabled || !preview || !product.coupon || fitTestBusy) return;
+    setFitTestBusy(true);
+    try {
+      const model = await product.coupon(preview.parameters);
+      const geometry = modelToBufferGeometry(model);
+      const analysis = analyzeBufferGeometry(geometry);
+      const trayContract = product.boundsContract(preview.parameters);
+      const couponContract: BoundsContract = {
+        min: [trayContract.min[0], trayContract.min[1], 0],
+        max: [trayContract.max[0], trayContract.max[1], FIT_TEST_COUPON_HEIGHT],
+        tolerance: trayContract.tolerance,
+      };
+      if (
+        !analysis.finite ||
+        analysis.minimumTriangleArea <= 0 ||
+        analysis.signedVolume <= 0 ||
+        !boundsSatisfyContract(analysis.bounds, couponContract)
+      ) {
+        geometry.dispose();
+        throw new Error("The fit-test coupon did not pass its safety check.");
+      }
+      const data = serializeBinaryStl(geometry);
+      const inspection = inspectBinaryStl(data);
+      geometry.computeBoundingBox();
+      if (
+        !inspection.finite ||
+        inspection.minimumTriangleArea <= 0 ||
+        inspection.minimumNormalAlignment < 0.99999 ||
+        inspection.triangleCount !== analysis.triangleCount ||
+        !geometry.boundingBox ||
+        !boxesMatch(inspection.bounds, geometry.boundingBox)
+      ) {
+        geometry.dispose();
+        throw new Error(
+          "The fit-test STL safety check did not match the generated coupon.",
+        );
+      }
+      triggerDownload(
+        new Blob([data], { type: "model/stl" }),
+        namedMeshFilename(
+          designName,
+          fitTestCouponFilename(model, product.signature(preview.parameters)),
+        ),
+      );
+      geometry.dispose();
+    } catch (error) {
+      setFileMessage({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Fit-test export failed.",
+      });
+    } finally {
+      setFitTestBusy(false);
+    }
+  };
+
   const statusDetail =
     viewerStatus === "paused"
       ? `Fix ${validation.issues.length} setting${validation.issues.length === 1 ? "" : "s"}; showing the last valid model.`
@@ -415,37 +493,26 @@ export function ProductApp({ productId }: { productId: string }) {
 
   return (
     <main className="drawerforge-app" data-testid="drawerforge-app">
-      <header className="app-header">
-        <div className="brand-lockup" aria-label="DrawerForge home">
-          <span className="brand-mark" aria-hidden="true">
-            DF
-          </span>
-          <div>
-            <div className="brand-name">DrawerForge</div>
-            <div className="brand-tagline">Measure. Divide. Print.</div>
-          </div>
-        </div>
-        <div className="header-actions">
-          <span className="save-state" aria-live="polite">
-            <span
-              className={`save-dot${saveMessage === "Local save unavailable" ? " save-dot--unavailable" : ""}`}
-              aria-hidden="true"
-            />
-            {saveMessage}
-          </span>
-          <button
-            className="button button--quiet"
-            type="button"
-            data-testid="reset-defaults-button"
-            onClick={resetDefaults}
-          >
-            Reset defaults
-          </button>
-        </div>
-      </header>
-
       <div className="configurator-shell">
         <aside className="parameter-panel" data-testid="parameter-panel">
+          <div className="panel-toolbar">
+            <span className="save-state" aria-live="polite">
+              <span
+                className={`save-dot${saveMessage === "Local save unavailable" ? " save-dot--unavailable" : ""}`}
+                aria-hidden="true"
+              />
+              {saveMessage}
+            </span>
+            <button
+              className="button button--quiet"
+              type="button"
+              data-testid="reset-defaults-button"
+              onClick={resetDefaults}
+            >
+              Reset defaults
+            </button>
+          </div>
+
           <div className="panel-intro">
             <span className="eyebrow">{product.copy.eyebrow}</span>
             <h1>{product.copy.headline}</h1>
@@ -613,10 +680,30 @@ export function ProductApp({ productId }: { productId: string }) {
               <span>Download STL</span>
               <span aria-hidden="true">↓</span>
             </button>
+            {product.coupon ? (
+              <button
+                className="button button--quiet download-button"
+                type="button"
+                data-testid="download-fit-test-button"
+                disabled={downloadDisabled}
+                aria-describedby="download-help fit-test-help"
+                onClick={downloadFitTest}
+              >
+                <span>Download fit test</span>
+                <span aria-hidden="true">↓</span>
+              </button>
+            ) : null}
             <p id="download-help">
               {downloadDisabled ? `${downloadDisabledReason} ` : ""}
               STL is unitless; import it as millimeters in your slicer.
             </p>
+            {product.coupon ? (
+              <p id="fit-test-help">
+                Print this ring first. It uses little material and shows
+                whether the tray fits the drawer. The ring wall is never
+                thinner than 2 mm, even if the tray wall is set thinner.
+              </p>
+            ) : null}
           </div>
         </aside>
 
@@ -626,6 +713,7 @@ export function ProductApp({ productId }: { productId: string }) {
             modelKey={preview?.signature ?? ""}
             status={viewerStatus}
             statusDetail={statusDetail}
+            printOrientation={product.printOrientation}
           />
           <div className="preview-caption" aria-hidden="true">
             <span>X · width</span>

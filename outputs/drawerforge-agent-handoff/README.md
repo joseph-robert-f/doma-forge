@@ -56,8 +56,11 @@ The user has reported that a generated STL imports and slices successfully in Ba
 14. [`13_DESIGN_FILE_NOTES.md`](13_DESIGN_FILE_NOTES.md) — the portable design file format, import rules, decisions, and acceptance against roadmap Phase A.
 15. [`14_WORKSPACE_STORAGE_NOTES.md`](14_WORKSPACE_STORAGE_NOTES.md) — the versioned local workspace envelope, the version 1 migration, and decisions.
 16. [`15_SPRINT_PLAN.md`](15_SPRINT_PLAN.md) — the remaining sprints, their order, and the model and effort assigned to each.
-17. [`sprints/`](sprints/) — one spec per sprint, S01 to S12, plus the print records.
-18. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
+17. [`16_FIT_TEST_COUPON_NOTES.md`](16_FIT_TEST_COUPON_NOTES.md) — the fit-test coupon ring, its wall rule, decisions, and follow-ups from sprint S01.
+18. [`17_PRODUCT_ROUTES_NOTES.md`](17_PRODUCT_ROUTES_NOTES.md) — per-product routes, page metadata, the not-found page, and decisions from sprint S02.
+19. [`18_VIEWER_SCALE_NOTES.md`](18_VIEWER_SCALE_NOTES.md) — the viewer scale formula, the print-pose hint, screenshot evidence, and decisions from sprint S03.
+20. [`sprints/`](sprints/) — one spec per sprint, S01 to S12, plus the print records.
+21. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
 
 `CHECKSUMS.sha256` contains SHA-256 hashes for every document and the manifest so a copied or extracted package can be verified.
 

@@ -85,6 +85,20 @@ export interface ProductPreset<P> {
   parameters: P;
 }
 
+/**
+ * The rotation that puts a printed part into its recommended print pose,
+ * plus one line of text that explains why. The viewer shows a "Print pose"
+ * toggle only for a product that sets this. A product with no orientation
+ * needs, such as the drawer tray, omits it; the part's modeled pose is
+ * already its print pose.
+ */
+export interface PrintOrientationHint {
+  /** Rotation, in degrees, applied about each axis to reach the print pose. */
+  rotationDegrees: { x: number; y: number; z: number };
+  /** One sentence shown next to the toggle. */
+  note: string;
+}
+
 export type ProductFamily =
   | "shelled-tray"
   | "comb-array"
@@ -93,6 +107,10 @@ export type ProductFamily =
 
 /** User-facing copy that the generic form renders around the parameters. */
 export interface ProductCopy {
+  /** Page title. Read by generateMetadata for this product's route. */
+  title: string;
+  /** Page description. Read by generateMetadata for this product's route. */
+  description: string;
   eyebrow: string;
   headline: string;
   intro: string;
@@ -122,10 +140,17 @@ export interface ProductDefinition<
   signature(parameters: P): string;
   derive(parameters: P): DerivedValue[];
   generate(parameters: P): Promise<GeneratedModel<P>>;
+  /**
+   * Builds a small fit-test print instead of the full model. A product
+   * without this member shows no fit-test download.
+   */
+  coupon?(parameters: P): Promise<GeneratedModel<P>>;
   boundsContract(parameters: P): BoundsContract;
   filename(parameters: P): string;
   /** Short summary shown beside the viewer status, e.g. "299 × 199 × 50 mm". */
   summary(parameters: P): string;
+  /** The print pose hint the viewer offers as a toggle. Omit when the modeled pose already prints upright. */
+  printOrientation?: PrintOrientationHint;
 }
 
 /** A product with its specs erased, for registries and generic UI code. */
