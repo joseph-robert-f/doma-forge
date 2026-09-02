@@ -156,3 +156,51 @@ with the same parameters.
 | Fit result | too tight, fits, loose, with the gap in mm |
 | Photo | file name |
 | Notes | Put the second bin on the first bin. The two rims must meet. Measure the height of the pair, then subtract the height of one bin over the lip. Push the top bin sideways and record the play. Increase the stacking clearance if the bins bind. Decrease it if the play is more than 1 mm. |
+
+## Remote caddy
+
+### Record 5: Remote caddy defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Remote caddy, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). caddyWidth 220, caddyDepth 130, caddyHeight 60, wellWidths [70, 70, 72], wellDepth 45, frontWallHeight 25, wallThickness 2, baseThickness 2.4, dividerThickness 2, cornerRadius 3, meshQuality standard |
+| Design file name | drawerforge-remote-caddy-220x130x60-3w-9e09e7.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 220 x 130 x 60 |
+| Target well widths, mm | 70, 70, 72 (the third well is solved) |
+| Target front wall height, mm | 25 |
+| Measured outside width x depth x height, mm | |
+| Measured well widths, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | |
+| Photo | file name |
+| Notes | Measure each well at the top of the divider and at the floor. The third well is solved from the inside width, so a shrink on the outside width lands on that well. |
+
+## Drawer riser
+
+### Record 6: Drawer riser defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Drawer riser, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). drawerWidth 300, drawerDepth 200, drawerUsableHeight 120, clearancePerSide 0.5, clearHeight 45, trayHeight 35, legSection 12, rows 2, columns 2, wallThickness 2, baseThickness 2.4, dividerThickness 2, cornerRadius 4, meshQuality standard |
+| Design file name | drawerforge-drawer-riser-299x199x82p4-2x2-e0becc.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 299 x 199 x 82.4 |
+| Target clear height under the deck, mm | 45 |
+| Target leg section, mm | 12 |
+| Target longest bridge, mm | 96.5 (the deck over one compartment, in the print pose) |
+| Measured outside width x depth x height, mm | |
+| Measured clear height under the deck, mm | |
+| Measured leg section, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | |
+| Load result | the mass the riser carried, and whether a leg bent |
+| Bridge result | the deck over one compartment: clean, drooped, or failed. Give the droop in mm. |
+| Photo | file name |
+| Notes | Print the part upside down: the tray rim goes on the bed and the legs point up. Print it once without supports and look at the deck from below; the deck over each compartment is a 96.5 mm bridge. Measure the clear height at one leg and at the middle of a long side; a bowed deck shows there. Load the tray and look at the legs after one day. This record decides whether the product needs a maximum compartment span, a rib under the deck, or a two-part print. |

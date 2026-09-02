@@ -93,6 +93,35 @@ Turn the stacking lip off for a plain bin. The plain bin keeps the shell, the sc
 ### Print notes for the parts bin
 
 Print the bin in the pose the app shows: the open side up, the underside on the bed. Do not use supports. The recess is a groove in the underside, so it prints against the bed. Use three perimeters. Use four perimeters for a bin that carries heavy parts. Use a stiff filament. PLA and PETG are satisfactory. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+## Remote and controller caddy
+
+The third product is a caddy with a well for every remote and every controller. Open it from the product switcher or at `/products/remote-caddy`.
+
+Set the outside size, then give each well its own width. Use **Add well** and **Remove well** to change the number of wells, from two to five. The last well is solved: it takes the width that is left inside the caddy after the other wells and the dividers, so the wells always fill the caddy exactly. The list you type is the design; the calculated result card shows the widths the caddy is built from.
+
+Every well must be at least 25 mm wide. If the solved well is too narrow, the app names the well to shrink and the number of millimeters to take off it. The well depth is measured down from the top, and the material under a well is the caddy height minus the well depth. The front wall is lower than the sides and the back, so you can lift a remote out with one hand. The front wall must stand at least 3 mm above the well floor.
+
+### Print notes for the caddy
+
+Print the caddy flat on the bed, wells up. Do not use supports. Use three perimeters. Use a stiff filament. PLA and PETG are satisfactory. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+
+## Two-tier drawer riser
+
+The fourth product is a drawer tray on four legs. It makes a second level in a drawer that is deeper than the items in it. Open it from the product switcher or at `/products/drawer-riser`.
+
+Measure four values in the drawer: the interior width, the interior depth, the usable height, and the height of the tallest item that stays on the drawer floor. Set the clear height to that item height plus your own clearance. The riser height is the clear height plus the deck plus the tray height. That total must be at most the drawer usable height minus 5 mm; the app names the number of millimeters to remove when it is not.
+
+The legs carry the load of the upper tray. Two rules protect them. The leg section is at least 8 mm. The clear height is at most 12 times the leg section; the app names the smallest section and the tallest leg that pass. Each leg flares into the deck with a gusset, so the joint is never a sharp corner.
+
+The tray above the deck holds an even grid of rows and columns, the same grid the drawer organizer tray uses. Each compartment is at least 10 mm.
+
+### Print notes for the riser
+
+Print the riser upside down: the tray rim goes on the bed and the legs point up. Select **Print pose** in the viewer to see this pose. In that pose every gusset carries the layer above it, so no gusset needs support.
+
+The deck is a bridge in this pose. Each compartment is an upside-down box, and its ceiling is the deck. The **Longest bridge** line in the calculated result card gives the span: the shorter side of one compartment, 96.5 mm with the defaults. That span is longer than the 40 mm this app allows for an underside pocket, so read it before you slice. Three ways to shorten it: use more rows or more columns, use a smaller drawer, or slice the part with supports under the deck. Nobody has printed this part yet, so the app sets no rule here. Record what you find.
+
+Use four perimeters and at least 25 percent infill in the legs. Use a stiff filament. PLA and PETG are satisfactory. Do not stand on the riser and do not load it with more than a few kilograms. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
 
 ## Printer profile and calibration
 
@@ -139,12 +168,14 @@ The app also shows an error when a correction takes a value past its limit. The 
 
 ## Code layout
 
-- `lib/kernel/` — shared geometry code: the Manifold loader, profile builders (`profiles.ts`), the shell pattern (`shell.ts`), cutter arrays and the pitch solver (`arrays.ts`), underside lightening (`lightening.ts`), and the mesh copy.
+- `lib/kernel/` — shared geometry code: the Manifold loader, profile builders (`profiles.ts`), the shell pattern (`shell.ts`), cutter arrays, the pitch solver and dividers at explicit positions (`arrays.ts`), leg posts with hull gussets (`legs.ts`), underside lightening (`lightening.ts`), and the mesh copy.
 - `lib/products/types.ts` — the `ProductDefinition` contract every product satisfies.
 - `lib/products/shared.ts` — normalization, range validation, signature, slug, and hash helpers.
 - `lib/products/drawer-tray/` — the drawer organizer: schema, validation, geometry, presets.
 - `lib/products/socket-tray/` — the bit, socket, and driver tray: schema, the layout solver, validation, geometry, presets.
 - `lib/products/parts-bin/` — the stackable parts bin: schema, the stacking layout, validation, geometry, presets.
+- `lib/products/remote-caddy/` — the remote and controller caddy: schema with the well-width layout, validation, geometry, presets.
+- `lib/products/drawer-riser/` — the two-tier drawer riser: schema with the leg plan, validation, geometry, presets.
 - `lib/products/registry.ts` — the ordered list of products the app can build.
 - `lib/generation/` — the Web Worker that runs `product.generate()` off the main thread, its message protocol, and the page-side client.
 - `lib/design-file.ts` — the portable `.drawerforge.json` format, export, and non-destructive import.

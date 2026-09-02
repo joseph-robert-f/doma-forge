@@ -52,7 +52,11 @@ describe("product registry", () => {
               ? (current as number) + spec.step
               : spec.kind === "boolean"
                 ? !(current as boolean)
-                : spec.options.find((option) => option.value !== current)?.value;
+                : spec.kind === "layout"
+                  ? (current as number[]).map((width, index) =>
+                      index === 0 ? width + spec.step : width,
+                    )
+                  : spec.options.find((option) => option.value !== current)?.value;
           expect(product.signature(product.normalize(changed))).not.toBe(base);
         }
       });

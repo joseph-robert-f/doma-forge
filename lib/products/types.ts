@@ -28,15 +28,42 @@ export interface EnumSpec<V extends string = string> {
   hint?: string;
 }
 
-export type ParameterSpec = NumberSpec | BooleanSpec | EnumSpec;
+/**
+ * A list of well widths in millimeters, one per column. The value of a
+ * layout parameter is `number[]`. The product solves the last well from the
+ * inner width, so the last entry is a starting point, not a result. See
+ * 22_FAMILY_A_EXTENSIONS_NOTES.md, decision D-1401.
+ */
+export interface LayoutSpec {
+  kind: "layout";
+  label: string;
+  shortLabel: string;
+  /** One line under the editor. Say that the last well is solved. */
+  description: string;
+  /** The fewest wells the list may hold. */
+  minCount: number;
+  /** The most wells the list may hold. */
+  maxCount: number;
+  /** The range of one well width. */
+  min: number;
+  max: number;
+  step: number;
+  unit: "mm";
+  /** The width a well takes when the user adds one. */
+  newValue: number;
+}
 
-export type ParameterValue<S extends ParameterSpec> = S extends NumberSpec
-  ? number
-  : S extends BooleanSpec
-    ? boolean
-    : S extends EnumSpec<infer V>
-      ? V
-      : never;
+export type ParameterSpec = NumberSpec | BooleanSpec | EnumSpec | LayoutSpec;
+
+export type ParameterValue<S extends ParameterSpec> = S extends LayoutSpec
+  ? number[]
+  : S extends NumberSpec
+    ? number
+    : S extends BooleanSpec
+      ? boolean
+      : S extends EnumSpec<infer V>
+        ? V
+        : never;
 
 /** Maps a spec record to the parameter object it describes. */
 export type ParametersOf<Specs extends Record<string, ParameterSpec>> = {

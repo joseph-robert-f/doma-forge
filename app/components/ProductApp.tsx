@@ -333,8 +333,13 @@ export function ProductApp({ productId }: { productId: string }) {
         return spec && spec.kind === "number" ? spec.shortLabel : field;
       },
     );
-    return named.length
-      ? named
+    if (named.length) return named;
+    // A correction can break a rule that names no compensated field, such as
+    // a solved well that gets too narrow. The product's own message then
+    // names the field and the fix; a bare "past a limit" line does not.
+    const own = compensatedValidation.issues.map((issue) => issue.message);
+    return own.length
+      ? own
       : ["The printer correction takes this design past a limit."];
   }, [validation, compensatedValidation, product, activeProfile]);
   const correctionBlocked = correctionMessages.length > 0;
@@ -559,15 +564,17 @@ export function ProductApp({ productId }: { productId: string }) {
     setParameters((current) => product.normalize({ ...current, [key]: value }));
   };
 
+  // normalize() copies every array value, so state never holds the array of
+  // a preset record or of the defaults record by reference.
   const applyPreset = (presetId: string) => {
     setSelectedPreset(presetId);
     const preset = product.presets.find((candidate) => candidate.id === presetId);
-    if (preset) setParameters({ ...preset.parameters });
+    if (preset) setParameters(product.normalize(preset.parameters));
   };
 
   const resetDefaults = () => {
     setSelectedPreset(CUSTOM_PRESET_ID);
-    setParameters({ ...product.defaults });
+    setParameters(product.normalize(product.defaults));
     setDesignName("");
     setFileMessage(null);
     setSaveMessage("Defaults restored");

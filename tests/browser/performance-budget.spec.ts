@@ -18,7 +18,12 @@ const CLIENT_ASSETS_DIR = path.join(REPO_ROOT, "dist/client/assets");
 
 const READY_BUDGET_MS = 5_000;
 const PAGE_CHUNK_BUDGET_BYTES = 650 * 1024;
-const WORKER_CHUNK_BUDGET_BYTES = 80 * 1024;
+// The worker chunk holds the registry, so it grows with every product: its
+// schema, its validation, and its geometry. S10 set 80 KB with two products.
+// Four products measure 84 KB, so the budget is now 128 KB: the catalog can
+// grow, and a doubling still fails. Sprint S07,
+// 22_FAMILY_A_EXTENSIONS_NOTES.md, open issue 1.
+const WORKER_CHUNK_BUDGET_BYTES = 128 * 1024;
 
 /** Finds the one built asset file whose name matches the given pattern. */
 function findBuiltAsset(pattern: RegExp): { name: string; bytes: number } {
@@ -49,7 +54,7 @@ test.describe("performance budget", () => {
     expect(asset.bytes).toBeLessThan(PAGE_CHUNK_BUDGET_BYTES);
   });
 
-  test("the built worker chunk stays under 80 KB", () => {
+  test("the built worker chunk stays under 128 KB", () => {
     const asset = findBuiltAsset(/^generation\.worker-.*\.js$/);
     expect(asset.bytes).toBeLessThan(WORKER_CHUNK_BUDGET_BYTES);
   });

@@ -1,5 +1,7 @@
+import { drawerRiser } from "./drawer-riser";
 import { drawerTray } from "./drawer-tray";
 import { partsBin } from "./parts-bin";
+import { remoteCaddy } from "./remote-caddy";
 import { socketTray } from "./socket-tray";
 import type { AnyProduct, ParameterSpec, ProductDefinition } from "./types";
 
@@ -18,6 +20,8 @@ export const PRODUCTS: readonly AnyProduct[] = [
   register(drawerTray),
   register(socketTray),
   register(partsBin),
+  register(remoteCaddy),
+  register(drawerRiser),
 ];
 
 export const DEFAULT_PRODUCT_ID = drawerTray.id;

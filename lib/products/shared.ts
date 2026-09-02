@@ -1,5 +1,6 @@
 import type { GeneratedModel } from "../kernel/mesh";
 import type {
+  LayoutSpec,
   ParameterSpec,
   ParametersOf,
   ValidationIssue,
@@ -20,10 +21,32 @@ function normalizeNumber(value: unknown): number {
 }
 
 /**
+ * Coerces one layout value into a list of well widths. A value that is not
+ * an array falls back to the default list. Every entry is converted the way
+ * a number parameter is, so a string becomes a number and an empty field
+ * becomes NaN. A list longer than the maximum is cut, and a list shorter
+ * than the minimum is filled with the spec's new-well width. Widths are not
+ * clamped to the range here; validation reports a width that is out of
+ * range, and it names the well.
+ */
+export function normalizeLayout(
+  spec: LayoutSpec,
+  value: unknown,
+  fallback: readonly number[],
+): number[] {
+  if (!Array.isArray(value)) return [...fallback];
+  const widths = value.slice(0, spec.maxCount).map((entry) => normalizeNumber(entry));
+  while (widths.length < spec.minCount) widths.push(spec.newValue);
+  return widths;
+}
+
+/**
  * Coerces unknown input into a full parameter object. Unknown keys are
  * dropped, missing keys take the default, numbers are rounded to 0.001 and
  * integer parameters to whole numbers. Invalid enum or boolean values fall
  * back to the default so a corrupt record can never select an unknown option.
+ * Every layout list is copied, so no result shares an array with the
+ * defaults.
  */
 export function normalizeFromSpecs<Specs extends Record<string, ParameterSpec>>(
   specs: Specs,
@@ -35,8 +58,15 @@ export function normalizeFromSpecs<Specs extends Record<string, ParameterSpec>>(
     input && typeof input === "object" ? (input as Record<string, unknown>) : {};
 
   for (const key of Object.keys(specs)) {
-    if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
     const spec = specs[key];
+    if (!Object.prototype.hasOwnProperty.call(source, key)) {
+      // A layout default is an array. A shallow copy of the defaults would
+      // share it with every normalized parameter set.
+      if (spec.kind === "layout") {
+        result[key] = normalizeLayout(spec, result[key], []);
+      }
+      continue;
+    }
     const value = source[key];
     switch (spec.kind) {
       case "number": {
@@ -45,6 +75,13 @@ export function normalizeFromSpecs<Specs extends Record<string, ParameterSpec>>(
         result[key] = numeric;
         break;
       }
+      case "layout":
+        result[key] = normalizeLayout(
+          spec,
+          value,
+          Array.isArray(defaults[key]) ? (defaults[key] as number[]) : [],
+        );
+        break;
       case "boolean":
         if (typeof value === "boolean") result[key] = value;
         break;
@@ -109,6 +146,31 @@ export function validateAgainstSpecs<Specs extends Record<string, ParameterSpec>
         }
         break;
       }
+      case "layout": {
+        if (!Array.isArray(value)) {
+          collector.add(key, `${spec.label} must be a list of numbers.`);
+          break;
+        }
+        const widths = value as number[];
+        if (widths.length < spec.minCount || widths.length > spec.maxCount) {
+          collector.add(
+            key,
+            `${spec.shortLabel} must hold between ${spec.minCount} and ${spec.maxCount} wells.`,
+          );
+        }
+        widths.forEach((width, index) => {
+          const well = index + 1;
+          if (typeof width !== "number" || !Number.isFinite(width)) {
+            collector.add(key, `Well ${well} must be a number.`);
+          } else if (width < spec.min || width > spec.max) {
+            collector.add(
+              key,
+              `Well ${well} must be between ${spec.min} and ${spec.max} ${spec.unit}.`,
+            );
+          }
+        });
+        break;
+      }
       case "boolean":
         if (typeof value !== "boolean") {
           collector.add(key, `${spec.label} must be on or off.`);
@@ -129,7 +191,9 @@ export function validateAgainstSpecs<Specs extends Record<string, ParameterSpec>
 /**
  * A stable identity for a parameter set. Keys are taken in spec order so the
  * signature does not depend on object key order. The geometry version is
- * included so a changed algorithm never reuses a cached or saved mesh.
+ * included so a changed algorithm never reuses a cached or saved mesh. A
+ * layout list is written as `[40,55,40]`, so the well count and every width
+ * reach the signature and the file name hash.
  */
 export function signatureFromSpecs<Specs extends Record<string, ParameterSpec>>(
   productId: string,
@@ -139,6 +203,9 @@ export function signatureFromSpecs<Specs extends Record<string, ParameterSpec>>(
 ): string {
   const values = Object.keys(specs).map((key) => {
     const value = parameters[key];
+    if (Array.isArray(value)) {
+      return `[${value.map((entry) => String(entry)).join(",")}]`;
+    }
     return typeof value === "boolean" ? (value ? 1 : 0) : String(value);
   });
   return [productId, `g${geometryVersion}`, ...values].join("|");
