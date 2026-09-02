@@ -74,6 +74,26 @@ The presets are typical outside diameters for quarter-inch and half-inch drive s
 
 Print the tray flat on the bed, bores up. Do not use supports. Use three perimeters. Use a stiff filament. PLA and PETG are satisfactory. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
 
+## Stackable parts bin
+
+The stackable parts bin is an open bin that stacks on an identical bin. Open it from the product switcher or at `/products/parts-bin`.
+
+Set the width, the depth, and the height of the bin body. These are outside sizes. The bin has no fit clearance, so the size you set is the size the app builds. Measure your shelf, then divide the shelf width by a whole number of bins.
+
+The stacking lip stands on the top rim. The recess in the underside of the next bin receives that lip. The app builds the recess from the lip and the stacking clearance. Two bins with equal parameters stack. Increase the clearance if the bins bind. Decrease the clearance if the stack is loose. Print one bin first. Print a second bin. Keep the clearance that fits your printer.
+
+Two rules protect the stack. The outer wall is at least 1.6 mm when the bin stacks. A bin carries the bins above it. The lip wall and the two clearances take at most the outer wall minus 0.8 mm. The recess must leave material on each side. The app names the field and the fixes when a value breaks a rule. The calculated results show the material that stays on each side of the recess.
+
+The lip stands above the bin height. The **Outside** result therefore shows a taller box than the bin body. The app checks the mesh against that box. The **Stack pitch** result is the height that one more bin adds to a stack.
+
+The front scoop is a round notch in the front rim. It also cuts a gap in the lip at the front. The gap keeps the notch open to the top. The label ledge is a slot at the front foot. Push a card into the slot. The ledge stands 2.8 mm in front of the bin. It adds to the depth of the bin on the shelf. Both features are optional.
+
+Turn the stacking lip off for a plain bin. The plain bin keeps the shell, the scoop, and the ledge. It drops the lip and the recess.
+
+### Print notes for the parts bin
+
+Print the bin in the pose the app shows: the open side up, the underside on the bed. Do not use supports. The recess is a groove in the underside, so it prints against the bed. Use three perimeters. Use four perimeters for a bin that carries heavy parts. Use a stiff filament. PLA and PETG are satisfactory. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+
 ## Printer profile and calibration
 
 A printer profile holds what one machine needs: the bed size, the nozzle diameter, and the X and Y correction. The profile stays in this browser. It is not part of a design file, and it is not sent anywhere.
@@ -124,6 +144,7 @@ The app also shows an error when a correction takes a value past its limit. The 
 - `lib/products/shared.ts` — normalization, range validation, signature, slug, and hash helpers.
 - `lib/products/drawer-tray/` — the drawer organizer: schema, validation, geometry, presets.
 - `lib/products/socket-tray/` — the bit, socket, and driver tray: schema, the layout solver, validation, geometry, presets.
+- `lib/products/parts-bin/` — the stackable parts bin: schema, the stacking layout, validation, geometry, presets.
 - `lib/products/registry.ts` — the ordered list of products the app can build.
 - `lib/generation/` — the Web Worker that runs `product.generate()` off the main thread, its message protocol, and the page-side client.
 - `lib/design-file.ts` — the portable `.drawerforge.json` format, export, and non-destructive import.

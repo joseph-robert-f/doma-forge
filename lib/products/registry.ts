@@ -1,4 +1,5 @@
 import { drawerTray } from "./drawer-tray";
+import { partsBin } from "./parts-bin";
 import { socketTray } from "./socket-tray";
 import type { AnyProduct, ParameterSpec, ProductDefinition } from "./types";
 
@@ -16,6 +17,7 @@ function register<Specs extends Record<string, ParameterSpec>>(
 export const PRODUCTS: readonly AnyProduct[] = [
   register(drawerTray),
   register(socketTray),
+  register(partsBin),
 ];
 
 export const DEFAULT_PRODUCT_ID = drawerTray.id;

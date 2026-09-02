@@ -113,3 +113,46 @@ dimensional correction.
 | Fit result | |
 | Photo | file name |
 | Notes | Measure two bores per row with a caliper: one at the end of the row and one in the middle. The bores are not compensated by the printer profile; record the bore shrink as a number. |
+
+## Parts bin
+
+Two prints are necessary for this product. One bin proves the size. Two bins
+prove the stack. Print the first bin, measure it, then print the second bin
+with the same parameters.
+
+### Record 8: Parts bin defaults, first bin
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Parts bin, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). binWidth 150, binDepth 100, binHeight 70, stacking true, lipHeight 4, lipWallThickness 1.2, stackClearance 0.3, frontScoop true, labelLedge true, wallThickness 3, baseThickness 3, cornerRadius 3, meshQuality standard |
+| Design file name | drawerforge-parts-bin-150x100x70-stack-7e1edf.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 150 × 100 × 70, and 74 over the lip |
+| Target lip wall and stacking clearance, mm | 1.2 and 0.3 |
+| Measured outside width x depth x height, mm | |
+| Measured lip wall, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | |
+| Photo | file name |
+| Notes | Measure the height twice: at the rim, and over the lip. Measure the lip wall with a caliper at the middle of a long side. |
+
+### Record 9: Parts bin defaults, stack test
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Parts bin, geometry version 1 |
+| Preset or parameters | The same parameters as record 8 |
+| Design file name | drawerforge-parts-bin-150x100x70-stack-7e1edf.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target stack pitch, mm | 70 |
+| Measured stack pitch, mm | |
+| Target stacking clearance per side, mm | 0.3 |
+| Measured side play at the top of the stack, mm | |
+| Fit result | too tight, fits, loose, with the gap in mm |
+| Photo | file name |
+| Notes | Put the second bin on the first bin. The two rims must meet. Measure the height of the pair, then subtract the height of one bin over the lip. Push the top bin sideways and record the play. Increase the stacking clearance if the bins bind. Decrease it if the play is more than 1 mm. |
