@@ -91,6 +91,62 @@
     {
       "path": "14_WORKSPACE_STORAGE_NOTES.md",
       "purpose": "Versioned local workspace envelope, version 1 migration, and decisions"
+    },
+    {
+      "path": "15_SPRINT_PLAN.md",
+      "purpose": "Remaining sprints, order, and model and effort routing"
+    },
+    {
+      "path": "sprints/S01_FIT_TEST_COUPON.md",
+      "purpose": "Sprint spec: fit-test coupon export"
+    },
+    {
+      "path": "sprints/S02_PRODUCT_ROUTES.md",
+      "purpose": "Sprint spec: per-product route and page metadata"
+    },
+    {
+      "path": "sprints/S03_VIEWER_SCALE_AND_ORIENTATION.md",
+      "purpose": "Sprint spec: viewer scale and print orientation"
+    },
+    {
+      "path": "sprints/S04_PRINTER_PROFILE.md",
+      "purpose": "Sprint spec: printer profile and dimensional correction"
+    },
+    {
+      "path": "sprints/S05_KERNEL_MODULES_AND_SOCKET_TRAY.md",
+      "purpose": "Sprint spec: kernel modules and the socket tray"
+    },
+    {
+      "path": "sprints/S06_WAVE_1_PRODUCTS.md",
+      "purpose": "Sprint spec: wave 1 products"
+    },
+    {
+      "path": "sprints/S07_FAMILY_A_EXTENSIONS.md",
+      "purpose": "Sprint spec: uneven wells and leg posts"
+    },
+    {
+      "path": "sprints/S08_REVOLVED_FORMS.md",
+      "purpose": "Sprint spec: revolved forms and the card holder"
+    },
+    {
+      "path": "sprints/S09_BRACKET_FAMILY.md",
+      "purpose": "Sprint spec: bracket family"
+    },
+    {
+      "path": "sprints/S10_BROWSER_QA_IN_CI.md",
+      "purpose": "Sprint spec: real-browser QA in CI"
+    },
+    {
+      "path": "sprints/S11_CLOUDFLARE_MIGRATION.md",
+      "purpose": "Sprint spec: Cloudflare direct migration"
+    },
+    {
+      "path": "sprints/S12_PHYSICAL_PRINT_PROGRAM.md",
+      "purpose": "Sprint spec: physical print program"
+    },
+    {
+      "path": "sprints/PRINT_RECORDS.md",
+      "purpose": "Print record template and records"
     }
   ]
 }

@@ -55,7 +55,9 @@ The user has reported that a generated STL imports and slices successfully in Ba
 13. [`12_WEB_WORKER_GENERATION_NOTES.md`](12_WEB_WORKER_GENERATION_NOTES.md) — design, decisions, measurements, and follow-ups for off-thread mesh generation.
 14. [`13_DESIGN_FILE_NOTES.md`](13_DESIGN_FILE_NOTES.md) — the portable design file format, import rules, decisions, and acceptance against roadmap Phase A.
 15. [`14_WORKSPACE_STORAGE_NOTES.md`](14_WORKSPACE_STORAGE_NOTES.md) — the versioned local workspace envelope, the version 1 migration, and decisions.
-16. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
+16. [`15_SPRINT_PLAN.md`](15_SPRINT_PLAN.md) — the remaining sprints, their order, and the model and effort assigned to each.
+17. [`sprints/`](sprints/) — one spec per sprint, S01 to S12, plus the print records.
+18. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
 
 `CHECKSUMS.sha256` contains SHA-256 hashes for every document and the manifest so a copied or extracted package can be verified.
 
