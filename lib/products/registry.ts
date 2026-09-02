@@ -1,4 +1,5 @@
 import { drawerTray } from "./drawer-tray";
+import { socketTray } from "./socket-tray";
 import type { AnyProduct, ParameterSpec, ProductDefinition } from "./types";
 
 /** Erases the spec types of a checked ProductDefinition for the registry. */
@@ -12,7 +13,10 @@ function register<Specs extends Record<string, ParameterSpec>>(
  * Every product the app can build, in catalog order. Each entry must satisfy
  * the checks in tests/products.test.ts before it is added here.
  */
-export const PRODUCTS: readonly AnyProduct[] = [register(drawerTray)];
+export const PRODUCTS: readonly AnyProduct[] = [
+  register(drawerTray),
+  register(socketTray),
+];
 
 export const DEFAULT_PRODUCT_ID = drawerTray.id;
 
