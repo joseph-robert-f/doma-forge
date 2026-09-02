@@ -109,6 +109,14 @@
       "purpose": "Viewer scale formula, print-pose hint, screenshot evidence, and decisions (S03)"
     },
     {
+      "path": "19_PRINTER_PROFILE_NOTES.md",
+      "purpose": "Printer profile, compensation step, calibration flow, thin-wall rule, and decisions (S04)"
+    },
+    {
+      "path": "25_BROWSER_QA_NOTES.md",
+      "purpose": "Playwright suite, CI browser job, runtimes, flake count, and decisions (S10)"
+    },
+    {
       "path": "sprints/S01_FIT_TEST_COUPON.md",
       "purpose": "Sprint spec: fit-test coupon export"
     },
