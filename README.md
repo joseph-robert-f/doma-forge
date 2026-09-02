@@ -22,6 +22,10 @@ npm run typecheck        # strict TypeScript check
 npm test                 # unit, geometry, STL, and app integration tests
 npm run build            # production/Cloudflare Worker build
 npm run test:ssr         # production build plus server-render smoke test
+npm run test:deploy-config  # proves a preview build targets the separate preview Worker
+npm run check:public-origin # warns if the built page still ships the localhost default
+npm run deploy           # build, then deploy to Cloudflare Workers (production)
+npm run deploy:preview   # build under CLOUDFLARE_ENV=preview, then deploy to the "preview" Worker environment
 ```
 
 ## Parameters and validation
@@ -46,11 +50,29 @@ The design file never holds printer data. Printer corrections belong to a local 
 
 ## Fit test
 
-Select **Download fit test** to get a small, fast print that proves the drawer fit before the full tray prints. The fit-test coupon is a 5 mm high ring with the tray's outside profile. It has no base, no dividers, and no scoop.
+Select **Download fit test** to get a small, fast print that tests whether the tray fits the drawer before the full tray prints. The fit-test coupon is a 5 mm high ring with the tray's outside profile. It has no base, no dividers, and no scoop.
 
 Print this ring first. It uses little material and shows whether the tray fits the drawer. The ring wall is never thinner than 2 mm, even if the tray wall is set thinner. A thin wall is weak.
 
 The **Download fit test** button follows the same rules as **Download STL**. It stays disabled until the current settings pass validation and the preview finishes. The file name is `drawerforge-fit-test-<width>x<depth>-<hash>.stl`. The design name, when set, becomes the first part of the file name, the same way it does for the STL download.
+
+### Print notes
+
+Print the coupon flat on the bed. Do not use supports. Use enough perimeters to print the ring wall solid. Three perimeters is a minimum. Use a stiff filament. PLA and PETG are satisfactory.
+
+## Bit, socket, and driver tray
+
+The second product is a flat tray with a bore for every socket, bit, or driver. Open it from the product switcher or at `/products/socket-tray`.
+
+Set the outside size, the number of rows, the bores per row, and the bore depth. Each row has its own bore diameter. Row 1 is at the front. Measure the widest item in a row with a caliper and add your own clearance; the app does not add one. The rows and the bores are spaced evenly, with the same web between neighbours as between a bore and the rim.
+
+The app rejects a layout that leaves less than 2.5 mm between two bores or between two rows, and it names the row and the fix. The bore depth cannot exceed the tray height minus the base, so the base under the bores is at least the base you set. A large corner radius that would cut into an end bore is rejected with the largest radius that fits. A chamfered bore mouth adds a 0.8 mm lead-in. Underside pockets remove material below the base; each pocket ceiling bridges at most 40 mm, so the tray prints flat without supports. The pockets leave the rim and the ribs on the bed. Use a brim if the first layer lifts.
+
+The presets are typical outside diameters for quarter-inch and half-inch drive sockets and for quarter-inch hex bits. They are starting points, not a brand's sizes.
+
+### Print notes for the socket tray
+
+Print the tray flat on the bed, bores up. Do not use supports. Use three perimeters. Use a stiff filament. PLA and PETG are satisfactory. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
 
 ## Printer profile and calibration
 
@@ -68,7 +90,7 @@ The app shows one line for each corrected axis:
 X · Modeled 299.5 mm = target 299 mm + 0.5 mm correction
 ```
 
-The correction changes the mesh, the preview, the STL, and the fit-test coupon. It does not change your target, the calculated results, the design file, or the design that this browser saves. The same design therefore prints to the same size on a different machine after that machine's own correction.
+The correction changes the mesh, the preview, the STL, and the fit-test coupon. It does not change your target, the calculated results, the design file, or the design that this browser saves. The same design therefore is intended to print to the same size on a different machine after that machine's own correction.
 
 A file name keeps the design hash and gets a marker for the correction, for example `drawerforge-drawer-tray-299x199x50-2x3-08d29d-cx0p5.stl`. Two prints of one design under different corrections get different file names.
 
@@ -97,10 +119,11 @@ The app also shows an error when a correction takes a value past its limit. The 
 
 ## Code layout
 
-- `lib/kernel/` — shared geometry code: the Manifold loader, profile builders, and mesh copy.
+- `lib/kernel/` — shared geometry code: the Manifold loader, profile builders (`profiles.ts`), the shell pattern (`shell.ts`), cutter arrays and the pitch solver (`arrays.ts`), underside lightening (`lightening.ts`), and the mesh copy.
 - `lib/products/types.ts` — the `ProductDefinition` contract every product satisfies.
 - `lib/products/shared.ts` — normalization, range validation, signature, slug, and hash helpers.
 - `lib/products/drawer-tray/` — the drawer organizer: schema, validation, geometry, presets.
+- `lib/products/socket-tray/` — the bit, socket, and driver tray: schema, the layout solver, validation, geometry, presets.
 - `lib/products/registry.ts` — the ordered list of products the app can build.
 - `lib/generation/` — the Web Worker that runs `product.generate()` off the main thread, its message protocol, and the page-side client.
 - `lib/design-file.ts` — the portable `.drawerforge.json` format, export, and non-destructive import.
@@ -114,11 +137,25 @@ To add a product, create a folder under `lib/products/`, export a `ProductDefini
 
 ## Geometry and export
 
-The tray is constructed as one solid with a rounded outer profile. A manifold-guaranteeing WebAssembly geometry kernel, running in a dedicated Web Worker so the page stays responsive, subtracts one exact inward-offset cavity, clips and unions the row/column dividers into that shell, and then cuts the optional front finger scoop. This keeps the rounded perimeter continuous even at large corner radii. The result is copied once into a Three.js triangle mesh; that same in-memory mesh drives both the preview and the custom binary STL serializer.
+The drawer tray is constructed as one solid with a rounded outer profile. A manifold-guaranteeing WebAssembly geometry kernel, running in a dedicated Web Worker so the page stays responsive, subtracts one exact inward-offset cavity, clips and unions the row/column dividers into that shell, and then cuts the optional front finger scoop. This keeps the rounded perimeter continuous even at large corner radii. The result is copied once into a Three.js triangle mesh; that same in-memory mesh drives both the preview and the custom binary STL serializer.
 
 Automated geometry checks cover representative 1×1, 1×3, 2×3, and 4×4 organizers. They verify requested bounds, finite coordinates, positive signed volume, non-degenerate triangles, outward winding, and exactly two oppositely directed faces per mesh edge. Cross-section and point-in-solid regressions also prove that extreme valid radii and the Hand tools preset retain a continuous perimeter around every compartment. Export tests independently parse the binary STL and compare its bounds to the preview mesh.
 
+The socket tray starts as a rounded slab. One batched union of every bore cutter is subtracted in one Boolean, then the underside pockets. Its tests slice the mesh above the base and count one outer contour and one hole per bore, and slice through the pockets and count the pocket grid.
+
 STL has no embedded unit metadata. DrawerForge models coordinates as millimeters, so import downloads into a millimeter-based slicer without scaling.
+
+## Deployment
+
+DrawerForge deploys to Cloudflare Workers, from `wrangler.jsonc` at the repository root. `npm run deploy` builds and deploys the production Worker. `npm run deploy:preview` builds and deploys the separate `preview` Worker environment; it never touches production. Both need `wrangler login` locally, or the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` environment variables in CI.
+
+The Cloudflare environment (production or `preview`) is selected at build time, through the `CLOUDFLARE_ENV` variable, not at deploy time. `npm run deploy:preview` sets it for you (`CLOUDFLARE_ENV=preview vinext deploy --preview`) — do not replace it with a plain `vinext deploy --preview`, which silently deploys production under the preview label instead. `npm run test:deploy-config` proves this stays correct.
+
+CI deploys a preview on every pull request and production on every push to `main`. It also runs the preview-config proof above and a `PUBLIC_ORIGIN` warning check (below) on every push and pull request, with no Cloudflare account needed; only the two actual deploy commands are skipped when the `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` repository secrets are not set.
+
+`app/layout.tsx` builds every absolute URL (Open Graph, canonical links) from a configured `PUBLIC_ORIGIN` Worker variable, resolved by `lib/origin.ts`. It defaults to `http://localhost:3000`. Set `vars.PUBLIC_ORIGIN` in `wrangler.jsonc` once the deployed Worker's real URL is known — this is a config-file edit, not something CI can set for you. CI separately reads a `PUBLIC_ORIGIN` **repository variable** (not a secret) and runs `npm run check:public-origin`, which prints a visible warning (never a failure) if the built page would still ship the `localhost:3000` default; setting that repository variable silences the warning but does not, by itself, change the real deployed origin.
+
+See [`outputs/drawerforge-agent-handoff/26_CLOUDFLARE_MIGRATION_NOTES.md`](outputs/drawerforge-agent-handoff/26_CLOUDFLARE_MIGRATION_NOTES.md) for the rollback plan and the deployed-origin acceptance checklist.
 
 ## v1 limitations
 

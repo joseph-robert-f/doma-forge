@@ -1,0 +1,72 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "drawerforge",
+
+  // Pinned to the workerd release actually installed here (2026-05-15), not
+  // to today's date. A compatibility_date newer than the installed workerd
+  // makes Miniflare fall back with a warning locally, and a real Cloudflare
+  // deploy can reject a date the account's workerd does not yet support.
+  // `process.env` population from `vars` (see the PUBLIC_ORIGIN comment
+  // below) only needs nodejs_compat plus a date of 2025-04-01 or later, so
+  // this pin changes nothing else this sprint relies on.
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // `main` is a build-time input: `@cloudflare/vite-plugin` resolves this
+  // path (a vinext virtual entry, not a plain file) while building, and
+  // writes the resolved, bundled result to dist/server/wrangler.json. A
+  // bare `wrangler deploy` run against this file directly, with no prior
+  // build, cannot resolve it. `npm run deploy` and `npm run deploy:preview`
+  // (`vinext deploy`) always build first; do not call `wrangler deploy`
+  // directly against this file without building.
+  "main": "./worker/index.ts",
+  "assets": {
+    "directory": "dist/client",
+    "not_found_handling": "none",
+    "binding": "ASSETS"
+  },
+
+  // Workers Logs: stored request/exception metadata, queryable in the
+  // dashboard. See 26_CLOUDFLARE_MIGRATION_NOTES.md, "Observability", for
+  // exactly what this records and confirmation that the app itself never
+  // logs a design name or a drawer dimension.
+  "observability": {
+    "enabled": true
+  },
+
+  // PUBLIC_ORIGIN is the canonical absolute origin used to build page
+  // metadata (Open Graph and canonical URLs) in app/layout.tsx, through
+  // lib/origin.ts. It is not a secret. It is left unset here because the
+  // Worker's real workers.dev URL is known only after the first deploy;
+  // app/layout.tsx falls back to http://localhost:3000 until it is set.
+  // Add it once the URL is known, for example:
+  //
+  // "vars": { "PUBLIC_ORIGIN": "https://drawerforge.<subdomain>.workers.dev" },
+
+  // A named "preview" environment, with its own `name` so it deploys as a
+  // separate Worker and never overwrites the production Worker above.
+  //
+  // IMPORTANT: for this Cloudflare Vite build, the target environment is
+  // selected at BUILD time, by the CLOUDFLARE_ENV environment variable —
+  // not at deploy time by `wrangler deploy --env`. `@cloudflare/vite-plugin`
+  // writes a redirected, already-resolved config to dist/server/wrangler.json
+  // during the build; `wrangler deploy --env preview` against an ordinary
+  // (non-preview) build does NOT select this block — it deploys the
+  // production Worker under the "preview" label, silently. Always build
+  // with `CLOUDFLARE_ENV=preview` before deploying to this environment;
+  // `npm run deploy:preview` (`CLOUDFLARE_ENV=preview vinext deploy
+  // --preview`) does this correctly. See 26_CLOUDFLARE_MIGRATION_NOTES.md,
+  // Decision D-1106, and `tests/wrangler-preview-env.test.mjs`, which
+  // proves a CLOUDFLARE_ENV=preview build actually produces this Worker's
+  // name. Add `vars.PUBLIC_ORIGIN` here too, once the preview Worker's own
+  // URL is known.
+  "env": {
+    "preview": {
+      "name": "drawerforge-preview"
+    }
+  }
+
+  // No D1, R2, KV, Images, queues, secrets, routes, or custom domain.
+  // account_id is intentionally absent: set the CLOUDFLARE_ACCOUNT_ID
+  // environment variable at deploy time instead of hardcoding it here.
+}

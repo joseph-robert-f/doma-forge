@@ -1,15 +1,12 @@
 import { getKernel, type Solid } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
-import { roundedRectangle } from "../../kernel/profiles";
+import { BOOLEAN_OVERLAP, roundedShell } from "../../kernel/shell";
 import {
   QUALITY_SEGMENTS,
   deriveDimensions,
   type DrawerTrayParameters,
 } from "./schema";
 import { validateDrawerTray } from "./validate";
-
-/** Hidden overlap so Boolean faces never sit exactly coplanar. */
-const BOOLEAN_OVERLAP = 0.2;
 
 export function getFingerScoopRadius(parameters: DrawerTrayParameters): number {
   const derived = deriveDimensions(parameters);
@@ -22,9 +19,9 @@ export function getFingerScoopRadius(parameters: DrawerTrayParameters): number {
 }
 
 /**
- * Builds the tray as one solid: a rounded outer extrusion, minus an exact
- * inward-offset cavity, plus dividers clipped to the outer profile, minus the
- * optional front finger scoop. Coordinates are millimeters, X/Y centered on
+ * Builds the tray as one solid: the rounded shell from the kernel's shell
+ * module, plus dividers clipped to the outer profile, minus the optional
+ * front finger scoop. Coordinates are millimeters, X/Y centered on
  * the origin, base at Z = 0.
  */
 export async function generateDrawerTray(
@@ -39,38 +36,18 @@ export async function generateDrawerTray(
   const derived = deriveDimensions(parameters);
   const segments = QUALITY_SEGMENTS[parameters.meshQuality];
 
-  const outerProfile = roundedRectangle(
-    kernel,
-    derived.outsideWidth,
-    derived.outsideDepth,
-    parameters.cornerRadius,
+  // The shell module reproduces the original construction step for step:
+  // rounded outer extrusion minus the inward-offset cavity. See
+  // 20_KERNEL_MODULES_NOTES.md, decision D-901.
+  const { outer, shell } = roundedShell(kernel, {
+    width: derived.outsideWidth,
+    depth: derived.outsideDepth,
+    height: parameters.organizerHeight,
+    cornerRadius: parameters.cornerRadius,
+    wallThickness: parameters.wallThickness,
+    baseThickness: parameters.baseThickness,
     segments,
-  );
-  const outer = outerProfile.extrude(parameters.organizerHeight);
-  outerProfile.delete();
-
-  const innerWidth = derived.outsideWidth - parameters.wallThickness * 2;
-  const innerDepth = derived.outsideDepth - parameters.wallThickness * 2;
-  const innerRadius = Math.max(
-    0,
-    parameters.cornerRadius - parameters.wallThickness,
-  );
-  const cavityHeight =
-    parameters.organizerHeight - parameters.baseThickness + BOOLEAN_OVERLAP;
-  const innerProfile = roundedRectangle(
-    kernel,
-    innerWidth,
-    innerDepth,
-    innerRadius,
-    segments,
-  );
-  const cavityAtOrigin = innerProfile.extrude(cavityHeight);
-  innerProfile.delete();
-  const cavity = cavityAtOrigin.translate([0, 0, parameters.baseThickness]);
-  cavityAtOrigin.delete();
-
-  const shell = outer.subtract(cavity);
-  cavity.delete();
+  });
   const unionInputs: Solid[] = [shell];
   const dividerHeight =
     parameters.organizerHeight - parameters.baseThickness + BOOLEAN_OVERLAP * 2;

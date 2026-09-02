@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Wrangler's local tool state (gitignored; see .gitignore). A `wrangler
+    // deploy --dry-run` or `vinext dev`/`start` leaves a temporary bundled
+    // Worker copy here, which is generated code, not a source file.
+    ".wrangler/**",
   ]),
 ]);
 
