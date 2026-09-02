@@ -87,7 +87,7 @@ export async function buildFitTestCouponMesh(
 
 /**
  * The checked entry point: a short ring that shares the tray's outside
- * profile, with no base, no dividers, and no scoop. It proves the drawer fit
+ * profile, with no base, no dividers, and no scoop. It tests the drawer fit
  * with a small, fast print before the full tray. Coordinates are
  * millimeters, X/Y centered on the origin, matching the tray, with the ring
  * floor at Z = 0 and its top at Z = FIT_TEST_COUPON_HEIGHT.

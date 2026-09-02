@@ -46,11 +46,15 @@ The design file never holds printer data. Printer corrections belong to a local 
 
 ## Fit test
 
-Select **Download fit test** to get a small, fast print that proves the drawer fit before the full tray prints. The fit-test coupon is a 5 mm high ring with the tray's outside profile. It has no base, no dividers, and no scoop.
+Select **Download fit test** to get a small, fast print that tests whether the tray fits the drawer before the full tray prints. The fit-test coupon is a 5 mm high ring with the tray's outside profile. It has no base, no dividers, and no scoop.
 
 Print this ring first. It uses little material and shows whether the tray fits the drawer. The ring wall is never thinner than 2 mm, even if the tray wall is set thinner. A thin wall is weak.
 
 The **Download fit test** button follows the same rules as **Download STL**. It stays disabled until the current settings pass validation and the preview finishes. The file name is `drawerforge-fit-test-<width>x<depth>-<hash>.stl`. The design name, when set, becomes the first part of the file name, the same way it does for the STL download.
+
+### Print notes
+
+Print the coupon flat on the bed. Do not use supports. Use enough perimeters to print the ring wall solid. Three perimeters is a minimum. Use a stiff filament. PLA and PETG are satisfactory.
 
 ## Bit, socket, and driver tray
 
@@ -62,7 +66,9 @@ The app rejects a layout that leaves less than 2.5 mm between two bores or betwe
 
 The presets are typical outside diameters for quarter-inch and half-inch drive sockets and for quarter-inch hex bits. They are starting points, not a brand's sizes.
 
-Print notes for the socket tray: print it flat, bores up, with no supports. Use three perimeters and a stiff filament. A slice above the base shows one outer contour and one hole per bore, and the tests check that. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+### Print notes for the socket tray
+
+Print the tray flat on the bed, bores up. Do not use supports. Use three perimeters. Use a stiff filament. PLA and PETG are satisfactory. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
 
 ## Printer profile and calibration
 
@@ -80,7 +86,7 @@ The app shows one line for each corrected axis:
 X · Modeled 299.5 mm = target 299 mm + 0.5 mm correction
 ```
 
-The correction changes the mesh, the preview, the STL, and the fit-test coupon. It does not change your target, the calculated results, the design file, or the design that this browser saves. The same design therefore prints to the same size on a different machine after that machine's own correction.
+The correction changes the mesh, the preview, the STL, and the fit-test coupon. It does not change your target, the calculated results, the design file, or the design that this browser saves. The same design therefore is intended to print to the same size on a different machine after that machine's own correction.
 
 A file name keeps the design hash and gets a marker for the correction, for example `drawerforge-drawer-tray-299x199x50-2x3-08d29d-cx0p5.stl`. Two prints of one design under different corrections get different file names.
 
