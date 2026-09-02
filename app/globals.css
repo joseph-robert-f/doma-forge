@@ -443,7 +443,10 @@ button:disabled {
   background: var(--paper-deep);
   border: 1px solid var(--line);
   border-radius: 6px;
-  color: var(--copper);
+  /* --copper falls to a 4.39:1 contrast ratio against --paper-deep at this
+     text size; --copper-dark clears the WCAG AA 4.5:1 bar (6.08:1). See
+     25_BROWSER_QA_NOTES.md, decision D-1006. */
+  color: var(--copper-dark);
   display: inline-flex;
   flex: 0 0 auto;
   font-family: var(--font-mono);

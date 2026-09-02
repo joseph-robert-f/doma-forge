@@ -22,17 +22,21 @@
  * prints). out-dir defaults to a fresh temp directory; the script prints
  * its path.
  *
- * Needs the Playwright harness described in the sprint's common brief
- * (playwright-core plus a Chromium install). That harness lives outside
- * this repository, in a per-session scratch directory whose path is not
- * stable across sessions or machines, so this script does not guess it.
- * Set the PW_HARNESS_DIR environment variable to that directory before
- * running this script, for example:
+ * Needs Playwright (playwright-core plus a Chromium install). Since sprint
+ * S10, `playwright-core` is a pinned dev dependency of this repository, so
+ * `npm ci` alone is normally enough; this script resolves it from the
+ * repository's own `node_modules` first. If that resolution fails (a
+ * package.json without S10's change, or a `node_modules` missing it for
+ * some other reason), it falls back to the Playwright harness described in
+ * the sprint's common brief, which lives outside this repository in a
+ * per-session scratch directory whose path is not stable across sessions or
+ * machines, so this script does not guess it. Set the PW_HARNESS_DIR
+ * environment variable to that directory to use the fallback, for example:
  *
  *   PW_HARNESS_DIR=/tmp/claude-0/.../scratchpad/pw \
  *     node tests/browser/capture-screenshots.mjs
  *
- * The script exits with a clear error if PW_HARNESS_DIR is not set.
+ * The script exits with a clear error if neither source resolves.
  */
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync, mkdtempSync } from "node:fs";
@@ -45,33 +49,52 @@ import { build as viteBuild, preview as vitePreview } from "vite";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = path.join(HERE, "fixtures");
 
-function requirePwHarnessDir() {
+function pwHarnessDirIfUsable() {
   const dir = process.env.PW_HARNESS_DIR;
-  if (!dir) {
-    throw new Error(
-      "PW_HARNESS_DIR is not set. Point it at the Playwright harness from the " +
-        "sprint's common brief (playwright-core plus a Chromium install), for " +
-        "example: PW_HARNESS_DIR=/tmp/.../scratchpad/pw node tests/browser/capture-screenshots.mjs",
-    );
-  }
+  if (!dir) return null;
   if (!existsSync(dir)) {
     throw new Error(`PW_HARNESS_DIR is set to ${dir}, but that directory does not exist.`);
   }
   return dir;
 }
 
+/**
+ * Resolves `playwright-core` from this repository's own `node_modules`
+ * first (sprint S10 added it as a pinned dev dependency, so `npm ci` alone
+ * is normally enough), then falls back to the `PW_HARNESS_DIR` scratch
+ * harness described in the sprint's common brief. Throws a single error
+ * naming both attempts if neither resolves.
+ */
 function loadPlaywright() {
-  const pwHarnessDir = requirePwHarnessDir();
   const require = createRequire(import.meta.url);
+
   try {
-    const entry = require.resolve("playwright-core", { paths: [pwHarnessDir] });
+    const entry = require.resolve("playwright-core");
     return require(entry);
-  } catch (error) {
-    throw new Error(
-      `Could not load playwright-core from ${pwHarnessDir}. Check that PW_HARNESS_DIR ` +
-        `points at the Playwright harness from the sprint's common brief. (${error.message})`,
-    );
+  } catch {
+    // Fall through to the PW_HARNESS_DIR harness below.
   }
+
+  const pwHarnessDir = pwHarnessDirIfUsable();
+  if (pwHarnessDir) {
+    try {
+      const entry = require.resolve("playwright-core", { paths: [pwHarnessDir] });
+      return require(entry);
+    } catch (error) {
+      throw new Error(
+        `Could not load playwright-core from PW_HARNESS_DIR (${pwHarnessDir}). Check that it ` +
+          `points at the Playwright harness from the sprint's common brief. (${error.message})`,
+      );
+    }
+  }
+
+  throw new Error(
+    "Could not resolve playwright-core from this repository's node_modules, and " +
+      "PW_HARNESS_DIR is not set. Run \"npm ci\" so this repository's own pinned " +
+      "playwright-core is available, or point PW_HARNESS_DIR at the Playwright " +
+      "harness from the sprint's common brief, for example: " +
+      "PW_HARNESS_DIR=/tmp/.../scratchpad/pw node tests/browser/capture-screenshots.mjs",
+  );
 }
 
 async function launchBrowser() {
@@ -125,8 +148,9 @@ async function captureViewer(browser, url, outFile) {
 }
 
 async function main() {
-  // Fail fast, before spending time on a Vite build, if the harness is missing.
-  requirePwHarnessDir();
+  // Fail fast, before spending time on a Vite build, if no Playwright
+  // source (this repository's own node_modules, or PW_HARNESS_DIR) resolves.
+  loadPlaywright();
 
   const trayUrl = process.argv[2] || "http://localhost:3000/";
   const outDir =
