@@ -713,6 +713,7 @@ export function ProductApp({ productId }: { productId: string }) {
             modelKey={preview?.signature ?? ""}
             status={viewerStatus}
             statusDetail={statusDetail}
+            printOrientation={product.printOrientation}
           />
           <div className="preview-caption" aria-hidden="true">
             <span>X · width</span>

@@ -1,9 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import type { PrintOrientationHint } from "../../lib/products/types";
+import {
+  DEFAULT_BOUNDING_BOX,
+  computeViewerScale,
+  type ViewerScale,
+} from "../../lib/viewer-scale";
 
 export type ViewerStatus =
   | "loading"
@@ -17,6 +23,8 @@ export interface ModelViewerProps {
   modelKey: string;
   status: ViewerStatus;
   statusDetail?: string;
+  /** The print pose hint from the current product, if it sets one. */
+  printOrientation?: PrintOrientationHint;
 }
 
 const CANONICAL_VIEW = new THREE.Vector3(1.15, -1.35, 0.95).normalize();
@@ -100,6 +108,24 @@ const statusStyle: CSSProperties = {
   pointerEvents: "none",
 };
 
+const activeButtonStyle: CSSProperties = {
+  background: "rgba(246, 173, 60, 0.32)",
+  borderColor: "rgba(246, 173, 60, 0.55)",
+};
+
+const printNoteStyle: CSSProperties = {
+  position: "absolute",
+  zIndex: 2,
+  top: 58,
+  right: 14,
+  maxWidth: "calc(100% - 28px)",
+  textAlign: "right",
+  color: "rgba(255, 240, 218, 0.72)",
+  fontSize: 11,
+  lineHeight: 1.35,
+  pointerEvents: "none",
+};
+
 const hintStyle: CSSProperties = {
   position: "absolute",
   zIndex: 1,
@@ -157,6 +183,7 @@ export function ModelViewer({
   modelKey,
   status,
   statusDetail,
+  printOrientation,
 }: ModelViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasHostRef = useRef<HTMLDivElement>(null);
@@ -169,7 +196,14 @@ export function ModelViewer({
     THREE.BufferGeometry,
     THREE.MeshStandardMaterial
   > | null>(null);
+  const groundRef = useRef<THREE.Mesh<
+    THREE.PlaneGeometry,
+    THREE.MeshStandardMaterial
+  > | null>(null);
+  const gridRef = useRef<THREE.GridHelper | null>(null);
+  const keyLightRef = useRef<THREE.DirectionalLight | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const [printPoseActive, setPrintPoseActive] = useState(false);
 
   const frameModel = useCallback((resetDirection: boolean) => {
     const mesh = modelMeshRef.current;
@@ -216,6 +250,65 @@ export function ModelViewer({
     rendererRef.current?.render(sceneRef.current!, camera);
   }, []);
 
+  /** Applies a computed viewer scale to the ground, grid, fog, and shadow camera. */
+  const applyViewerScale = useCallback((scale: ViewerScale) => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+
+    const ground = groundRef.current;
+    if (ground) {
+      ground.geometry.dispose();
+      ground.geometry = new THREE.PlaneGeometry(scale.groundSize, scale.groundSize);
+    }
+
+    const previousGrid = gridRef.current;
+    if (previousGrid) {
+      scene.remove(previousGrid);
+      previousGrid.geometry.dispose();
+      const previousMaterials = Array.isArray(previousGrid.material)
+        ? previousGrid.material
+        : [previousGrid.material];
+      for (const material of previousMaterials) material.dispose();
+    }
+    const grid = new THREE.GridHelper(
+      scale.gridSize,
+      scale.gridDivisions,
+      0x765128,
+      0x34312c,
+    );
+    grid.name = "millimeter-reference-grid";
+    grid.rotation.x = Math.PI / 2;
+    grid.position.z = -0.06;
+    const gridMaterials = Array.isArray(grid.material) ? grid.material : [grid.material];
+    for (const material of gridMaterials) {
+      material.transparent = true;
+      material.opacity = 0.55;
+      material.depthWrite = false;
+    }
+    scene.add(grid);
+    gridRef.current = grid;
+
+    if (scene.fog instanceof THREE.Fog) {
+      scene.fog.near = scale.fogNear;
+      scene.fog.far = scale.fogFar;
+    }
+
+    const keyLight = keyLightRef.current;
+    if (keyLight) {
+      keyLight.shadow.camera.left = -scale.shadowExtent;
+      keyLight.shadow.camera.right = scale.shadowExtent;
+      keyLight.shadow.camera.top = scale.shadowExtent;
+      keyLight.shadow.camera.bottom = -scale.shadowExtent;
+      keyLight.shadow.camera.near = scale.shadowNear;
+      keyLight.shadow.camera.far = scale.shadowFar;
+      keyLight.shadow.camera.updateProjectionMatrix();
+      // A new left/right/top/bottom/near/far only changes the shadow
+      // camera's projection. The depth-target texture (shadow.map) stays
+      // valid; it does not need to be freed and rebuilt on every model
+      // change.
+    }
+  }, []);
+
   useEffect(() => {
     const container = containerRef.current;
     const canvasHost = canvasHostRef.current;
@@ -227,14 +320,22 @@ export function ModelViewer({
       rendererErrorRef.current.textContent = "";
     }
 
+    // Before any model has generated, the scene scales as if the default
+    // tray were on the ground. This reproduces the viewer's previous fixed
+    // look; the geometry effect below rescales the scene for the actual
+    // part on every model change.
+    const initialScale = computeViewerScale(DEFAULT_BOUNDING_BOX);
+
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x101216);
-    scene.fog = new THREE.Fog(0x101216, 750, 2_300);
+    scene.fog = new THREE.Fog(0x101216, initialScale.fogNear, initialScale.fogFar);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 5_000);
     camera.up.set(0, 0, 1);
-    camera.position.set(320, -420, 300);
+    camera.position
+      .copy(CANONICAL_VIEW)
+      .multiplyScalar(initialScale.cameraDistance);
     cameraRef.current = camera;
 
     const modelMaterial = new THREE.MeshStandardMaterial({
@@ -258,15 +359,21 @@ export function ModelViewer({
       roughness: 0.94,
     });
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(2_000, 2_000),
+      new THREE.PlaneGeometry(initialScale.groundSize, initialScale.groundSize),
       groundMaterial,
     );
     ground.name = "workshop-ground";
     ground.position.z = -0.12;
     ground.receiveShadow = true;
     scene.add(ground);
+    groundRef.current = ground;
 
-    const grid = new THREE.GridHelper(1_200, 60, 0x765128, 0x34312c);
+    const grid = new THREE.GridHelper(
+      initialScale.gridSize,
+      initialScale.gridDivisions,
+      0x765128,
+      0x34312c,
+    );
     grid.name = "millimeter-reference-grid";
     grid.rotation.x = Math.PI / 2;
     grid.position.z = -0.06;
@@ -279,6 +386,7 @@ export function ModelViewer({
       material.depthWrite = false;
     }
     scene.add(grid);
+    gridRef.current = grid;
 
     const hemisphere = new THREE.HemisphereLight(0xffe4bb, 0x111827, 1.45);
     hemisphere.position.set(-0.2, -0.4, 1);
@@ -288,15 +396,17 @@ export function ModelViewer({
     keyLight.position.set(-260, -330, 520);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(1_024, 1_024);
-    keyLight.shadow.camera.left = -650;
-    keyLight.shadow.camera.right = 650;
-    keyLight.shadow.camera.top = 650;
-    keyLight.shadow.camera.bottom = -650;
-    keyLight.shadow.camera.near = 20;
-    keyLight.shadow.camera.far = 1_500;
+    keyLight.shadow.camera.left = -initialScale.shadowExtent;
+    keyLight.shadow.camera.right = initialScale.shadowExtent;
+    keyLight.shadow.camera.top = initialScale.shadowExtent;
+    keyLight.shadow.camera.bottom = -initialScale.shadowExtent;
+    keyLight.shadow.camera.near = initialScale.shadowNear;
+    keyLight.shadow.camera.far = initialScale.shadowFar;
     keyLight.shadow.bias = -0.00015;
     keyLight.shadow.normalBias = 0.025;
+    keyLight.shadow.camera.updateProjectionMatrix();
     scene.add(keyLight);
+    keyLightRef.current = keyLight;
 
     const fillLight = new THREE.DirectionalLight(0x9db9d8, 1.3);
     fillLight.position.set(340, 180, 260);
@@ -436,6 +546,12 @@ export function ModelViewer({
       if (rendererRef.current === renderer) rendererRef.current = null;
       if (controlsRef.current === controls) controlsRef.current = null;
       if (modelMeshRef.current === modelMesh) modelMeshRef.current = null;
+      // The ground and grid may have been replaced by applyViewerScale since
+      // mount, and the key light never is; disposeScene above already freed
+      // whatever is currently in the scene, so these just drop the refs.
+      groundRef.current = null;
+      gridRef.current = null;
+      if (keyLightRef.current === keyLight) keyLightRef.current = null;
     };
   }, [frameModel]);
 
@@ -464,8 +580,51 @@ export function ModelViewer({
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
 
+    const box = geometry.boundingBox;
+    if (box && !box.isEmpty()) {
+      applyViewerScale(
+        computeViewerScale({
+          min: [box.min.x, box.min.y, box.min.z],
+          max: [box.max.x, box.max.y, box.max.z],
+        }),
+      );
+    }
+
     frameModel(false);
-  }, [frameModel, geometry, modelKey]);
+  }, [applyViewerScale, frameModel, geometry, modelKey]);
+
+  // A product with no print-orientation hint never leaves the toggle
+  // showing as pressed; a product that has one owns the toggle state.
+  const printPoseOn = printPoseActive && Boolean(printOrientation);
+
+  // Shows the part in its print pose when the toggle is on, and back in its
+  // modeled pose when it is off. The bounding box the toggle rotates is the
+  // one just used above, so the ground and grid do not resize again here.
+  useEffect(() => {
+    const modelMesh = modelMeshRef.current;
+    if (!modelMesh) return;
+
+    if (printPoseOn && printOrientation) {
+      modelMesh.rotation.set(
+        THREE.MathUtils.degToRad(printOrientation.rotationDegrees.x),
+        THREE.MathUtils.degToRad(printOrientation.rotationDegrees.y),
+        THREE.MathUtils.degToRad(printOrientation.rotationDegrees.z),
+      );
+      // A rotation turns about the mesh's local origin. The part's lowest
+      // point can end up below Z = 0, which is below the ground. Reset the
+      // seat first, measure the rotated part's own bounding box, and lift
+      // it by exactly enough to put that lowest point back at Z = 0.
+      modelMesh.position.z = 0;
+      modelMesh.updateMatrixWorld(true);
+      const rotatedBounds = new THREE.Box3().setFromObject(modelMesh);
+      modelMesh.position.z = -rotatedBounds.min.z;
+    } else {
+      modelMesh.rotation.set(0, 0, 0);
+      modelMesh.position.z = 0;
+    }
+    modelMesh.updateMatrixWorld(true);
+    frameModel(false);
+  }, [frameModel, printOrientation, printPoseOn, modelKey]);
 
   const fitModel = useCallback(() => frameModel(false), [frameModel]);
   const resetView = useCallback(() => frameModel(true), [frameModel]);
@@ -512,7 +671,31 @@ export function ModelViewer({
         >
           Reset view
         </button>
+        {printOrientation ? (
+          <button
+            type="button"
+            style={{
+              ...buttonStyle,
+              ...(printPoseOn ? activeButtonStyle : null),
+              opacity: geometry ? 1 : 0.5,
+              cursor: geometry ? "pointer" : "not-allowed",
+            }}
+            onClick={() => setPrintPoseActive((active) => !active)}
+            disabled={!geometry}
+            aria-pressed={printPoseOn}
+            title={printOrientation.note}
+            data-testid="print-pose-toggle"
+          >
+            Print pose
+          </button>
+        ) : null}
       </div>
+
+      {printOrientation ? (
+        <span style={printNoteStyle} data-testid="print-pose-note">
+          {printOrientation.note}
+        </span>
+      ) : null}
 
       <div
         id="preview-status"

@@ -85,6 +85,20 @@ export interface ProductPreset<P> {
   parameters: P;
 }
 
+/**
+ * The rotation that puts a printed part into its recommended print pose,
+ * plus one line of text that explains why. The viewer shows a "Print pose"
+ * toggle only for a product that sets this. A product with no orientation
+ * needs, such as the drawer tray, omits it; the part's modeled pose is
+ * already its print pose.
+ */
+export interface PrintOrientationHint {
+  /** Rotation, in degrees, applied about each axis to reach the print pose. */
+  rotationDegrees: { x: number; y: number; z: number };
+  /** One sentence shown next to the toggle. */
+  note: string;
+}
+
 export type ProductFamily =
   | "shelled-tray"
   | "comb-array"
@@ -135,6 +149,8 @@ export interface ProductDefinition<
   filename(parameters: P): string;
   /** Short summary shown beside the viewer status, e.g. "299 × 199 × 50 mm". */
   summary(parameters: P): string;
+  /** The print pose hint the viewer offers as a toggle. Omit when the modeled pose already prints upright. */
+  printOrientation?: PrintOrientationHint;
 }
 
 /** A product with its specs erased, for registries and generic UI code. */
