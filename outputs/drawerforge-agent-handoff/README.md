@@ -52,7 +52,8 @@ The user has reported that a generated STL imports and slices successfully in Ba
 10. [`09_NEXT_AGENT_BRIEF.md`](09_NEXT_AGENT_BRIEF.md) — a concise implementation brief that can be passed directly to the next agent.
 11. [`10_MULTI_PRODUCT_EXPANSION_PLAN.md`](10_MULTI_PRODUCT_EXPANSION_PLAN.md) — governance rules for the drawer tray and the 15-product catalog plan built on the same engine.
 12. [`11_PRODUCT_REGISTRY_REFACTOR_NOTES.md`](11_PRODUCT_REGISTRY_REFACTOR_NOTES.md) — decisions, deviations, open issues, and follow-ups from the product-registry refactor.
-13. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
+13. [`12_WEB_WORKER_GENERATION_NOTES.md`](12_WEB_WORKER_GENERATION_NOTES.md) — design, decisions, measurements, and follow-ups for off-thread mesh generation.
+14. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
 
 `CHECKSUMS.sha256` contains SHA-256 hashes for every document and the manifest so a copied or extracted package can be verified.
 

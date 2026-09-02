@@ -293,6 +293,28 @@ describe("DrawerForge app integration", () => {
     expect(custom.checked).toBe(true);
   });
 
+  it("settles on the last of several rapid edits without an error", async () => {
+    await renderReadyApp();
+    const viewer = screen.getByTestId("model-viewer");
+    const depth = screen.getByTestId("param-drawer-depth-number");
+    const download = screen.getByTestId("download-stl-button");
+
+    // Each pause is longer than the 140 ms debounce, so a generation is in
+    // flight when the next edit supersedes it.
+    for (const value of ["210", "220", "230", "240", "250"]) {
+      fireEvent.change(depth, { target: { value } });
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    await waitFor(() => expect(download).toHaveProperty("disabled", false), {
+      timeout: 10_000,
+    });
+    expect(screen.getByTestId("preview-status").textContent).toMatch(
+      /^ready: 299 × 249 × 50 mm/,
+    );
+    expect(viewer.getAttribute("data-model-key")).toContain("|250|");
+  });
+
   it("shows the calculated result rows from the product definition", async () => {
     await renderReadyApp();
     expect(screen.getByTestId("derived-outside-dimensions").textContent).toBe(

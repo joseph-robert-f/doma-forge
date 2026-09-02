@@ -79,6 +79,10 @@
     {
       "path": "11_PRODUCT_REGISTRY_REFACTOR_NOTES.md",
       "purpose": "Decisions, deviations, open issues, and follow-ups from the product-registry refactor"
+    },
+    {
+      "path": "12_WEB_WORKER_GENERATION_NOTES.md",
+      "purpose": "Design, decisions, measurements, and follow-ups for Web Worker mesh generation"
     }
   ]
 }
