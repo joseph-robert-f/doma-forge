@@ -44,6 +44,14 @@ A file with an unknown format, an unsupported version, a missing parameter, or a
 
 The design file never holds printer data. Printer corrections belong to a local printer profile.
 
+## Fit test
+
+Select **Download fit test** to get a small, fast print that proves the drawer fit before the full tray prints. The fit-test coupon is a 5 mm high ring with the tray's outside profile. It has no base, no dividers, and no scoop.
+
+Print this ring first. It uses little material and shows whether the tray fits the drawer. The ring wall is never thinner than 2 mm, even if the tray wall is set thinner. A thinner wall prints too weak to trust.
+
+The **Download fit test** button follows the same rules as **Download STL**. It stays disabled until the current settings pass validation and the preview finishes. The file name is `drawerforge-fit-test-<width>x<depth>-<hash>.stl`. The design name, when set, becomes the first part of the file name, the same way it does for the STL download.
+
 ## Code layout
 
 - `lib/kernel/` — shared geometry code: the Manifold loader, profile builders, and mesh copy.

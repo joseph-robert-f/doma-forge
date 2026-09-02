@@ -868,6 +868,10 @@ button:disabled {
   z-index: 5;
 }
 
+.download-button + .download-button {
+  margin-top: 10px;
+}
+
 .download-button {
   display: flex;
   font-size: 13px;

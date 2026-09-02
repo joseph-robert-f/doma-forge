@@ -122,6 +122,11 @@ export interface ProductDefinition<
   signature(parameters: P): string;
   derive(parameters: P): DerivedValue[];
   generate(parameters: P): Promise<GeneratedModel<P>>;
+  /**
+   * Builds a small fit-test print instead of the full model. A product
+   * without this member shows no fit-test download.
+   */
+  coupon?(parameters: P): Promise<GeneratedModel<P>>;
   boundsContract(parameters: P): BoundsContract;
   filename(parameters: P): string;
   /** Short summary shown beside the viewer status, e.g. "299 × 199 × 50 mm". */

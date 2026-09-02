@@ -1,3 +1,4 @@
+import type { GeneratedModel } from "../kernel/mesh";
 import type {
   ParameterSpec,
   ParametersOf,
@@ -156,6 +157,20 @@ export function shortHash(text: string): string {
 /** 299.5 -> "299p5", 200 -> "200". Locale independent. */
 export function filenameNumber(value: number): string {
   return Number(value.toFixed(2)).toString().replace(".", "p");
+}
+
+/**
+ * `drawerforge-fit-test-<width>x<depth>-<hash>.stl`, built from the coupon's
+ * own bounds so the name works for any product's fit-test coupon.
+ */
+export function fitTestCouponFilename(
+  model: GeneratedModel<unknown>,
+  signature: string,
+): string {
+  const width = model.bounds[1][0] - model.bounds[0][0];
+  const depth = model.bounds[1][1] - model.bounds[0][1];
+  const size = [width, depth].map(filenameNumber).join("x");
+  return `drawerforge-fit-test-${size}-${shortHash(signature)}.stl`;
 }
 
 export function formatMillimeters(value: number, digits = 1): string {

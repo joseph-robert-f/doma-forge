@@ -6,6 +6,7 @@ import {
   signatureFromSpecs,
 } from "../shared";
 import type { ProductDefinition } from "../types";
+import { generateFitTestCoupon } from "./coupon";
 import { generateDrawerTray } from "./geometry";
 import { DRAWER_TRAY_PRESETS } from "./presets";
 import {
@@ -76,6 +77,7 @@ export const drawerTray: ProductDefinition<DrawerTraySpecs> = {
     ];
   },
   generate: generateDrawerTray,
+  coupon: generateFitTestCoupon,
   boundsContract: (parameters) => {
     const derived = deriveDimensions(parameters);
     return {
@@ -106,6 +108,13 @@ export const drawerTray: ProductDefinition<DrawerTraySpecs> = {
 };
 
 export { getFingerScoopRadius } from "./geometry";
+export {
+  FIT_TEST_COUPON_HEIGHT,
+  FIT_TEST_COUPON_MINIMUM_WALL,
+  buildFitTestCouponMesh,
+  generateFitTestCoupon,
+  getCouponWallThickness,
+} from "./coupon";
 export {
   DRAWER_TRAY_DEFAULTS,
   DRAWER_TRAY_SPECS,

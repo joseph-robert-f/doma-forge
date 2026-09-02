@@ -233,6 +233,50 @@ describe("DrawerForge app integration", () => {
     );
   });
 
+  it("keeps the fit-test button state in step with the STL button", async () => {
+    await renderReadyApp();
+    const stlButton = screen.getByTestId("download-stl-button") as HTMLButtonElement;
+    const fitTestButton = screen.getByTestId("download-fit-test-button");
+    expect(fitTestButton).toHaveProperty("disabled", stlButton.disabled);
+
+    fireEvent.change(screen.getByTestId("param-drawer-depth-number"), {
+      target: { value: "240" },
+    });
+    expect(stlButton).toHaveProperty("disabled", true);
+    expect(fitTestButton).toHaveProperty("disabled", true);
+
+    await waitFor(() => expect(stlButton).toHaveProperty("disabled", false));
+    expect(fitTestButton).toHaveProperty("disabled", false);
+  });
+
+  it("downloads a nonempty binary fit-test coupon matching the filename pattern", async () => {
+    await renderReadyApp();
+    const downloads = mockDownloads();
+
+    fireEvent.click(screen.getByTestId("download-fit-test-button"));
+
+    await waitFor(() => expect(downloads.createUrl).toHaveBeenCalledOnce());
+    expect(downloads.lastBlob().size).toBeGreaterThan(84);
+    expect(downloads.downloadName()).toMatch(
+      /^drawerforge-fit-test-299x199-[0-9a-f]{6}\.stl$/,
+    );
+  });
+
+  it("prefixes the fit-test download with the design name", async () => {
+    await renderReadyApp();
+    fireEvent.change(screen.getByTestId("design-name-input"), {
+      target: { value: "Left bench" },
+    });
+    const downloads = mockDownloads();
+
+    fireEvent.click(screen.getByTestId("download-fit-test-button"));
+
+    await waitFor(() => expect(downloads.createUrl).toHaveBeenCalledOnce());
+    expect(downloads.downloadName()).toMatch(
+      /^left-bench-drawerforge-fit-test-299x199-[0-9a-f]{6}\.stl$/,
+    );
+  });
+
   it("blocks a stale download until a valid regeneration finishes", async () => {
     await renderReadyApp();
     const download = screen.getByTestId("download-stl-button");
