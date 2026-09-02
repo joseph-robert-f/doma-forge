@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { DEFAULT_PRODUCT_ID } from "../lib/products/registry";
+import { DEFAULT_PRODUCT_ID, getProduct } from "../lib/products/registry";
 import { ProductApp } from "./components/ProductApp";
 
+const defaultProduct = getProduct(DEFAULT_PRODUCT_ID);
+
 export const metadata: Metadata = {
-  title: { absolute: "DrawerForge — Parametric Drawer Organizer" },
-  description:
-    "Design, preview, and download a custom 3D-printable drawer organizer directly in your browser.",
+  title: { absolute: defaultProduct.copy.title },
+  description: defaultProduct.copy.description,
 };
 
 export default function Home() {

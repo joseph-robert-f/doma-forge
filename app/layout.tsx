@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
+import Link from "next/link";
+import { ProductSwitcher } from "./components/ProductSwitcher";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -74,6 +76,24 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <header className="app-header">
+          <Link
+            href="/"
+            className="brand-lockup"
+            aria-label="DrawerForge home"
+          >
+            <span className="brand-mark" aria-hidden="true">
+              DF
+            </span>
+            <div>
+              <div className="brand-name">DrawerForge</div>
+              <div className="brand-tagline">Measure. Divide. Print.</div>
+            </div>
+          </Link>
+          <div className="header-actions">
+            <ProductSwitcher />
+          </div>
+        </header>
         {children}
       </body>
     </html>

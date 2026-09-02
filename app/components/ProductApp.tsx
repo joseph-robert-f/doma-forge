@@ -145,6 +145,20 @@ export function ProductApp({ productId }: { productId: string }) {
     [],
   );
 
+  // The document title carries the design name while one is set, so a saved
+  // browser tab or bookmark reads by name. Cleared, it reverts to this
+  // product's own page title, read fresh from product.copy each time (not
+  // captured once) so a soft navigation stays correct: the product switcher
+  // renders a Link, which does not reload the page, so a captured title
+  // would otherwise carry the previous route's title over when a design
+  // name was already set.
+  useEffect(() => {
+    const trimmedName = designName.trim();
+    document.title = trimmedName
+      ? `${trimmedName} · DrawerForge`
+      : product.copy.title;
+  }, [designName, product]);
+
   const validation = useMemo(
     () => product.validate(parameters),
     [product, parameters],
@@ -479,37 +493,26 @@ export function ProductApp({ productId }: { productId: string }) {
 
   return (
     <main className="drawerforge-app" data-testid="drawerforge-app">
-      <header className="app-header">
-        <div className="brand-lockup" aria-label="DrawerForge home">
-          <span className="brand-mark" aria-hidden="true">
-            DF
-          </span>
-          <div>
-            <div className="brand-name">DrawerForge</div>
-            <div className="brand-tagline">Measure. Divide. Print.</div>
-          </div>
-        </div>
-        <div className="header-actions">
-          <span className="save-state" aria-live="polite">
-            <span
-              className={`save-dot${saveMessage === "Local save unavailable" ? " save-dot--unavailable" : ""}`}
-              aria-hidden="true"
-            />
-            {saveMessage}
-          </span>
-          <button
-            className="button button--quiet"
-            type="button"
-            data-testid="reset-defaults-button"
-            onClick={resetDefaults}
-          >
-            Reset defaults
-          </button>
-        </div>
-      </header>
-
       <div className="configurator-shell">
         <aside className="parameter-panel" data-testid="parameter-panel">
+          <div className="panel-toolbar">
+            <span className="save-state" aria-live="polite">
+              <span
+                className={`save-dot${saveMessage === "Local save unavailable" ? " save-dot--unavailable" : ""}`}
+                aria-hidden="true"
+              />
+              {saveMessage}
+            </span>
+            <button
+              className="button button--quiet"
+              type="button"
+              data-testid="reset-defaults-button"
+              onClick={resetDefaults}
+            >
+              Reset defaults
+            </button>
+          </div>
+
           <div className="panel-intro">
             <span className="eyebrow">{product.copy.eyebrow}</span>
             <h1>{product.copy.headline}</h1>

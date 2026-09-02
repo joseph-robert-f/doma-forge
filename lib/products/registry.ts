@@ -16,8 +16,13 @@ export const PRODUCTS: readonly AnyProduct[] = [register(drawerTray)];
 
 export const DEFAULT_PRODUCT_ID = drawerTray.id;
 
+/** Finds a registered product by id. Returns undefined for an unknown id. */
+export function findProduct(id: string): AnyProduct | undefined {
+  return PRODUCTS.find((candidate) => candidate.id === id);
+}
+
 export function getProduct(id: string): AnyProduct {
-  const product = PRODUCTS.find((candidate) => candidate.id === id);
+  const product = findProduct(id);
   if (!product) throw new Error(`Unknown product: ${id}`);
   return product;
 }

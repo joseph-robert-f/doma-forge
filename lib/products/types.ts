@@ -93,6 +93,10 @@ export type ProductFamily =
 
 /** User-facing copy that the generic form renders around the parameters. */
 export interface ProductCopy {
+  /** Page title. Read by generateMetadata for this product's route. */
+  title: string;
+  /** Page description. Read by generateMetadata for this product's route. */
+  description: string;
   eyebrow: string;
   headline: string;
   intro: string;

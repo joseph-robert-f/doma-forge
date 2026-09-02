@@ -6,6 +6,7 @@ import {
   signatureFromSpecs,
 } from "../shared";
 import type { ProductDefinition } from "../types";
+import { DRAWER_TRAY_COPY, DRAWER_TRAY_ID } from "./copy";
 import { generateFitTestCoupon } from "./coupon";
 import { generateDrawerTray } from "./geometry";
 import { DRAWER_TRAY_PRESETS } from "./presets";
@@ -18,8 +19,6 @@ import {
   type DrawerTraySpecs,
 } from "./schema";
 import { validateDrawerTray } from "./validate";
-
-export const DRAWER_TRAY_ID = "drawer-tray";
 
 /**
  * Geometry version 1 is the original DrawerForge tray algorithm. Increase it
@@ -42,17 +41,7 @@ export const drawerTray: ProductDefinition<DrawerTraySpecs> = {
   geometryVersion: DRAWER_TRAY_GEOMETRY_VERSION,
   label: "Drawer organizer tray",
   family: "shelled-tray",
-  copy: {
-    eyebrow: "Parametric tray builder",
-    headline: "Fit every small thing into its place.",
-    intro:
-      "Enter your drawer measurements, choose a layout, and export a print-ready organizer—no CAD required.",
-    presetLegend: "Start with a workshop preset",
-    customPresetLabel: "Custom",
-    customPresetDescription: "Your own measured layout",
-    derivedTitle: "Your organizer",
-    previewLabel: "Organizer preview",
-  },
+  copy: DRAWER_TRAY_COPY,
   specs: DRAWER_TRAY_SPECS,
   groups: DRAWER_TRAY_GROUPS,
   defaults: DRAWER_TRAY_DEFAULTS,
@@ -107,6 +96,7 @@ export const drawerTray: ProductDefinition<DrawerTraySpecs> = {
   },
 };
 
+export { DRAWER_TRAY_COPY, DRAWER_TRAY_ID } from "./copy";
 export { getFingerScoopRadius } from "./geometry";
 export {
   FIT_TEST_COUPON_HEIGHT,

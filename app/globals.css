@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  --header-height: 72px;
   --paper: #efe9dd;
   --paper-deep: #e4dac8;
   --panel: #f8f4eb;
@@ -60,6 +61,7 @@ input[type="radio"] {
   -webkit-tap-highlight-color: transparent;
 }
 
+a:focus-visible,
 button:focus-visible,
 input:focus-visible,
 [tabindex]:focus-visible {
@@ -81,16 +83,12 @@ button:disabled {
   width: 1px;
 }
 
-.drawerforge-app {
-  min-height: 100dvh;
-}
-
 .app-header {
   align-items: center;
   background: rgb(248 244 235 / 94%);
   border-bottom: 1px solid var(--line);
   display: flex;
-  height: 72px;
+  height: var(--header-height);
   justify-content: space-between;
   padding: 0 24px;
   position: relative;
@@ -223,7 +221,7 @@ button:disabled {
 .configurator-shell {
   display: grid;
   grid-template-columns: clamp(390px, 34vw, 470px) minmax(0, 1fr);
-  height: calc(100dvh - 72px);
+  height: calc(100dvh - var(--header-height));
   min-height: 600px;
 }
 
@@ -235,6 +233,14 @@ button:disabled {
   padding: 34px 30px 0;
   scrollbar-color: var(--line-strong) transparent;
   scrollbar-width: thin;
+}
+
+.panel-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 22px;
 }
 
 .panel-intro {
@@ -974,8 +980,11 @@ button:disabled {
 }
 
 @media (max-width: 639px) {
+  :root {
+    --header-height: 58px;
+  }
+
   .app-header {
-    height: 58px;
     padding: 0 14px;
   }
 
@@ -992,8 +1001,7 @@ button:disabled {
     width: 34px;
   }
 
-  .brand-tagline,
-  .save-state {
+  .brand-tagline {
     display: none;
   }
 
@@ -1072,4 +1080,69 @@ button:disabled {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.product-switcher-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.product-switcher-item {
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.product-switcher-item--active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--panel-bright);
+}
+
+.product-switcher-item--active:hover {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.not-found-page {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: calc(100dvh - var(--header-height));
+  padding: 40px 24px;
+}
+
+.not-found-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  max-width: 480px;
+  padding: 34px;
+  text-align: center;
+}
+
+.not-found-card h1 {
+  font-size: 26px;
+  letter-spacing: -0.03em;
+  margin: 6px 0 0;
+}
+
+.not-found-card p {
+  color: var(--ink-soft);
+  font-size: 14px;
+  margin: 12px 0 24px;
+}
+
+.not-found-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }

@@ -323,6 +323,26 @@ describe("DrawerForge app integration", () => {
     );
   });
 
+  it("carries the design name in the document title, and restores it when the name is cleared", async () => {
+    // jsdom's default document.title is "", which would make the restore
+    // assertion below pass trivially even with no restore logic at all. Set
+    // it to something else first, so the assertions below only pass if the
+    // app actually sets and restores the title.
+    document.title = "Some other page";
+    await renderReadyApp();
+    expect(document.title).toBe(drawerTray.copy.title);
+
+    fireEvent.change(screen.getByTestId("design-name-input"), {
+      target: { value: "Left bench" },
+    });
+    await waitFor(() => expect(document.title).toBe("Left bench · DrawerForge"));
+
+    fireEvent.change(screen.getByTestId("design-name-input"), {
+      target: { value: "  " },
+    });
+    await waitFor(() => expect(document.title).toBe(drawerTray.copy.title));
+  });
+
   it("regenerates when a boolean or enum parameter changes", async () => {
     await renderReadyApp();
     const viewer = screen.getByTestId("model-viewer");
