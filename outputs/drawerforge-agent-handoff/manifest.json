@@ -87,6 +87,10 @@
     {
       "path": "13_DESIGN_FILE_NOTES.md",
       "purpose": "Portable design file format, import rules, decisions, and Phase A acceptance"
+    },
+    {
+      "path": "14_WORKSPACE_STORAGE_NOTES.md",
+      "purpose": "Versioned local workspace envelope, version 1 migration, and decisions"
     }
   ]
 }

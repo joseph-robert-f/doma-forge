@@ -10,7 +10,8 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DRAWER_TRAY_ID, drawerTray } from "../lib/products/drawer-tray";
 import { readFileText } from "../lib/design-file";
-import { ProductApp, STORAGE_KEY } from "../app/components/ProductApp";
+import { LEGACY_DESIGN_KEY, WORKSPACE_KEY } from "../lib/workspace";
+import { ProductApp } from "../app/components/ProductApp";
 
 vi.mock("../app/components/ModelViewer", () => ({
   ModelViewer: ({
@@ -343,11 +344,20 @@ describe("DrawerForge app integration", () => {
 
   it("ignores a saved design that belongs to another product", async () => {
     window.localStorage.setItem(
-      STORAGE_KEY,
+      WORKSPACE_KEY,
       JSON.stringify({
-        version: 1,
-        productId: "some-other-product",
-        parameters: { drawerWidth: 400 },
+        format: "drawerforge-workspace",
+        version: 2,
+        updatedAt: "",
+        designs: {
+          "some-other-product": {
+            productId: "some-other-product",
+            geometryVersion: 1,
+            name: "Other",
+            parameters: { drawerWidth: 400 },
+            updatedAt: "",
+          },
+        },
       }),
     );
     await renderReadyApp();
@@ -355,6 +365,38 @@ describe("DrawerForge app integration", () => {
       "value",
       "300",
     );
+    // This product's own save keeps the other product's entry.
+    fireEvent.change(screen.getByTestId("param-drawer-depth-number"), {
+      target: { value: "210" },
+    });
+    await waitFor(() => {
+      const envelope = JSON.parse(window.localStorage.getItem(WORKSPACE_KEY) ?? "{}");
+      expect(envelope.designs["drawer-tray"]?.parameters?.drawerDepth).toBe(210);
+      expect(envelope.designs["some-other-product"]?.name).toBe("Other");
+    });
+  });
+
+  it("ignores a drawer-tray entry that names another product", async () => {
+    window.localStorage.setItem(
+      WORKSPACE_KEY,
+      JSON.stringify({
+        format: "drawerforge-workspace",
+        version: 2,
+        updatedAt: "",
+        designs: {
+          "drawer-tray": {
+            productId: "some-other-product",
+            geometryVersion: 1,
+            name: "Wrong",
+            parameters: { ...drawerTray.defaults, drawerWidth: 400 },
+            updatedAt: "",
+          },
+        },
+      }),
+    );
+    await renderReadyApp();
+    expect(screen.getByTestId("param-drawer-width-number")).toHaveProperty("value", "300");
+    expect(screen.getByTestId("design-name-input")).toHaveProperty("value", "");
   });
 
   it("saves a design file and reopens it after storage is cleared", async () => {
@@ -442,11 +484,42 @@ describe("DrawerForge app integration", () => {
       target: { value: "Vanity top" },
     });
     await waitFor(() =>
-      expect(window.localStorage.getItem(STORAGE_KEY) ?? "").toContain('"name":"Vanity top"'),
+      expect(window.localStorage.getItem(WORKSPACE_KEY) ?? "").toContain('"name":"Vanity top"'),
     );
     first.unmount();
     await renderReadyApp();
     expect(screen.getByTestId("design-name-input")).toHaveProperty("value", "Vanity top");
+  });
+
+  it("migrates a version 1 record on first load and marks it in place", async () => {
+    const legacy = JSON.stringify({
+      version: 1,
+      productId: "drawer-tray",
+      name: "From v1",
+      parameters: { ...drawerTray.defaults, drawerDepth: 260, columns: 4 },
+    });
+    window.localStorage.setItem(LEGACY_DESIGN_KEY, legacy);
+
+    await renderReadyApp();
+    expect(screen.getByTestId("param-drawer-depth-number")).toHaveProperty("value", "260");
+    expect(screen.getByTestId("param-columns-number")).toHaveProperty("value", "4");
+    expect(screen.getByTestId("design-name-input")).toHaveProperty("value", "From v1");
+    await waitFor(() => {
+      const envelope = window.localStorage.getItem(WORKSPACE_KEY) ?? "";
+      expect(envelope).toContain('"drawerDepth":260');
+      expect(envelope).toContain('"name":"From v1"');
+    });
+    const marked = JSON.parse(window.localStorage.getItem(LEGACY_DESIGN_KEY) ?? "{}");
+    expect(marked).toMatchObject({ ...JSON.parse(legacy), migratedTo: WORKSPACE_KEY });
+  });
+
+  it("starts from defaults when the workspace is corrupt", async () => {
+    window.localStorage.setItem(WORKSPACE_KEY, "{corrupt");
+    await renderReadyApp();
+    expect(screen.getByTestId("param-drawer-width-number")).toHaveProperty("value", "300");
+    await waitFor(() =>
+      expect(window.localStorage.getItem(WORKSPACE_KEY) ?? "").toContain('"format":"drawerforge-workspace"'),
+    );
   });
 
   it("persists and restores the latest valid design", async () => {
@@ -458,9 +531,10 @@ describe("DrawerForge app integration", () => {
       expect(screen.getByTestId("preview-status").textContent).toMatch(/^ready:/),
     );
     await waitFor(() => {
-      const stored = window.localStorage.getItem(STORAGE_KEY) ?? "";
+      const stored = window.localStorage.getItem(WORKSPACE_KEY) ?? "";
       expect(stored).toContain('"drawerDepth":245');
       expect(stored).toContain('"productId":"drawer-tray"');
+      expect(stored).toContain('"format":"drawerforge-workspace"');
     });
     first.unmount();
 
