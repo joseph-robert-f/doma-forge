@@ -558,7 +558,7 @@ not a regression, and is recorded here rather than silently discarded.
 ## 5. Open issues
 
 1. **The WASM MIME type (document 12, open issue 1) is still open locally, unchanged by this sprint.** `curl -sI http://localhost:3000/assets/manifold-*.wasm` against `vinext start` still returns `Content-Type: application/octet-stream`. This sprint added no code to change local static-file serving — the fix, per document 12 and this sprint's own Scope item 6, is expected to come from Cloudflare Workers Assets on the real deployed origin, not from local server configuration. Verifying that is the first item in the Acceptance checklist below, and needs a live deployment this environment cannot produce.
-2. **`vars.PUBLIC_ORIGIN` is not set in `wrangler.jsonc`.** See Decision D-1105. This is a required manual step after the first real deploy, not a defect — `resolvePublicOrigin()`'s `localhost` fallback keeps rendering correct in the meantime, just with a locally-scoped Open Graph URL until the operator fills it in. See Follow-up 1. The CI `deploy` job's "Check PUBLIC_ORIGIN is wired up" step (D-1112) warns about this on every push and pull request in the meantime, but does not set it — see that decision for why a CI-time environment variable cannot set a Cloudflare Worker's real `vars` by itself.
+2. **Closed on 2026-09-02, after the first real deploys.** `wrangler.jsonc` now sets `vars.PUBLIC_ORIGIN` to `https://drawerforge.joseph-r-fehr.workers.dev` (production, CI run 33683252086) and `env.preview.vars.PUBLIC_ORIGIN` to `https://drawerforge-preview.joseph-r-fehr.workers.dev` (preview, pull request 10). `tests/wrangler-preview-env.test.mjs` now also asserts the preview build carries the preview value, because Wrangler does not inherit `vars` into a named environment. Acceptance row 4 can be run against the next deploy of each Worker. The original text follows. `vars.PUBLIC_ORIGIN` is not set in `wrangler.jsonc`. See Decision D-1105. This is a required manual step after the first real deploy, not a defect — `resolvePublicOrigin()`'s `localhost` fallback keeps rendering correct in the meantime, just with a locally-scoped Open Graph URL until the operator fills it in. See Follow-up 1. The CI `deploy` job's "Check PUBLIC_ORIGIN is wired up" step (D-1112) warns about this on every push and pull request in the meantime, but does not set it — see that decision for why a CI-time environment variable cannot set a Cloudflare Worker's real `vars` by itself.
 3. **The duplicate WASM/worker-chunk asset in the SSR server bundle (document 12, open issue 5) is still present**, re-measured in section 4.2 (≈529 KB and ≈52.6 KB doubled). It inflates the Wrangler upload total measured in section 4.1. This is a build-configuration issue (the vinext SSR environment's asset handling), not a deploy-configuration one, and is out of this sprint's Scope (`vite.config.ts`'s environment wiring is the only file this sprint touches there, and only to remove the Sites plugin and inline binding config — not to change SSR asset emission).
 4. **No live deploy could be exercised.** This environment has no Cloudflare account, no `CLOUDFLARE_API_TOKEN`, and no `CLOUDFLARE_ACCOUNT_ID`. Every acceptance item that needs a real origin is deferred to a human with account access; see the checklist in section 6.
 5. **This sprint delivers a GitHub-Actions-plus-`wrangler`-CLI deploy job, not the Cloudflare Builds dashboard integration document 07's Phase 4 describes.** Both reach the same goal (production from `main`, previews from other branches/PRs) through different mechanisms: Cloudflare Builds is configured entirely on Cloudflare's side (a GitHub App connection, no workflow file), while this sprint's `deploy` job runs from this repository's own `.github/workflows/ci.yml` and needs only the two repository secrets named in the checklist below. If the project instead wants Cloudflare Builds specifically, that is a Cloudflare-dashboard task for whoever holds the account, not a repository change — document 07 stays the reference for that path if it is chosen later.
@@ -576,7 +576,7 @@ deploy:preview` succeeds from a machine or CI run with
 
 | # | Item | Command | Look for | Status |
 |---|---|---|---|---|
-| 1 | Preview deploys cleanly | `npm run deploy:preview` (needs `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) | Wrangler prints a `*.workers.dev` URL, no errors | Not done here — needs a deployed origin |
+| 1 | Preview deploys cleanly | `npm run deploy:preview` (needs `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) | Wrangler prints a `*.workers.dev` URL, no errors | Done 2026-09-02 from CI on pull request 10: `https://drawerforge-preview.joseph-r-fehr.workers.dev`, Worker startup 54 ms. The merge to `main` then deployed production: `https://drawerforge.joseph-r-fehr.workers.dev`, startup 26 ms |
 | 2 | The app and worker chunk load | Open the printed URL in a browser | The page reaches the "Ready" preview state, no console errors beyond the two already-filtered, dev-only WASM warnings (which should not appear at all on this origin — see item 3) | Not done here — needs a deployed origin |
 | 3 | The WASM file serves as `application/wasm` | `curl -sI https://<preview-url>/assets/manifold-<hash>.wasm` (hash from `dist/client/assets/`) | `content-type: application/wasm`, not `application/octet-stream` — this closes document 12's open issue 1 | Not done here — needs a deployed origin |
 | 4 | `PUBLIC_ORIGIN` reflects the real URL | View source on the deployed page, or `curl -s https://<preview-url>/ \| grep 'og:url'` | The Open Graph URL matches the deployed origin, not `http://localhost:3000` — this needs Follow-up 1 (set `vars.PUBLIC_ORIGIN`) done first | Not done here — needs Follow-up 1, then a deployed origin |
@@ -660,7 +660,7 @@ sprint adding any redaction logic, because there is nothing to redact.
 
 In order.
 
-1. Once the first real deploy reveals the Worker's actual `*.workers.dev`
+1. **Done on 2026-09-02**, see Open issue 2 for the values. Once the first real deploy reveals the Worker's actual `*.workers.dev`
    URL(s), set `vars.PUBLIC_ORIGIN` in `wrangler.jsonc` (production) and
    `env.preview.vars.PUBLIC_ORIGIN` (preview), per the comment already left
    in that file. See D-1105, Open issue 2. **This follow-up did nothing
@@ -670,7 +670,7 @@ In order.
    `deploy:preview` set that itself, a preview deploy always built and
    deployed the top-level (production) config regardless of what this
    follow-up added under `env.preview`. It is correct to act on now.
-2. Add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repository
+2. **Done on 2026-09-02**; pull request 10 ran the first preview deploy and its merge ran the first production deploy. Add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repository
    secrets so the CI `deploy` job's two real deploy steps activate. Until
    they exist, those two steps are skipped on every push and pull request;
    the job's proof and warning steps (D-1106, D-1112) still run either way

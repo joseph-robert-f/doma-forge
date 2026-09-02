@@ -36,12 +36,16 @@
 
   // PUBLIC_ORIGIN is the canonical absolute origin used to build page
   // metadata (Open Graph and canonical URLs) in app/layout.tsx, through
-  // lib/origin.ts. It is not a secret. It is left unset here because the
-  // Worker's real workers.dev URL is known only after the first deploy;
-  // app/layout.tsx falls back to http://localhost:3000 until it is set.
-  // Add it once the URL is known, for example:
-  //
-  // "vars": { "PUBLIC_ORIGIN": "https://drawerforge.<subdomain>.workers.dev" },
+  // lib/origin.ts. It is not a secret. It is the address Wrangler printed
+  // for the production Worker on the first real deploy (CI run 33683252086,
+  // 2026-09-02). The preview Worker sets its own value under env.preview
+  // below. If either Worker ever gets a custom domain, change the value
+  // here; app/layout.tsx falls back to http://localhost:3000 when it is
+  // unset, blank, or malformed. See 26_CLOUDFLARE_MIGRATION_NOTES.md,
+  // Decision D-1105 and Follow-up 1.
+  "vars": {
+    "PUBLIC_ORIGIN": "https://drawerforge.joseph-r-fehr.workers.dev"
+  },
 
   // A named "preview" environment, with its own `name` so it deploys as a
   // separate Worker and never overwrites the production Worker above.
@@ -58,11 +62,15 @@
   // --preview`) does this correctly. See 26_CLOUDFLARE_MIGRATION_NOTES.md,
   // Decision D-1106, and `tests/wrangler-preview-env.test.mjs`, which
   // proves a CLOUDFLARE_ENV=preview build actually produces this Worker's
-  // name. Add `vars.PUBLIC_ORIGIN` here too, once the preview Worker's own
-  // URL is known.
+  // name. `vars` is not inherited from the top level, so the preview Worker
+  // carries its own PUBLIC_ORIGIN, the address Wrangler printed for it on
+  // the first real preview deploy (pull request 10).
   "env": {
     "preview": {
-      "name": "drawerforge-preview"
+      "name": "drawerforge-preview",
+      "vars": {
+        "PUBLIC_ORIGIN": "https://drawerforge-preview.joseph-r-fehr.workers.dev"
+      }
     }
   }
 

@@ -46,3 +46,26 @@ test("a CLOUDFLARE_ENV=preview build produces the separate preview Worker's wran
       "`wrangler deploy --env` at deploy time is caught rather than ignored",
   );
 });
+
+/**
+ * Wrangler does not inherit `vars` from the top level into a named
+ * environment, so the preview Worker must carry its own PUBLIC_ORIGIN or it
+ * silently renders every Open Graph and canonical URL with the
+ * http://localhost:3000 default (lib/origin.ts). This asserts the preview
+ * build resolved the preview Worker's own address, not the production one
+ * and not nothing. See 26_CLOUDFLARE_MIGRATION_NOTES.md, Follow-up 1.
+ */
+test("a CLOUDFLARE_ENV=preview build carries the preview Worker's own PUBLIC_ORIGIN", async () => {
+  const raw = await readFile(
+    new URL("../dist/server/wrangler.json", import.meta.url),
+    "utf8",
+  );
+  const config = JSON.parse(raw);
+
+  assert.equal(
+    config.vars?.PUBLIC_ORIGIN,
+    "https://drawerforge-preview.joseph-r-fehr.workers.dev",
+    "env.preview.vars.PUBLIC_ORIGIN must name the preview Worker's address; " +
+      "`vars` is not inherited from the top level",
+  );
+});
