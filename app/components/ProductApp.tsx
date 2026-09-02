@@ -8,7 +8,6 @@ import {
   createDesignFile,
   designFilename,
   namedMeshFilename,
-  normalizeDesignName,
   parseDesignFile,
   readFileText,
   serializeDesignFile,
@@ -25,6 +24,7 @@ import type {
   DerivedValue,
 } from "../../lib/products/types";
 import { inspectBinaryStl, serializeBinaryStl } from "../../lib/stl";
+import { readDesign, writeDesign, writeDesignName } from "../../lib/workspace";
 import {
   analyzeBufferGeometry,
   modelToBufferGeometry,
@@ -32,13 +32,6 @@ import {
 import { ModelViewer, type ViewerStatus } from "./ModelViewer";
 import { ParameterControl } from "./ParameterControls";
 
-/**
- * One record per browser origin. `productId` was added after version 1
- * shipped; a record without it belongs to the drawer tray. Roadmap Phase A
- * replaces this with a versioned workspace envelope.
- */
-export const STORAGE_KEY = "drawerforge-design-v1";
-const STORAGE_VERSION = 1;
 const REGENERATION_DELAY_MS = 140;
 const CUSTOM_PRESET_ID = "custom";
 
@@ -49,13 +42,6 @@ interface PreviewModel {
   parameters: Parameters;
   signature: string;
   triangleCount: number;
-}
-
-interface PersistedDesign {
-  version: number;
-  productId?: string;
-  name?: string;
-  parameters: Parameters;
 }
 
 interface FileMessage {
@@ -168,30 +154,14 @@ export function ProductApp({ productId }: { productId: string }) {
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
       try {
-        const stored = window.localStorage.getItem(STORAGE_KEY);
+        const stored = readDesign(window.localStorage, product);
         if (stored) {
-          const parsed = JSON.parse(stored) as Partial<PersistedDesign>;
-          const belongsToProduct =
-            parsed.productId === undefined || parsed.productId === product.id;
-          if (
-            parsed.version === STORAGE_VERSION &&
-            parsed.parameters &&
-            belongsToProduct
-          ) {
-            const restored = product.normalize(parsed.parameters);
-            if (product.validate(restored).valid) {
-              setParameters(restored);
-              setDesignName(normalizeDesignName(parsed.name));
-              setSaveMessage("Restored your last valid design");
-            }
-          }
+          setParameters({ ...stored.parameters });
+          setDesignName(stored.name);
+          setSaveMessage("Restored your last valid design");
         }
       } catch {
-        try {
-          window.localStorage.removeItem(STORAGE_KEY);
-        } catch {
-          // Storage is unavailable; continue with defaults.
-        }
+        // Storage is unavailable; continue with defaults.
       } finally {
         setHasLoadedStorage(true);
       }
@@ -207,17 +177,7 @@ export function ProductApp({ productId }: { productId: string }) {
     if (!hasLoadedStorage) return;
     const timer = window.setTimeout(() => {
       try {
-        const stored = window.localStorage.getItem(STORAGE_KEY);
-        if (!stored) return;
-        const parsed = JSON.parse(stored) as PersistedDesign;
-        const ownRecord =
-          parsed.version === STORAGE_VERSION &&
-          (parsed.productId === undefined || parsed.productId === product.id);
-        if (!ownRecord) return;
-        const name = normalizeDesignName(designName);
-        if (parsed.name === name) return;
-        parsed.name = name;
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        writeDesignName(window.localStorage, product, designName);
       } catch {
         // Storage is unavailable; the design file still carries the name.
       }
@@ -277,18 +237,16 @@ export function ProductApp({ productId }: { productId: string }) {
         };
         setPreview(nextPreview);
         setViewerStatus("ready");
-        const persisted: PersistedDesign = {
-          version: STORAGE_VERSION,
-          productId: product.id,
-          name: normalizeDesignName(designNameRef.current),
-          parameters: normalized,
-        };
+        let saved = false;
         try {
-          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
-          setSaveMessage("Saved on this device");
+          saved = writeDesign(window.localStorage, product, {
+            name: designNameRef.current,
+            parameters: normalized,
+          });
         } catch {
-          setSaveMessage("Local save unavailable");
+          saved = false;
         }
+        setSaveMessage(saved ? "Saved on this device" : "Local save unavailable");
       } catch (error) {
         if (requestId !== generationId.current) return;
         if (error instanceof GenerationCancelledError) return;

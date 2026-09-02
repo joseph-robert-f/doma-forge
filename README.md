@@ -52,6 +52,8 @@ The design file never holds printer data. Printer corrections belong to a local 
 - `lib/products/drawer-tray/` — the drawer organizer: schema, validation, geometry, presets.
 - `lib/products/registry.ts` — the ordered list of products the app can build.
 - `lib/generation/` — the Web Worker that runs `product.generate()` off the main thread, its message protocol, and the page-side client.
+- `lib/design-file.ts` — the portable `.drawerforge.json` format, export, and non-destructive import.
+- `lib/workspace.ts` — the versioned local storage envelope with one current design per product, and the version 1 migration.
 - `app/components/ProductApp.tsx` — renders any product from the registry.
 - `app/components/ParameterControls.tsx` — number, boolean, and enum controls driven by specs.
 - `app/components/ModelViewer.tsx` — the Three.js preview.
