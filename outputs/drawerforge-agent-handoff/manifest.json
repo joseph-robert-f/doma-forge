@@ -83,6 +83,10 @@
     {
       "path": "12_WEB_WORKER_GENERATION_NOTES.md",
       "purpose": "Design, decisions, measurements, and follow-ups for Web Worker mesh generation"
+    },
+    {
+      "path": "13_DESIGN_FILE_NOTES.md",
+      "purpose": "Portable design file format, import rules, decisions, and Phase A acceptance"
     }
   ]
 }

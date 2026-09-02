@@ -1,7 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import type * as THREE from "three";
+import {
+  DESIGN_FILE_MAX_BYTES,
+  DESIGN_NAME_MAX_LENGTH,
+  createDesignFile,
+  designFilename,
+  namedMeshFilename,
+  normalizeDesignName,
+  parseDesignFile,
+  readFileText,
+  serializeDesignFile,
+} from "../../lib/design-file";
 import {
   GenerationCancelledError,
   createGenerationClient,
@@ -43,7 +54,26 @@ interface PreviewModel {
 interface PersistedDesign {
   version: number;
   productId?: string;
+  name?: string;
   parameters: Parameters;
+}
+
+interface FileMessage {
+  tone: "info" | "warning" | "error";
+  text: string;
+}
+
+const NAME_SAVE_DELAY_MS = 300;
+
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function boxesMatch(a: THREE.Box3, b: THREE.Box3, tolerance = 1e-4) {
@@ -105,7 +135,11 @@ export function ProductApp({ productId }: { productId: string }) {
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [hasLoadedStorage, setHasLoadedStorage] = useState(false);
   const [saveMessage, setSaveMessage] = useState("Saved on this device");
+  const [designName, setDesignName] = useState("");
+  const [fileMessage, setFileMessage] = useState<FileMessage | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const generationId = useRef(0);
+  const designNameRef = useRef("");
   const clientRef = useRef<GenerationClient | null>(null);
   const getClient = () => (clientRef.current ??= createGenerationClient());
 
@@ -147,6 +181,7 @@ export function ProductApp({ productId }: { productId: string }) {
             const restored = product.normalize(parsed.parameters);
             if (product.validate(restored).valid) {
               setParameters(restored);
+              setDesignName(normalizeDesignName(parsed.name));
               setSaveMessage("Restored your last valid design");
             }
           }
@@ -163,6 +198,32 @@ export function ProductApp({ productId }: { productId: string }) {
     }, 0);
     return () => window.clearTimeout(restoreTimer);
   }, [product]);
+
+  useEffect(() => {
+    // The generation effect reads the name through this ref when it saves.
+    // A rename without a geometry edit is saved here so it survives a reload.
+    // Only this product's own record is touched, and only after restore.
+    designNameRef.current = designName;
+    if (!hasLoadedStorage) return;
+    const timer = window.setTimeout(() => {
+      try {
+        const stored = window.localStorage.getItem(STORAGE_KEY);
+        if (!stored) return;
+        const parsed = JSON.parse(stored) as PersistedDesign;
+        const ownRecord =
+          parsed.version === STORAGE_VERSION &&
+          (parsed.productId === undefined || parsed.productId === product.id);
+        if (!ownRecord) return;
+        const name = normalizeDesignName(designName);
+        if (parsed.name === name) return;
+        parsed.name = name;
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      } catch {
+        // Storage is unavailable; the design file still carries the name.
+      }
+    }, NAME_SAVE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [designName, hasLoadedStorage, product]);
 
   useEffect(() => {
     if (!hasLoadedStorage) return;
@@ -219,6 +280,7 @@ export function ProductApp({ productId }: { productId: string }) {
         const persisted: PersistedDesign = {
           version: STORAGE_VERSION,
           productId: product.id,
+          name: normalizeDesignName(designNameRef.current),
           parameters: normalized,
         };
         try {
@@ -262,7 +324,78 @@ export function ProductApp({ productId }: { productId: string }) {
   const resetDefaults = () => {
     setSelectedPreset(CUSTOM_PRESET_ID);
     setParameters({ ...product.defaults });
+    setDesignName("");
+    setFileMessage(null);
     setSaveMessage("Defaults restored");
+  };
+
+  const updateDesignName = (event: ChangeEvent<HTMLInputElement>) => {
+    setDesignName(event.target.value.slice(0, DESIGN_NAME_MAX_LENGTH));
+  };
+
+  const saveDesignFile = () => {
+    if (!validation.valid) return;
+    try {
+      const design = createDesignFile(product, parameters, designName);
+      const blob = new Blob([serializeDesignFile(design)], {
+        type: "application/json",
+      });
+      triggerDownload(blob, designFilename(design));
+      setFileMessage({
+        tone: "info",
+        text: design.name
+          ? `Saved "${design.name}" as a design file.`
+          : "Saved the design file.",
+      });
+    } catch (error) {
+      setFileMessage({
+        tone: "error",
+        text: error instanceof Error ? error.message : "The design file could not be saved.",
+      });
+    }
+  };
+
+  const openDesignFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.target;
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) return;
+    if (file.size > DESIGN_FILE_MAX_BYTES) {
+      setFileMessage({
+        tone: "error",
+        text: `${file.name} is too large to be a design file.`,
+      });
+      return;
+    }
+    let text: string;
+    try {
+      text = await readFileText(file);
+    } catch {
+      setFileMessage({ tone: "error", text: "The file could not be read." });
+      return;
+    }
+    const result = parseDesignFile(text);
+    if (!result.ok) {
+      setFileMessage({ tone: "error", text: `${file.name}: ${result.error}` });
+      return;
+    }
+    if (result.product.id !== product.id) {
+      setFileMessage({
+        tone: "error",
+        text: `${file.name} is a ${result.product.label} design. This page builds a ${product.label.toLowerCase()}.`,
+      });
+      return;
+    }
+    setSelectedPreset(CUSTOM_PRESET_ID);
+    setParameters({ ...result.design.parameters });
+    setDesignName(result.design.name);
+    const loaded = result.design.name
+      ? `Loaded "${result.design.name}" from ${file.name}.`
+      : `Loaded ${file.name}.`;
+    setFileMessage({
+      tone: result.warnings.length ? "warning" : "info",
+      text: [loaded, ...result.warnings].join(" "),
+    });
   };
 
   const downloadDisabled =
@@ -297,15 +430,10 @@ export function ProductApp({ productId }: { productId: string }) {
       ) {
         throw new Error("The STL safety check did not match the visible preview.");
       }
-      const blob = new Blob([data], { type: "model/stl" });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = product.filename(preview.parameters);
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      triggerDownload(
+        new Blob([data], { type: "model/stl" }),
+        namedMeshFilename(designName, product.filename(preview.parameters)),
+      );
     } catch (error) {
       setGenerationError(
         error instanceof Error ? error.message : "STL export failed.",
@@ -397,6 +525,71 @@ export function ProductApp({ productId }: { productId: string }) {
               ))}
             </div>
           </fieldset>
+
+          <section className="design-section" aria-labelledby="design-title">
+            <h2 id="design-title" className="design-heading">
+              Design file
+            </h2>
+            <div className="design-row">
+              <label className="design-name">
+                <span>Design name</span>
+                <input
+                  type="text"
+                  data-testid="design-name-input"
+                  value={designName}
+                  maxLength={DESIGN_NAME_MAX_LENGTH}
+                  placeholder="Optional, used in file names"
+                  autoComplete="off"
+                  spellCheck={false}
+                  onChange={updateDesignName}
+                />
+              </label>
+              <div className="design-actions">
+                <button
+                  className="button button--quiet"
+                  type="button"
+                  data-testid="save-design-button"
+                  disabled={!validation.valid}
+                  aria-describedby="design-hint"
+                  onClick={saveDesignFile}
+                >
+                  Save design file
+                </button>
+                <button
+                  className="button button--quiet"
+                  type="button"
+                  data-testid="open-design-button"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Open design file
+                </button>
+                <input
+                  ref={fileInputRef}
+                  className="visually-hidden"
+                  type="file"
+                  accept=".json,application/json"
+                  data-testid="open-design-input"
+                  aria-label="Open a DrawerForge design file"
+                  tabIndex={-1}
+                  onChange={openDesignFile}
+                />
+              </div>
+            </div>
+            <p id="design-hint" className="design-hint">
+              {validation.valid
+                ? "A design file holds this product's settings in millimeters. It opens on any device."
+                : "Fix the settings above before saving a design file."}
+            </p>
+            <p
+              className={`design-message${fileMessage ? ` design-message--${fileMessage.tone}` : " design-message--empty"}`}
+              data-testid="design-file-message"
+              data-tone={fileMessage?.tone ?? ""}
+              role="status"
+              aria-live="polite"
+            >
+              {fileMessage?.text ?? ""}
+            </p>
+          </section>
 
           <DerivedValuesCard
             title={product.copy.derivedTitle}

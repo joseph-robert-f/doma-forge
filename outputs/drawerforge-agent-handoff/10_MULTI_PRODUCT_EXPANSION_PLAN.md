@@ -265,7 +265,7 @@ Show the print orientation in the viewer for family C products. The plate goes o
 ## Part 3. First tranche for the next agent
 
 Status 2026-09-02: items 1, 2, and 3 are done, plus the preset rename from item 5.
-See 11_PRODUCT_REGISTRY_REFACTOR_NOTES.md and 12_WEB_WORKER_GENERATION_NOTES.md.
+Roadmap Phase A, the design file, is done. See documents 11, 12, and 13.
 Item 4, the fit-test coupon, and item 6 remain.
 
 1. Add a CI workflow that runs the five merge-gate commands.
