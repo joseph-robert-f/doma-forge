@@ -122,6 +122,45 @@ Print the riser upside down: the tray rim goes on the bed and the legs point up.
 The deck is a bridge in this pose. Each compartment is an upside-down box, and its ceiling is the deck. The **Longest bridge** line in the calculated result card gives the span: the shorter side of one compartment, 96.5 mm with the defaults. That span is longer than the 40 mm this app allows for an underside pocket, so read it before you slice. Three ways to shorten it: use more rows or more columns, use a smaller drawer, or slice the part with supports under the deck. Nobody has printed this part yet, so the app sets no rule here. Record what you find.
 
 Use four perimeters and at least 25 percent infill in the legs. Use a stiff filament. PLA and PETG are satisfactory. Do not stand on the riser and do not load it with more than a few kilograms. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+## Plant pot saucer
+
+The third product is a round saucer that matches the base of a plant pot. Open it from the product switcher or at `/products/plant-saucer`.
+
+Measure the base of the pot with a caliper. Set the inner floor diameter to that measurement plus 2 mm. Set the rim height and the wall taper. The wall opens upward, between 3 and 12 degrees from vertical, so the saucer lifts off the bed cleanly and stacks with another saucer. The inner floor diameter stops at 208 mm, the 220 mm printer bed less 12 mm. The app rejects a saucer whose outside diameter passes the same 208 mm, and names the taper.
+
+The rolled rim is a bead that rolls inward from the top of the wall. It never overhangs the outside, so the saucer prints without supports. The app reduces the bead radius when the setting does not fit: the bead is never more than a quarter of the rim height, never wider than the wall it rolls over, and never near the axis. The calculated result names the radius the app used and the radius you asked for.
+
+Lift ribs hold the pot above the water. Each rib crosses the whole floor through the center and is 3 mm wide. Set the count to 0 for a flat floor. The overflow notch is a 12 mm notch in one side of the rim. Extra water leaves through the notch instead of over the whole rim.
+
+### Print notes for the saucer
+
+Print the saucer upright, floor on the bed. Do not use supports. Use three perimeters and four solid bottom layers, so the floor holds water. Use PLA or PETG.
+
+## Nursery plant pot
+
+The fourth product is a round plant pot with drainage. Open it from the product switcher or at `/products/plant-pot`.
+
+Set the outside diameter at the base, the height, and the wall angle. The base diameter is the measurement the saucer must match, so the calculated result shows **Matching saucer floor**: the base diameter plus 2 mm. Enter that number as the saucer's inner floor diameter. The saucer floor is then 2 mm wider than the pot base all round, which is a 1 mm gap on each side.
+
+The wall angle runs from 0 to 45 degrees from vertical. The app rejects a pot that is more than 208 mm across at the rim, the 220 mm printer bed less 12 mm, and names the wall angle. The drainage holes are 4 to 8 mm, and they go through the flat base only. They never cut the wall: a single hole sits at the center, and two or more sit on a circle of half the floor radius. The app rejects holes that leave less than 2.5 mm between two neighbours, or less than 2.5 mm between a hole and the wall.
+
+### Print notes for the pot
+
+Print the pot upright, base on the bed. Do not use supports. Each drainage hole bridges nothing, because it goes straight through a flat base. Use three perimeters and four solid bottom layers. Use PLA or PETG. This pot is for a plant. It is not for anything else.
+
+## Card and cartridge slot holder
+
+The fifth product is a slab with a slot for every card. Open it from the product switcher or at `/products/card-holder`.
+
+Measure one card with a caliper. The card thickness plus the slot clearance is the gap the card sits in. The card width is the edge that goes into the slot. Set the slot count, the slot depth, and the tilt.
+
+The tilt leans every card to one side, from 0 to 20 degrees. A tilted slot needs more width than an upright one. Its mouth is wider, and its floor moves sideways by the slot depth times the tangent of the tilt. The app solves the pitch on that whole footprint, keeps at least 2.5 mm between two slots and between a slot and the rim, and rejects a corner radius that would cut into an end slot. The calculated result shows the pitch, the web, and the floor offset.
+
+The presets are typical sizes for memory cards, game cartridges, and cassettes. They are starting points, not a brand's sizes.
+
+### Print notes for the card holder
+
+Print the holder flat on the bed, slots up. Do not use supports. Use three perimeters. A slot is a thin gap, so print a test holder with two slots before a long one.
 
 ## Printer profile and calibration
 
@@ -169,6 +208,7 @@ The app also shows an error when a correction takes a value past its limit. The 
 ## Code layout
 
 - `lib/kernel/` — shared geometry code: the Manifold loader, profile builders (`profiles.ts`), the shell pattern (`shell.ts`), cutter arrays, the pitch solver and dividers at explicit positions (`arrays.ts`), leg posts with hull gussets (`legs.ts`), underside lightening (`lightening.ts`), and the mesh copy.
+- `lib/kernel/` — shared geometry code: the Manifold loader, profile builders (`profiles.ts`), the shell pattern (`shell.ts`), cutter arrays and the pitch solver (`arrays.ts`), underside lightening (`lightening.ts`), revolved profiles and shells (`revolve.ts`), and the mesh copy.
 - `lib/products/types.ts` — the `ProductDefinition` contract every product satisfies.
 - `lib/products/shared.ts` — normalization, range validation, signature, slug, and hash helpers.
 - `lib/products/drawer-tray/` — the drawer organizer: schema, validation, geometry, presets.
@@ -176,6 +216,9 @@ The app also shows an error when a correction takes a value past its limit. The 
 - `lib/products/parts-bin/` — the stackable parts bin: schema, the stacking layout, validation, geometry, presets.
 - `lib/products/remote-caddy/` — the remote and controller caddy: schema with the well-width layout, validation, geometry, presets.
 - `lib/products/drawer-riser/` — the two-tier drawer riser: schema with the leg plan, validation, geometry, presets.
+- `lib/products/plant-saucer/` — the plant pot saucer: the revolved profile, the lift ribs, validation, geometry, presets.
+- `lib/products/plant-pot/` — the nursery plant pot: the revolved profile, the drainage layout, validation, geometry, presets.
+- `lib/products/card-holder/` — the card and cartridge slot holder: the tilted slot layout, validation, geometry, presets.
 - `lib/products/registry.ts` — the ordered list of products the app can build.
 - `lib/generation/` — the Web Worker that runs `product.generate()` off the main thread, its message protocol, and the page-side client.
 - `lib/design-file.ts` — the portable `.drawerforge.json` format, export, and non-destructive import.
@@ -194,6 +237,8 @@ The drawer tray is constructed as one solid with a rounded outer profile. A mani
 Automated geometry checks cover representative 1×1, 1×3, 2×3, and 4×4 organizers. They verify requested bounds, finite coordinates, positive signed volume, non-degenerate triangles, outward winding, and exactly two oppositely directed faces per mesh edge. Cross-section and point-in-solid regressions also prove that extreme valid radii and the Hand tools preset retain a continuous perimeter around every compartment. Export tests independently parse the binary STL and compare its bounds to the preview mesh.
 
 The socket tray starts as a rounded slab. One batched union of every bore cutter is subtracted in one Boolean, then the underside pockets. Its tests slice the mesh above the base and count one outer contour and one hole per bore, and slice through the pockets and count the pocket grid.
+
+The card holder starts as the same rounded slab and subtracts one batched union of tilted slot cutters. The plant pot and the plant pot saucer are revolved forms: a two-dimensional profile in the radius-height plane is revolved about the Z axis, and a second revolved profile is subtracted as the cavity. Mesh quality sets the segments in one revolution, 48, 96, or 192. Their tests slice the mesh at many heights and check that the part is one closed solid at every level, that the saucer floor has no hole in it, and that the pot's drainage holes never reach the wall.
 
 STL has no embedded unit metadata. DrawerForge models coordinates as millimeters, so import downloads into a millimeter-based slicer without scaling.
 

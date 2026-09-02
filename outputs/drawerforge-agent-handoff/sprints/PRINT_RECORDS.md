@@ -204,3 +204,68 @@ with the same parameters.
 | Bridge result | the deck over one compartment: clean, drooped, or failed. Give the droop in mm. |
 | Photo | file name |
 | Notes | Print the part upside down: the tray rim goes on the bed and the legs point up. Print it once without supports and look at the deck from below; the deck over each compartment is a 96.5 mm bridge. Measure the clear height at one leg and at the middle of a long side; a bowed deck shows there. Load the tray and look at the legs after one day. This record decides whether the product needs a maximum compartment span, a rib under the deck, or a two-part print. |
+
+## Plant pot saucer
+
+### Record 5: Plant pot saucer defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Plant pot saucer, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). innerDiameter 160, rimHeight 15, taperDegrees 6, rimRadius 1, overflowNotch false, liftRibs 2, ribHeight 3, wallThickness 2, baseThickness 2.4, meshQuality standard |
+| Design file name | drawerforge-plant-saucer-160x15-896046.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 166.5 × 166.5 × 15 |
+| Target inner floor diameter, mm | 160 |
+| Measured outside width x depth x height, mm | |
+| Measured inner floor diameter, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | too tight, fits, loose, with the gap in mm |
+| Photo | file name |
+| Notes | Stand the matching pot on the ribs. Measure the inner floor diameter across two points 90 degrees apart. Fill the saucer with water and leave it for one hour to check the floor. The saucer is not compensated by the printer profile; record the diameter shrink as a number. |
+
+## Nursery plant pot
+
+### Record 6: Nursery plant pot defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Nursery plant pot, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). baseDiameter 120, potHeight 130, wallAngleDegrees 6, rimRadius 1, drainHoles 4, drainHoleDiameter 6, wallThickness 2.2, baseThickness 3, meshQuality standard |
+| Design file name | drawerforge-plant-pot-120x130-4h-237a74.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 147.1 × 147.1 × 130 |
+| Target base diameter, mm | 120 |
+| Target drainage hole diameter, mm | 6 |
+| Measured outside width x depth x height, mm | |
+| Measured base diameter, mm | |
+| Measured drainage hole diameter, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | too tight, fits, loose, with the gap in mm |
+| Photo | file name |
+| Notes | Print the matching saucer at an inner floor diameter of 122 mm and stand the pot in it. Measure two of the four drainage holes. Check the first layer under each hole for a dropped bridge. The pot is not compensated by the printer profile; record the diameter shrink as a number. |
+
+## Card and cartridge slot holder
+
+### Record 7: Card holder, memory cards preset
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Card and cartridge slot holder, geometry version 1 |
+| Preset or parameters | Preset: Memory cards. holderWidth 100, holderDepth 32, holderHeight 20, cardGauge 2.1, slotClearance 0.4, cardWidth 24, slotCount 12, slotDepth 14, slotTilt 10, wallThickness 2, baseThickness 2.4, cornerRadius 3, meshQuality standard |
+| Design file name | drawerforge-card-holder-100x32x20-12s-85683b.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 100 × 32 × 20 |
+| Target slot width, mm | 2.5 |
+| Measured outside width x depth x height, mm | |
+| Measured slot width, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | too tight, fits, loose, with the gap in mm |
+| Photo | file name |
+| Notes | Put one card in an end slot and one card in a middle slot. A card must go in with one finger and stay in when the holder is tipped. Record the slot clearance that fits. The slots are not compensated by the printer profile. |
