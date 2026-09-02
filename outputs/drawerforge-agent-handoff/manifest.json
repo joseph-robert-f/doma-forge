@@ -71,6 +71,10 @@
     {
       "path": "09_NEXT_AGENT_BRIEF.md",
       "purpose": "Implementation-ready next-agent mission, constraints, and prompt"
+    },
+    {
+      "path": "10_MULTI_PRODUCT_EXPANSION_PLAN.md",
+      "purpose": "Drawer-tray governance rules and the 15-product catalog expansion plan"
     }
   ]
 }
