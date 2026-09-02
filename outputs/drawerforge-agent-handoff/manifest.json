@@ -97,6 +97,18 @@
       "purpose": "Remaining sprints, order, and model and effort routing"
     },
     {
+      "path": "16_FIT_TEST_COUPON_NOTES.md",
+      "purpose": "Fit-test coupon ring, wall rule, decisions, and follow-ups (S01)"
+    },
+    {
+      "path": "17_PRODUCT_ROUTES_NOTES.md",
+      "purpose": "Per-product routes, page metadata, not-found page, and decisions (S02)"
+    },
+    {
+      "path": "18_VIEWER_SCALE_NOTES.md",
+      "purpose": "Viewer scale formula, print-pose hint, screenshot evidence, and decisions (S03)"
+    },
+    {
       "path": "sprints/S01_FIT_TEST_COUPON.md",
       "purpose": "Sprint spec: fit-test coupon export"
     },
