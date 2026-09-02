@@ -32,6 +32,18 @@ DrawerForge rejects non-finite or out-of-range values, a base that leaves too li
 
 Draft, Standard, and Fine change curved-feature tessellation only. Standard is the recommended balance for editing and export.
 
+## Design files
+
+A design file holds one product's settings in millimeters. Use it to move a design between devices or to keep more than one design.
+
+1. Enter a design name. The name is optional. It becomes the first part of each file name.
+2. Select **Save design file**. The browser downloads `<name>-drawer-tray-<hash>.drawerforge.json`.
+3. On any device, select **Open design file** and choose the file. The design replaces the current settings only after every check passes.
+
+A file with an unknown format, an unsupported version, a missing parameter, or an out-of-range value is refused with a message. The current design does not change. A file saved by a different app version loads with a warning that the mesh may differ.
+
+The design file never holds printer data. Printer corrections belong to a local printer profile.
+
 ## Code layout
 
 - `lib/kernel/` — shared geometry code: the Manifold loader, profile builders, and mesh copy.
@@ -59,7 +71,7 @@ STL has no embedded unit metadata. DrawerForge models coordinates as millimeters
 - Rectangular, evenly divided compartment grids only
 - One organizer per design; no automatic multi-piece splitting
 - No arbitrary divider drawing, slicer settings, or multi-model projects
-- Designs persist only in the current browser’s local storage
+- The last valid design persists in the current browser’s local storage; use a design file to move it
 - The front finger scoop has an automatically constrained size and position
 
 ## Engineering handoff

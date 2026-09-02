@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DRAWER_TRAY_ID, drawerTray } from "../lib/products/drawer-tray";
+import { readFileText } from "../lib/design-file";
 import { ProductApp, STORAGE_KEY } from "../app/components/ProductApp";
 
 vi.mock("../app/components/ModelViewer", () => ({
@@ -28,6 +29,36 @@ vi.mock("../app/components/ModelViewer", () => ({
     </section>
   ),
 }));
+
+/** Captures anchor downloads: the blob handed to createObjectURL and the file name. */
+function mockDownloads() {
+  const createUrl = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:drawerforge-test");
+  vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+  let downloadName = "";
+  const originalCreateElement = document.createElement.bind(document);
+  const createElement = vi
+    .spyOn(document, "createElement")
+    .mockImplementation((tagName, options) => {
+      const element = originalCreateElement(tagName, options);
+      if (tagName.toLowerCase() === "a") {
+        Object.defineProperty(element, "download", {
+          get: () => downloadName,
+          set: (value: string) => {
+            downloadName = value;
+          },
+          configurable: true,
+        });
+      }
+      return element;
+    });
+  return {
+    createUrl,
+    lastBlob: () => createUrl.mock.calls.at(-1)?.[0] as Blob,
+    downloadName: () => downloadName,
+    restore: () => createElement.mockRestore(),
+  };
+}
 
 async function renderReadyApp() {
   const result = render(<ProductApp productId={DRAWER_TRAY_ID} />);
@@ -190,33 +221,13 @@ describe("DrawerForge app integration", () => {
 
   it("downloads a nonempty binary STL from the current preview", async () => {
     await renderReadyApp();
-    const createUrl = vi
-      .spyOn(URL, "createObjectURL")
-      .mockReturnValue("blob:drawerforge-test");
-    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
-    let downloadName = "";
-    const originalCreateElement = document.createElement.bind(document);
-    vi.spyOn(document, "createElement").mockImplementation((tagName, options) => {
-      const element = originalCreateElement(tagName, options);
-      if (tagName.toLowerCase() === "a") {
-        Object.defineProperty(element, "download", {
-          get: () => downloadName,
-          set: (value: string) => {
-            downloadName = value;
-          },
-          configurable: true,
-        });
-      }
-      return element;
-    });
+    const downloads = mockDownloads();
 
     fireEvent.click(screen.getByTestId("download-stl-button"));
 
-    expect(createUrl).toHaveBeenCalledOnce();
-    const blob = createUrl.mock.calls[0][0] as Blob;
-    expect(blob.size).toBeGreaterThan(84);
-    expect(downloadName).toMatch(
+    expect(downloads.createUrl).toHaveBeenCalledOnce();
+    expect(downloads.lastBlob().size).toBeGreaterThan(84);
+    expect(downloads.downloadName()).toMatch(
       /^drawerforge-drawer-tray-299x199x50-2x3-[0-9a-f]{6}\.stl$/,
     );
   });
@@ -243,11 +254,16 @@ describe("DrawerForge app integration", () => {
       "360",
     );
 
+    fireEvent.change(screen.getByTestId("design-name-input"), {
+      target: { value: "Temp name" },
+    });
     fireEvent.click(screen.getByTestId("reset-defaults-button"));
     expect(screen.getByTestId("param-drawer-width-number")).toHaveProperty(
       "value",
       "300",
     );
+    expect(screen.getByTestId("design-name-input")).toHaveProperty("value", "");
+    expect(screen.getByTestId("design-file-message").textContent).toBe("");
     expect(screen.getByTestId("param-drawer-depth-number")).toHaveProperty(
       "value",
       "200",
@@ -339,6 +355,98 @@ describe("DrawerForge app integration", () => {
       "value",
       "300",
     );
+  });
+
+  it("saves a design file and reopens it after storage is cleared", async () => {
+    const first = await renderReadyApp();
+    fireEvent.change(screen.getByTestId("param-drawer-depth-number"), {
+      target: { value: "245" },
+    });
+    fireEvent.change(screen.getByTestId("design-name-input"), {
+      target: { value: "Left bench" },
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("model-viewer").getAttribute("data-model-key")).toContain("|245|"),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("download-stl-button")).toHaveProperty("disabled", false),
+    );
+    const savedKey = screen.getByTestId("model-viewer").getAttribute("data-model-key");
+
+    const downloads = mockDownloads();
+
+    fireEvent.click(screen.getByTestId("save-design-button"));
+    expect(downloads.downloadName()).toMatch(/^left-bench-drawer-tray-[0-9a-f]{6}\.drawerforge\.json$/);
+    const text = await readFileText(downloads.lastBlob());
+    const design = JSON.parse(text);
+    expect(design).toMatchObject({
+      format: "drawerforge-design",
+      version: 1,
+      units: "mm",
+      productId: "drawer-tray",
+      name: "Left bench",
+    });
+    expect(design.parameters.drawerDepth).toBe(245);
+    expect(screen.getByTestId("design-file-message").textContent).toMatch(/Saved "Left bench"/);
+
+    // STL downloads carry the design name too.
+    fireEvent.click(screen.getByTestId("download-stl-button"));
+    expect(downloads.downloadName()).toMatch(/^left-bench-drawerforge-drawer-tray-299x244x50-2x3-[0-9a-f]{6}\.stl$/);
+    downloads.restore();
+
+    first.unmount();
+    window.localStorage.clear();
+
+    await renderReadyApp();
+    expect(screen.getByTestId("param-drawer-depth-number")).toHaveProperty("value", "200");
+    const file = new File([text], "left-bench.drawerforge.json", { type: "application/json" });
+    fireEvent.change(screen.getByTestId("open-design-input"), { target: { files: [file] } });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("param-drawer-depth-number")).toHaveProperty("value", "245"),
+    );
+    expect(screen.getByTestId("design-name-input")).toHaveProperty("value", "Left bench");
+    expect(screen.getByTestId("design-file-message").textContent).toMatch(/Loaded "Left bench"/);
+    const custom = screen.getByTestId("preset-custom").querySelector("input") as HTMLInputElement;
+    expect(custom.checked).toBe(true);
+    await waitFor(() =>
+      expect(screen.getByTestId("model-viewer").getAttribute("data-model-key")).toBe(savedKey),
+    );
+  });
+
+  it("keeps the current design when an invalid file is opened", async () => {
+    await renderReadyApp();
+    const viewer = screen.getByTestId("model-viewer");
+    const key = viewer.getAttribute("data-model-key");
+
+    const wrongVersion = new File(
+      [JSON.stringify({ format: "drawerforge-design", version: 7, units: "mm" })],
+      "old.drawerforge.json",
+      { type: "application/json" },
+    );
+    fireEvent.change(screen.getByTestId("open-design-input"), { target: { files: [wrongVersion] } });
+    await waitFor(() =>
+      expect(screen.getByTestId("design-file-message").textContent).toMatch(
+        /old\.drawerforge\.json: Design file version 7 is not supported/,
+      ),
+    );
+    expect(screen.getByTestId("design-file-message").getAttribute("data-tone")).toBe("error");
+    expect(screen.getByTestId("param-drawer-width-number")).toHaveProperty("value", "300");
+    expect(viewer.getAttribute("data-model-key")).toBe(key);
+    expect(screen.getByTestId("download-stl-button")).toHaveProperty("disabled", false);
+  });
+
+  it("persists a renamed design without a geometry edit", async () => {
+    const first = await renderReadyApp();
+    fireEvent.change(screen.getByTestId("design-name-input"), {
+      target: { value: "Vanity top" },
+    });
+    await waitFor(() =>
+      expect(window.localStorage.getItem(STORAGE_KEY) ?? "").toContain('"name":"Vanity top"'),
+    );
+    first.unmount();
+    await renderReadyApp();
+    expect(screen.getByTestId("design-name-input")).toHaveProperty("value", "Vanity top");
   });
 
   it("persists and restores the latest valid design", async () => {

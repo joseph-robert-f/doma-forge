@@ -773,6 +773,92 @@ button:disabled {
   line-height: 1.4;
 }
 
+.design-section {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 20px;
+}
+
+.design-row {
+  display: grid;
+  gap: 12px;
+}
+
+.design-name {
+  display: grid;
+  gap: 6px;
+}
+
+.design-name > span {
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.design-name > input {
+  background: var(--panel-bright);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: inherit;
+  font: inherit;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.design-name > input:focus-visible {
+  outline: 2px solid var(--accent, currentColor);
+  outline-offset: 1px;
+}
+
+.design-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.design-hint {
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 10px 0 0;
+}
+
+.design-heading {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin: 0 0 12px;
+}
+
+.design-message {
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 10px 0 0;
+  padding: 8px 10px;
+}
+
+.design-message--empty {
+  display: none;
+}
+
+.design-message--warning {
+  background: rgb(190 130 20 / 10%);
+  border: 1px solid rgb(190 130 20 / 40%);
+}
+
+.design-message--info {
+  background: var(--panel-bright);
+  border: 1px solid var(--line);
+}
+
+.design-message--error {
+  background: rgb(180 60 40 / 8%);
+  border: 1px solid rgb(180 60 40 / 35%);
+}
+
 .export-bar {
   background: linear-gradient(180deg, rgb(248 244 235 / 0%), var(--panel) 18%);
   bottom: 0;

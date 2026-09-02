@@ -53,7 +53,8 @@ The user has reported that a generated STL imports and slices successfully in Ba
 11. [`10_MULTI_PRODUCT_EXPANSION_PLAN.md`](10_MULTI_PRODUCT_EXPANSION_PLAN.md) — governance rules for the drawer tray and the 15-product catalog plan built on the same engine.
 12. [`11_PRODUCT_REGISTRY_REFACTOR_NOTES.md`](11_PRODUCT_REGISTRY_REFACTOR_NOTES.md) — decisions, deviations, open issues, and follow-ups from the product-registry refactor.
 13. [`12_WEB_WORKER_GENERATION_NOTES.md`](12_WEB_WORKER_GENERATION_NOTES.md) — design, decisions, measurements, and follow-ups for off-thread mesh generation.
-14. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
+14. [`13_DESIGN_FILE_NOTES.md`](13_DESIGN_FILE_NOTES.md) — the portable design file format, import rules, decisions, and acceptance against roadmap Phase A.
+15. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
 
 `CHECKSUMS.sha256` contains SHA-256 hashes for every document and the manifest so a copied or extracted package can be verified.
 
