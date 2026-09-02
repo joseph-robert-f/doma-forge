@@ -207,6 +207,34 @@ export const QUALITY_SEGMENTS: Record<MeshQuality, number> = {
   fine: 48,
 };
 
+export interface CornerConflict {
+  /** One-based row number. */
+  row: number;
+  /** The largest corner radius that keeps this bore inside the wall, in whole 0.5 mm steps. */
+  maximumCornerRadius: number;
+}
+
+/**
+ * True when a bore of `radius` centered at (`x`, `y`) stays inside the
+ * rounded outer profile with at least `wall` of material. Only the corner
+ * region needs the check; the straight sides are covered by the inner
+ * rectangle the layout is solved in.
+ */
+export function boreClearsCorner(
+  x: number,
+  y: number,
+  radius: number,
+  width: number,
+  depth: number,
+  cornerRadius: number,
+  wall: number,
+): boolean {
+  const dx = Math.max(0, Math.abs(x) - (width / 2 - cornerRadius));
+  const dy = Math.max(0, Math.abs(y) - (depth / 2 - cornerRadius));
+  if (dx === 0 || dy === 0) return true;
+  return Math.hypot(dx, dy) + radius + wall <= cornerRadius + 1e-9;
+}
+
 export interface SocketTrayLayout {
   outsideWidth: number;
   outsideDepth: number;
@@ -220,8 +248,10 @@ export interface SocketTrayLayout {
   rowLayouts: PitchResult[];
   /** The row layout along Y, solved for the widest bore. */
   rowSpacing: PitchResult;
-  /** Material under the bore floors. */
+  /** Material under the bore floors: the base when pockets exist, else the whole slab below the floor. */
   baseUnderBores: number;
+  /** The bores that a large outer corner radius would cut open; empty when every bore is inside the wall. */
+  cornerConflicts: CornerConflict[];
   /** How far an underside pocket may go up before it reaches the base. */
   pocketDepth: number;
   /** The pocket grid, or null when the tray gets no pockets. */
@@ -246,6 +276,7 @@ export function lighteningOptions(parameters: SocketTrayParameters, segments: nu
   return {
     width: parameters.trayWidth,
     depth: parameters.trayDepth,
+    cornerRadius: parameters.cornerRadius,
     rim: parameters.wallThickness,
     pocketDepth:
       parameters.trayHeight - parameters.boreDepth - parameters.baseThickness,
@@ -270,25 +301,44 @@ export function deriveLayout(parameters: SocketTrayParameters): SocketTrayLayout
     : 1;
   const safeDiameter = (diameter: number) =>
     Number.isFinite(diameter) && diameter > 0 ? diameter : 1;
-  const rowLayouts = rowDiameters.map((diameter) =>
-    solvePitch({
-      span: innerWidth,
-      count,
-      cutterSize: safeDiameter(diameter),
-      minimumWeb: MINIMUM_WEB_MM,
-    }),
-  );
-  const rowSpacing = solvePitch({
-    span: innerDepth,
-    count: rowDiameters.length,
-    cutterSize: safeDiameter(Math.max(...rowDiameters)),
+  // A cleared field holds NaN until the user types again. The layout then
+  // reports "does not fit" instead of asking the solver for a NaN span.
+  const solvable = Number.isFinite(innerWidth) && Number.isFinite(innerDepth);
+  const unsolved = (): PitchResult => ({
+    ok: false,
+    web: Number.NaN,
     minimumWeb: MINIMUM_WEB_MM,
   });
+  const rowLayouts = rowDiameters.map((diameter) =>
+    solvable
+      ? solvePitch({
+          span: innerWidth,
+          count,
+          cutterSize: safeDiameter(diameter),
+          minimumWeb: MINIMUM_WEB_MM,
+        })
+      : unsolved(),
+  );
+  const rowSpacing = solvable
+    ? solvePitch({
+        span: innerDepth,
+        count: rowDiameters.length,
+        cutterSize: safeDiameter(Math.max(...rowDiameters)),
+        minimumWeb: MINIMUM_WEB_MM,
+      })
+    : unsolved();
   const pocketDepth =
     parameters.trayHeight - parameters.boreDepth - parameters.baseThickness;
   const lightening = parameters.lightenUnderside
     ? planLightening(lighteningOptions(parameters, QUALITY_SEGMENTS.standard))
     : null;
+  const cornerConflicts = findCornerConflicts(
+    parameters,
+    rowDiameters,
+    rowLayouts,
+    rowSpacing,
+    count,
+  );
   return {
     outsideWidth: parameters.trayWidth,
     outsideDepth: parameters.trayDepth,
@@ -298,8 +348,54 @@ export function deriveLayout(parameters: SocketTrayParameters): SocketTrayLayout
     rowDiameters,
     rowLayouts,
     rowSpacing,
-    baseUnderBores: parameters.trayHeight - parameters.boreDepth,
+    baseUnderBores: lightening
+      ? parameters.baseThickness
+      : parameters.trayHeight - parameters.boreDepth,
     pocketDepth,
     lightening,
+    cornerConflicts,
   };
+}
+
+/**
+ * Checks the end bores of every row against the rounded outer corners. A
+ * chamfered mouth is wider by the chamfer, so that is the radius checked.
+ * For a row that fails, the largest passing corner radius is found by
+ * stepping down in 0.5 mm steps, the corner radius field's own step.
+ */
+function findCornerConflicts(
+  parameters: SocketTrayParameters,
+  rowDiameters: number[],
+  rowLayouts: PitchResult[],
+  rowSpacing: PitchResult,
+  count: number,
+): CornerConflict[] {
+  if (!rowSpacing.ok || !Number.isFinite(parameters.cornerRadius)) return [];
+  const mouthExtra = parameters.chamfer ? CHAMFER_MM : 0;
+  const conflicts: CornerConflict[] = [];
+  rowLayouts.forEach((rowLayout, index) => {
+    if (!rowLayout.ok) return;
+    const radius = rowDiameters[index] / 2 + mouthExtra;
+    const y = rowSpacing.firstCenter + index * rowSpacing.pitch;
+    const xEnds = [rowLayout.firstCenter, rowLayout.firstCenter + (count - 1) * rowLayout.pitch];
+    const clears = (cornerRadius: number) =>
+      xEnds.every((x) =>
+        boreClearsCorner(
+          x,
+          y,
+          radius,
+          parameters.trayWidth,
+          parameters.trayDepth,
+          cornerRadius,
+          parameters.wallThickness,
+        ),
+      );
+    if (clears(parameters.cornerRadius)) return;
+    let maximumCornerRadius = Math.floor(parameters.cornerRadius * 2) / 2;
+    while (maximumCornerRadius > 0 && !clears(maximumCornerRadius)) {
+      maximumCornerRadius -= 0.5;
+    }
+    conflicts.push({ row: index + 1, maximumCornerRadius: Math.max(0, maximumCornerRadius) });
+  });
+  return conflicts;
 }

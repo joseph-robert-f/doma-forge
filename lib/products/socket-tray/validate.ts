@@ -45,7 +45,7 @@ export function validateSocketTray(
   if (parameters.cornerRadius > shorterSide / 2) {
     add(
       "cornerRadius",
-      "Corner radius cannot exceed half the shorter outside dimension.",
+      `Corner radius must be at most ${mm(shorterSide / 2)} mm, half the shorter outside dimension.`,
     );
   }
 
@@ -78,6 +78,16 @@ export function validateSocketTray(
           : `${parameters.rows} rows of up to ${mm(widest)} mm leave ${mm(layout.rowSpacing.web)} mm between rows. Keep at least ${mm(MINIMUM_WEB_MM)} mm. Use fewer rows, a smaller bore, or a deeper tray.`,
       );
     }
+  }
+
+  if (layout.cornerConflicts.length > 0) {
+    const worst = layout.cornerConflicts.reduce((lowest, conflict) =>
+      conflict.maximumCornerRadius < lowest.maximumCornerRadius ? conflict : lowest,
+    );
+    add(
+      "cornerRadius",
+      `Corner radius ${mm(parameters.cornerRadius)} mm cuts into the end bores of row ${worst.row}. Use at most ${mm(worst.maximumCornerRadius)} mm, or a smaller row ${worst.row} bore.`,
+    );
   }
 
   return collector.result();

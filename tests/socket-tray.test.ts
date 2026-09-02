@@ -96,6 +96,38 @@ describe("socket tray parameters", () => {
     );
   });
 
+  it("derives and validates a cleared field without throwing", () => {
+    for (const key of ["trayWidth", "trayDepth", "wallThickness", "holesPerRow", "rows", "trayHeight"] as const) {
+      const cleared = { ...SOCKET_TRAY_DEFAULTS, [key]: Number.NaN };
+      expect(() => socketTray.derive(cleared)).not.toThrow();
+      const result = validate(cleared);
+      expect(result.valid).toBe(false);
+      expect(result.byField[key]?.[0]).toMatch(/must be a number/);
+    }
+    expect(socketTray.derive({ ...SOCKET_TRAY_DEFAULTS, trayWidth: Number.NaN })[1].value).toBe("does not fit");
+  });
+
+  it("rejects a corner radius that cuts into an end bore, naming the largest radius that fits", () => {
+    const corner = withChanges({
+      trayWidth: 60, trayDepth: 40, trayHeight: 12, rows: 4, holesPerRow: 7,
+      boreDiameter1: 5, boreDiameter2: 5, boreDiameter3: 5, boreDiameter4: 5,
+      boreDepth: 6, wallThickness: 1.2, baseThickness: 1.2, cornerRadius: 20,
+      chamfer: false, lightenUnderside: false,
+    });
+    const result = validate(corner);
+    expect(result.valid).toBe(false);
+    expect(result.byField.cornerRadius).toHaveLength(1);
+    expect(result.byField.cornerRadius?.[0]).toMatch(
+      /^Corner radius 20 mm cuts into the end bores of row [14]\. Use at most (\d+(\.5)?) mm, or a smaller row [14] bore\.$/,
+    );
+    const maximum = Number(result.byField.cornerRadius?.[0].match(/at most ([\d.]+) mm/)?.[1]);
+    expect(validate({ ...corner, cornerRadius: maximum }).valid).toBe(true);
+    expect(validate({ ...corner, cornerRadius: maximum + 0.5 }).valid).toBe(false);
+    // A chamfered mouth is wider, so it needs a smaller corner radius.
+    const chamfered = validate({ ...corner, cornerRadius: maximum, chamfer: true });
+    expect(chamfered.byField.cornerRadius).toHaveLength(1);
+  });
+
   it("ignores the diameter of a row that is not built", () => {
     const result = validate(withChanges({ rows: 1, boreDiameter4: 40, holesPerRow: 12 }));
     expect(result.valid).toBe(true);
@@ -116,11 +148,12 @@ describe("socket tray parameters", () => {
       "200 × 110 × 25 mm",
       "23.2 mm, web 10.2 mm",
       "23.7 mm, web 6.7 mm",
-      "7 mm",
+      "2.4 mm",
       "5 × 3, 4.6 mm deep",
     ]);
     const noPockets = socketTray.derive(withChanges({ lightenUnderside: false }));
     expect(noPockets.at(-1)?.value).toBe("none");
+    expect(noPockets.at(-2)?.value).toBe("7 mm");
   });
 });
 
@@ -131,6 +164,7 @@ describe("socket tray geometry", () => {
     ["maximum", MAXIMUM_CASE],
     ["plain bores without pockets", { chamfer: false, lightenUnderside: false }],
     ["four rows", { rows: 4, trayDepth: 160, holesPerRow: 6 }],
+    ["large corner radius with pockets", { trayHeight: 30, wallThickness: 1.2, cornerRadius: 20 }],
   ];
 
   it.each(fixtures)("creates a finite, outward, closed %s tray", async (_name, changes) => {
@@ -191,8 +225,13 @@ describe("socket tray geometry", () => {
     },
   );
 
-  it("shows the pocket grid in a slice through the underside and none above the base", async () => {
-    const parameters = withChanges({});
+  it.each([
+    ["default", {}],
+    ["large corner radius", { trayHeight: 30, wallThickness: 1.2, cornerRadius: 20 }],
+  ] as Array<[string, Partial<SocketTrayParameters>]>)(
+    "shows the whole pocket grid in a slice through the %s underside and none above the base",
+    async (_name, changes) => {
+    const parameters = withChanges(changes);
     const layout = deriveLayout(parameters);
     const model = await generate(parameters);
     const plan = layout.lightening!;
@@ -203,6 +242,22 @@ describe("socket tray geometry", () => {
       plan.pocketDepth + parameters.baseThickness / 2,
     );
     expect(base).toMatchObject({ contours: 1, solidComponents: 1, holes: 0 });
+  });
+
+  it("keeps every end bore closed at the largest corner radius validation accepts", async () => {
+    const corner = withChanges({
+      trayWidth: 60, trayDepth: 40, trayHeight: 12, rows: 4, holesPerRow: 7,
+      boreDiameter1: 5, boreDiameter2: 5, boreDiameter3: 5, boreDiameter4: 5,
+      boreDepth: 6, wallThickness: 1.2, baseThickness: 1.2, cornerRadius: 20,
+      chamfer: false, lightenUnderside: false,
+    });
+    const message = validate(corner).byField.cornerRadius?.[0] ?? "";
+    const maximum = Number(message.match(/at most ([\d.]+) mm/)?.[1]);
+    const parameters = { ...corner, cornerRadius: maximum };
+    expect(validate(parameters).valid).toBe(true);
+    const model = await generate(parameters);
+    const topology = horizontalSliceTopology(model.mesh, parameters.trayHeight - parameters.boreDepth / 2);
+    expect(topology.holes).toBe(28);
   });
 
   it("widens a chamfered bore mouth without changing the bounds or the bore floor", async () => {
@@ -238,9 +293,10 @@ describe("socket tray geometry", () => {
     const model = await generate(parameters);
     const elapsed = performance.now() - started;
     expect(model.status).toBe("NoError");
-    // The spec's threshold is one second. Allow five for a slow CI runner;
-    // the measured value is recorded in 20_KERNEL_MODULES_NOTES.md.
-    expect(elapsed).toBeLessThan(5_000);
+    // The spec's threshold is one second and the measured value here is
+    // about 0.3 s (20_KERNEL_MODULES_NOTES.md). Two seconds leaves room for
+    // a slower CI runner while a regression to the threshold's size fails.
+    expect(elapsed).toBeLessThan(2_000);
   });
 
   it("round-trips the exact preview triangles through binary STL", async () => {

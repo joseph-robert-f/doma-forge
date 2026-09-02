@@ -29,8 +29,8 @@ API, and section 3, the rules a family B product follows.
 | `lib/products/socket-tray/` | `copy.ts`, `schema.ts`, `validate.ts`, `geometry.ts`, `presets.ts`, `index.ts`. |
 | `lib/products/registry.ts` | Registers `socketTray` after `drawerTray`. |
 | `tests/helpers/mesh-checks.ts` | `closedEdgeCounts`, `connectedComponentCount`, `horizontalSliceTopology` for any product. |
-| `tests/kernel-modules.test.ts` | 18 cases: the pitch solver at the boundary, the array with 1, 2, and 24 cutters, the bore cutter, the profiles, the shell, the lightening planner. |
-| `tests/socket-tray.test.ts` | 25 cases: presets, layout, every validation rule, the file name, the derived values, five geometry cases, the conflict case, slice topology, the pocket grid, the chamfer, mesh quality, the kernel time, the STL round trip, the golden record. |
+| `tests/kernel-modules.test.ts` | 20 cases: the pitch solver at the boundary, the array with 1, 2, and 24 cutters, the bore cutter and the exact chamfer depth, the profiles, the shell, the lightening planner, the corner clip. |
+| `tests/socket-tray.test.ts` | 30 cases: presets, layout, every validation rule including the corner rule and a cleared field, the file name, the derived values, six geometry cases, the conflict case, slice topology, the pocket grid at a large corner radius, the chamfer, mesh quality, the kernel time, the STL round trip, the golden record. |
 | `README.md` | The "Bit, socket, and driver tray" section, the code layout, the geometry paragraph. |
 
 The product contract in `lib/products/types.ts` did not change. No member
@@ -40,7 +40,7 @@ was added and no member changed.
 
 | Gate | Before | After |
 |---|---|---|
-| Vitest | 212 in 12 files | 263 in 14 files |
+| Vitest | 212 in 12 files | 269 in 14 files |
 | Server render | 5 | 5 |
 | Drawer tray golden record | 362 triangles, volume 277462.54 | unchanged |
 
@@ -100,14 +100,18 @@ solid says whether it deletes it.
 
 ### 2.4 `lightening.ts`
 
-- `planLightening({ width, depth, rim, pocketDepth, maximumSpan, web, pocketRadius, segments })`.
+- `planLightening({ width, depth, cornerRadius, rim, pocketDepth, maximumSpan, web, pocketRadius, segments })`.
   Pure. Splits the area inside the rim into a grid of pockets so that no
   pocket is wider than `maximumSpan` on either axis. Returns
   `{ countX, countY, spanX, spanY, pocketDepth }` or null when the pocket is
-  shallower than 1 mm or the slab is under 8 mm inside the rim.
+  shallower than 1 mm, the slab is under 8 mm inside the rim, or a value is
+  not finite.
 - `lightenUnderside(kernel, slab, options)`. Cuts the planned grid up from
-  Z = 0. Returns `{ solid, plan }`. Deletes `slab` when it cuts; returns
-  `slab` untouched with `plan: null` when there is no plan.
+  Z = 0, clipped to the outer profile inset by the rim (corner radius
+  `cornerRadius − rim`, clamped at zero), so a corner pocket follows a
+  large outer corner instead of cutting through it. Returns
+  `{ solid, plan }`. Deletes `slab` when it cuts; returns `slab` untouched
+  with `plan: null` when there is no plan.
 
 ---
 
@@ -123,6 +127,14 @@ solid says whether it deletes it.
    count, the size, the web, and the fix.
 4. A cutter depth never exceeds the height minus the base. The base the user
    sets is the base under the cutters.
+4a. The layout is solved in the inner rectangle, and the end cutters of every
+   row are then checked against the rounded outer corners with
+   `boreClearsCorner`. A corner that would cut a cutter open is a validation
+   error on `cornerRadius` that names the largest radius that fits.
+4b. `deriveLayout` never throws. A cleared field holds NaN until the user
+   types again; the layout then reports "does not fit" and validation
+   reports the field. The form calls `derive` on every keystroke, so a
+   throw here would take the page down.
 5. Underside pockets go through `lightenUnderside` with a bridge limit of
    40 mm. A part prints with the pockets on the bed, so each pocket ceiling
    is a bridge. Governance rule 10: a feature that needs supports is a
@@ -204,10 +216,36 @@ and the README says to measure.
 helpers.** The drawer tray's golden test file stays untouched by rule. The
 helpers are copied, not moved. Follow-up 1 removes the copy.
 
-**D-913. The kernel time test allows five seconds.** The spec's threshold is
-one second and the measured value is 0.3 s. A CI runner can be several
-times slower than this environment, so the test fails only at five times
-the spec threshold. The measured value is in section 6.
+**D-913. The kernel time test allows two seconds.** The spec's threshold is
+one second and the measured value is 0.3 s. A CI runner can be two to three
+times slower than this environment, so the test allows two seconds: a
+regression to the size of the threshold fails, a slow runner does not. The
+measured value is in section 6.
+
+**D-914. A large corner radius is checked against the end bores.** Found in
+review. The layout is solved in the rectangle inside the rim, and that
+rectangle is not inside the outer profile when the corner radius is large.
+With a 60 × 40 tray, a 20 mm corner, 5 mm bores, and a 1.2 mm rim, the four
+corner bores opened into the outside while every other check passed. The
+fix is a validation rule, not a clamp: the rule names `cornerRadius` and
+the largest radius that keeps every end bore inside the wall, found by
+stepping down in the field's own 0.5 mm steps. A chamfered mouth is wider
+by the chamfer, so that is the radius checked. The golden record and the
+presets are unaffected.
+
+**D-915. Underside pockets are clipped to the inset outer profile.** Found in
+review. The same rectangle-versus-corner defect opened the corner pockets
+at a large corner radius. The pocket grid is intersected with the outer
+profile inset by the rim, the way the drawer tray clips its dividers to the
+outer body. For the defaults the clip radius is 1 mm and the pocket radius
+2 mm, so the clip does not touch the defaults and the golden record is
+unchanged; the test suite confirms it.
+
+**D-916. "Base under bores" reports the printed material.** Found in
+review. With pockets, the material under a bore floor is the base
+thickness; without pockets it is the height minus the bore depth. The
+derived line now shows whichever is true. With the defaults it reads
+2.4 mm, not 7 mm.
 
 ---
 
@@ -223,8 +261,9 @@ the spec threshold. The measured value is in section 6.
    radius, not a kernel offset of the outer one. A kernel offset would change
    the drawer tray's mesh.
 3. The printed coupon record is prepared in `sprints/PRINT_RECORDS.md` under
-   "Socket tray" with the target values for the defaults. It is not filled;
-   a person prints and measures.
+   "Socket tray" with the target values for the defaults. It lands in the
+   S12 integration commit on the same branch, not in the S05 commit, because
+   S12 owns that file. It is not filled; a person prints and measures.
 
 ---
 
@@ -288,6 +327,20 @@ under software WebGL.
 4. **No printed record yet.** The socket tray has a prepared record with
    target values only. Governance rule 6 needs one filled record before
    wave 1 is called done.
+5. **The webs are not checked against the nozzle.** The printer profile's
+   thin-wall rule reads parameters whose key names a wall or a thickness,
+   so it sees the rim and the base. It cannot see the solved webs, which are
+   this product's real thin features. At a nozzle of 1.5 mm or more, two
+   nozzle widths exceed the 2.5 mm minimum web and nothing reports it.
+   Passing the nozzle into the layout, or the solved webs into the
+   thin-wall check, is a contract question for the next product sprint.
+6. **Bed contact.** With the defaults the pockets leave a 2 mm rim and
+   2.5 mm ribs on the bed, about 15 percent of the footprint. The README
+   says to use a brim if the first layer lifts. A printed record decides
+   whether the rib width needs to grow.
+7. **The ridge between two chamfered mouths at the minimum web is 0.9 mm.**
+   It builds cleanly and it is a sloped edge, not a wall (D-908). The
+   derived line reports the 2.5 mm web at the bore wall, not the ridge.
 
 ---
 

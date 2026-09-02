@@ -62,7 +62,7 @@ The second product is a flat tray with a bore for every socket, bit, or driver. 
 
 Set the outside size, the number of rows, the bores per row, and the bore depth. Each row has its own bore diameter. Row 1 is at the front. Measure the widest item in a row with a caliper and add your own clearance; the app does not add one. The rows and the bores are spaced evenly, with the same web between neighbours as between a bore and the rim.
 
-The app rejects a layout that leaves less than 2.5 mm between two bores or between two rows, and it names the row and the fix. The bore depth cannot exceed the tray height minus the base, so the base under the bores is always the base you set. A chamfered bore mouth adds a 0.8 mm lead-in. Underside pockets remove material below the base; each pocket ceiling bridges at most 40 mm, so the tray prints flat without supports.
+The app rejects a layout that leaves less than 2.5 mm between two bores or between two rows, and it names the row and the fix. The bore depth cannot exceed the tray height minus the base, so the base under the bores is at least the base you set. A large corner radius that would cut into an end bore is rejected with the largest radius that fits. A chamfered bore mouth adds a 0.8 mm lead-in. Underside pockets remove material below the base; each pocket ceiling bridges at most 40 mm, so the tray prints flat without supports. The pockets leave the rim and the ribs on the bed. Use a brim if the first layer lifts.
 
 The presets are typical outside diameters for quarter-inch and half-inch drive sockets and for quarter-inch hex bits. They are starting points, not a brand's sizes.
 

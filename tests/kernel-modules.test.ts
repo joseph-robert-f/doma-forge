@@ -126,7 +126,20 @@ describe("bore cutter", () => {
     expect(plainBox.max[2]).toBeCloseTo(20 + BOOLEAN_OVERLAP, 6);
     expect(plainBox.max[0]).toBeCloseTo(5, 6);
     const chamferBox = chamfered.boundingBox();
-    expect(chamferBox.max[0]).toBeGreaterThan(5.9);
+    expect(chamferBox.max[0]).toBeCloseTo(5 + 1 + BOOLEAN_OVERLAP, 6);
+    // The chamfer is exactly one millimeter deep at the face: the mouth is
+    // wider just above z = 19 and the plain bore radius just below it.
+    const radiusAt = (z: number) => {
+      const slice = kernel.Manifold.cube([40, 40, 0.001], true).translate([0, 0, z]);
+      const cut = chamfered.intersect(slice);
+      const radius = cut.boundingBox().max[0];
+      cut.delete();
+      slice.delete();
+      return radius;
+    };
+    expect(radiusAt(20)).toBeCloseTo(6, 2);
+    expect(radiusAt(19.05)).toBeGreaterThan(5.02);
+    expect(radiusAt(18.95)).toBeCloseTo(5, 2);
     expect(chamfered.volume()).toBeGreaterThan(plain.volume());
     expect(chamfered.status()).toBe("NoError");
     plain.delete();
@@ -198,7 +211,7 @@ describe("shell", () => {
 
 describe("underside lightening", () => {
   const base: LighteningOptions = {
-    width: 200, depth: 110, rim: 2, pocketDepth: 4, maximumSpan: 40, web: 2.5, pocketRadius: 2, segments: 24,
+    width: 200, depth: 110, cornerRadius: 3, rim: 2, pocketDepth: 4, maximumSpan: 40, web: 2.5, pocketRadius: 2, segments: 24,
   };
 
   it("splits the inside into pockets no wider than the maximum span", () => {
@@ -210,9 +223,37 @@ describe("underside lightening", () => {
     expect(plan!.countY * plan!.spanY + (plan!.countY - 1) * 2.5).toBeCloseTo(106, 10);
   });
 
-  it("returns no plan for a shallow pocket or a tiny slab", () => {
+  it("returns no plan for a shallow pocket, a tiny slab, or a cleared value", () => {
     expect(planLightening({ ...base, pocketDepth: MINIMUM_POCKET_DEPTH - 0.01 })).toBeNull();
     expect(planLightening({ ...base, width: MINIMUM_POCKET_SPAN + 2 * 2 - 0.1 })).toBeNull();
+    expect(planLightening({ ...base, width: Number.NaN })).toBeNull();
+  });
+
+  it("keeps a corner pocket inside a large outer corner radius", async () => {
+    const kernel = await getKernel();
+    // 60 x 40 slab, 1.2 mm rim, 20 mm outer corner: an unclipped pocket
+    // grid would cut through the rounded corner and open the pocket to
+    // the outside. The clip keeps at least the rim everywhere.
+    const options: LighteningOptions = {
+      ...base, width: 60, depth: 40, rim: 1.2, cornerRadius: 20, pocketDepth: 3,
+    };
+    const slab = roundedSlab(kernel, { width: 60, depth: 40, height: 8, cornerRadius: 20, segments: 24 });
+    const { solid, plan } = lightenUnderside(kernel, slab, options);
+    expect(plan).not.toBeNull();
+    // Probe the corner: a point on the 45 degree diagonal, half a rim in
+    // from the outer arc, must still be solid at pocket height.
+    const arcCenter = [30 - 20, 20 - 20];
+    const along = 20 - 0.6;
+    const probe = kernel.Manifold.cube([0.2, 0.2, 0.2], true).translate([
+      arcCenter[0] + along / Math.SQRT2,
+      arcCenter[1] + along / Math.SQRT2,
+      1.5,
+    ]);
+    const hit = solid.intersect(probe);
+    expect(hit.volume()).toBeGreaterThan(0.2 * 0.2 * 0.2 * 0.9);
+    hit.delete();
+    probe.delete();
+    solid.delete();
   });
 
   it("removes the pocket volume and leaves the slab alone when there is no plan", async () => {
