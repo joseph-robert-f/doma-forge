@@ -47,3 +47,12 @@ STL has no embedded unit metadata. DrawerForge models coordinates as millimeters
 - No arbitrary divider drawing, slicer settings, or multi-model projects
 - Designs persist only in the current browser’s local storage
 - The front finger scoop has an automatically constrained size and position
+
+## Engineering handoff
+
+The repository includes a self-contained engineering handoff for agents and
+contributors in [`outputs/drawerforge-agent-handoff/`](outputs/drawerforge-agent-handoff/README.md).
+It covers product requirements, architecture diagrams, geometry and STL
+contracts, UX decisions, tests, deployment migration, and the recommended
+expansion roadmap. A portable ZIP is also available at
+[`outputs/drawerforge-agent-handoff-2026-09-01.zip`](outputs/drawerforge-agent-handoff-2026-09-01.zip).

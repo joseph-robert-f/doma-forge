@@ -39,5 +39,8 @@ next-env.d.ts
 *.tsbuildinfo
 /dist/
 /.wrangler/
-/outputs/
+/outputs/*
+!/outputs/drawerforge-agent-handoff/
+!/outputs/drawerforge-agent-handoff/**
+!/outputs/drawerforge-agent-handoff-2026-09-01.zip
 /work/

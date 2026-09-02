@@ -1,0 +1,76 @@
+{
+  "artifact": "drawerforge-agent-handoff",
+  "artifactVersion": "1.0.0",
+  "createdAt": "2026-09-01",
+  "source": {
+    "project": "DrawerForge",
+    "packageVersion": "0.1.0",
+    "branch": "main",
+    "commit": "785ea4e0458b6f52cacab8a0bbef4cac057d62be",
+    "workingTreeAtAuditStart": "clean",
+    "gitRemoteConfigured": false
+  },
+  "implementation": {
+    "runtime": "React 19 / Next 16 / vinext / Vite / Cloudflare Worker",
+    "geometry": "manifold-3d WebAssembly",
+    "preview": "Three.js",
+    "persistence": "origin-scoped localStorage",
+    "export": "binary STL generated in the browser",
+    "backend": false
+  },
+  "evidence": {
+    "userReportedBambuStudioImport": true,
+    "userReportedBambuStudioSlice": true,
+    "physicalPrintValidated": false,
+    "freshUnitRunDuringPackaging": "passed 4 files and 26 parameter, preset, geometry, and STL tests",
+    "freshIntegrationRunDuringPackaging": "Vitest timed out starting the jsdom thread worker before executing assertions",
+    "freshTypecheckBuildLintDuringPackaging": "stalled after startup banners in the shared environment and was interrupted without diagnostics"
+  },
+  "integrityFile": "CHECKSUMS.sha256",
+  "documents": [
+    {
+      "path": "README.md",
+      "purpose": "Start-here guide, snapshot, document map, and invariants"
+    },
+    {
+      "path": "ORIGINAL_GOAL.md",
+      "purpose": "Original v1 product and verification brief"
+    },
+    {
+      "path": "01_PRODUCT_AND_REQUIREMENTS.md",
+      "purpose": "Product definition, current behavior, scope, and requirement traceability"
+    },
+    {
+      "path": "02_SYSTEM_ARCHITECTURE.md",
+      "purpose": "Runtime, data flows, components, deployment, and repository map"
+    },
+    {
+      "path": "03_GEOMETRY_AND_STL.md",
+      "purpose": "Authoritative physical-model, topology, coordinate, tessellation, and STL contract"
+    },
+    {
+      "path": "04_UX_AND_DESIGN.md",
+      "purpose": "User flow, responsive layout, visual system, interaction states, and accessibility"
+    },
+    {
+      "path": "05_DECISION_LOG.md",
+      "purpose": "Implemented and selected-next architecture/design decisions"
+    },
+    {
+      "path": "06_TESTING_AND_QA.md",
+      "purpose": "Automated coverage, evidence, browser QA, and physical-print validation"
+    },
+    {
+      "path": "07_OPERATIONS_AND_MIGRATION.md",
+      "purpose": "Sites coupling and selected direct-Cloudflare migration"
+    },
+    {
+      "path": "08_EXPANSION_ROADMAP.md",
+      "purpose": "Prioritized product, reliability, geometry, and optional cloud expansion"
+    },
+    {
+      "path": "09_NEXT_AGENT_BRIEF.md",
+      "purpose": "Implementation-ready next-agent mission, constraints, and prompt"
+    }
+  ]
+}
