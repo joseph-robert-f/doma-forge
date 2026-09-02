@@ -606,6 +606,11 @@ button:disabled {
   margin-top: 21px;
 }
 
+.parameter-stack > .quality-fieldset,
+.parameter-stack > .toggle-row {
+  margin-top: 0;
+}
+
 .quality-options {
   background: var(--paper-deep);
   border: 1px solid var(--line);

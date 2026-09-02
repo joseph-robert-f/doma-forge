@@ -12,7 +12,7 @@ export type ViewerStatus =
   | "paused"
   | "error";
 
-export interface DrawerViewerProps {
+export interface ModelViewerProps {
   geometry: THREE.BufferGeometry | null;
   modelKey: string;
   status: ViewerStatus;
@@ -152,12 +152,12 @@ function disposeScene(scene: THREE.Scene) {
   for (const material of materials) material.dispose();
 }
 
-export function DrawerViewer({
+export function ModelViewer({
   geometry,
   modelKey,
   status,
   statusDetail,
-}: DrawerViewerProps) {
+}: ModelViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasHostRef = useRef<HTMLDivElement>(null);
   const rendererErrorRef = useRef<HTMLDivElement>(null);
@@ -245,7 +245,7 @@ export function DrawerViewer({
       roughness: 0.56,
     });
     const modelMesh = new THREE.Mesh(new THREE.BufferGeometry(), modelMaterial);
-    modelMesh.name = "drawer-organizer";
+    modelMesh.name = "product-model";
     modelMesh.castShadow = true;
     modelMesh.receiveShadow = true;
     modelMesh.visible = false;
@@ -477,8 +477,8 @@ export function DrawerViewer({
       ref={containerRef}
       style={viewerStyle}
       role="region"
-      aria-label="Interactive 3D drawer organizer preview"
-      aria-describedby="drawer-viewer-help preview-status"
+      aria-label="Interactive 3D model preview"
+      aria-describedby="model-viewer-help preview-status"
       aria-busy={isBusy}
       data-testid="model-viewer"
       data-model-key={modelKey}
@@ -544,7 +544,7 @@ export function DrawerViewer({
         </span>
       </div>
 
-      <span id="drawer-viewer-help" style={hintStyle}>
+      <span id="model-viewer-help" style={hintStyle}>
         Drag to orbit · Scroll to zoom · Right-drag to pan
       </span>
 

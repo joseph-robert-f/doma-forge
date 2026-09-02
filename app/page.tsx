@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { DrawerForgeApp } from "./components/DrawerForgeApp";
+import { DEFAULT_PRODUCT_ID } from "../lib/products/registry";
+import { ProductApp } from "./components/ProductApp";
 
 export const metadata: Metadata = {
   title: { absolute: "DrawerForge — Parametric Drawer Organizer" },
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  return <DrawerForgeApp />;
+  return <ProductApp key={DEFAULT_PRODUCT_ID} productId={DEFAULT_PRODUCT_ID} />;
 }

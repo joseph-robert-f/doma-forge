@@ -32,11 +32,24 @@ DrawerForge rejects non-finite or out-of-range values, a base that leaves too li
 
 Draft, Standard, and Fine change curved-feature tessellation only. Standard is the recommended balance for editing and export.
 
+## Code layout
+
+- `lib/kernel/` — shared geometry code: the Manifold loader, profile builders, and mesh copy.
+- `lib/products/types.ts` — the `ProductDefinition` contract every product satisfies.
+- `lib/products/shared.ts` — normalization, range validation, signature, slug, and hash helpers.
+- `lib/products/drawer-tray/` — the drawer organizer: schema, validation, geometry, presets.
+- `lib/products/registry.ts` — the ordered list of products the app can build.
+- `app/components/ProductApp.tsx` — renders any product from the registry.
+- `app/components/ParameterControls.tsx` — number, boolean, and enum controls driven by specs.
+- `app/components/ModelViewer.tsx` — the Three.js preview.
+
+To add a product, create a folder under `lib/products/`, export a `ProductDefinition`, and add it to the registry. `tests/products.test.ts` checks every registered product.
+
 ## Geometry and export
 
 The tray is constructed as one solid with a rounded outer profile. A manifold-guaranteeing WebAssembly geometry kernel subtracts one exact inward-offset cavity, clips and unions the row/column dividers into that shell, and then cuts the optional front finger scoop. This keeps the rounded perimeter continuous even at large corner radii. The result is copied once into a Three.js triangle mesh; that same in-memory mesh drives both the preview and the custom binary STL serializer.
 
-Automated geometry checks cover representative 1×1, 1×3, 2×3, and 4×4 organizers. They verify requested bounds, finite coordinates, positive signed volume, non-degenerate triangles, outward winding, and exactly two oppositely directed faces per mesh edge. Cross-section and point-in-solid regressions also prove that extreme valid radii and the Cutlery preset retain a continuous perimeter around every compartment. Export tests independently parse the binary STL and compare its bounds to the preview mesh.
+Automated geometry checks cover representative 1×1, 1×3, 2×3, and 4×4 organizers. They verify requested bounds, finite coordinates, positive signed volume, non-degenerate triangles, outward winding, and exactly two oppositely directed faces per mesh edge. Cross-section and point-in-solid regressions also prove that extreme valid radii and the Hand tools preset retain a continuous perimeter around every compartment. Export tests independently parse the binary STL and compare its bounds to the preview mesh.
 
 STL has no embedded unit metadata. DrawerForge models coordinates as millimeters, so import downloads into a millimeter-based slicer without scaling.
 

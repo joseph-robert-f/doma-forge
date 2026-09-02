@@ -75,6 +75,10 @@
     {
       "path": "10_MULTI_PRODUCT_EXPANSION_PLAN.md",
       "purpose": "Drawer-tray governance rules and the 15-product catalog expansion plan"
+    },
+    {
+      "path": "11_PRODUCT_REGISTRY_REFACTOR_NOTES.md",
+      "purpose": "Decisions, deviations, open issues, and follow-ups from the product-registry refactor"
     }
   ]
 }

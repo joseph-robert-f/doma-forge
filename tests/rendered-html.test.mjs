@@ -46,7 +46,7 @@ test("removes disposable starter assets and backend scaffolding", async () => {
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /DrawerForgeApp/);
+  assert.match(page, /ProductApp/);
   assert.match(layout, /DrawerForge/);
   assert.doesNotMatch(page, /codex-preview|_sites-preview|SkeletonPreview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton|drizzle-orm|drizzle-kit/);

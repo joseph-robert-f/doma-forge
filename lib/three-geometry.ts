@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { GeneratedOrganizer } from "./organizer-geometry";
+import type { GeneratedModel } from "./kernel/mesh";
 
 const AREA_EPSILON = 1e-10;
 
@@ -12,10 +12,10 @@ export interface MeshAnalysis {
   finite: boolean;
 }
 
-export function organizerToBufferGeometry(
-  organizer: GeneratedOrganizer,
+export function modelToBufferGeometry(
+  model: GeneratedModel<unknown>,
 ): THREE.BufferGeometry {
-  const { mesh } = organizer;
+  const { mesh } = model;
   const positions = new Float32Array(mesh.triVerts.length * 3);
   const normals = new Float32Array(mesh.triVerts.length * 3);
   const a = new THREE.Vector3();
