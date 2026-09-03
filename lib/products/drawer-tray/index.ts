@@ -7,7 +7,7 @@ import {
 } from "../shared";
 import type { ProductDefinition } from "../types";
 import { DRAWER_TRAY_COPY, DRAWER_TRAY_ID } from "./copy";
-import { generateFitTestCoupon } from "./coupon";
+import { FIT_TEST_COUPON_HEIGHT, generateFitTestCoupon } from "./coupon";
 import { generateDrawerTray } from "./geometry";
 import { DRAWER_TRAY_PRESETS } from "./presets";
 import {
@@ -67,6 +67,15 @@ export const drawerTray: ProductDefinition<DrawerTraySpecs> = {
   },
   generate: generateDrawerTray,
   coupon: generateFitTestCoupon,
+  // The coupon is a perimeter ring with the tray's footprint, FIT_TEST_COUPON_HEIGHT tall.
+  couponBoundsContract: (parameters) => {
+    const derived = deriveDimensions(parameters);
+    return {
+      min: [-derived.outsideWidth / 2, -derived.outsideDepth / 2, 0],
+      max: [derived.outsideWidth / 2, derived.outsideDepth / 2, FIT_TEST_COUPON_HEIGHT],
+      tolerance: 1e-3,
+    };
+  },
   // The outside width follows drawerWidth, and the outside depth follows
   // drawerDepth, one to one: a millimeter added here is a millimeter added
   // to the printed part. Clearance, walls, and dividers are not compensated.

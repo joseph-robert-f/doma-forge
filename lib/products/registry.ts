@@ -2,13 +2,17 @@ import { batteryOrganizer } from "./battery-organizer";
 import { cardHolder } from "./card-holder";
 import { drawerRiser } from "./drawer-riser";
 import { drawerTray } from "./drawer-tray";
+import { entrywayValet } from "./entryway-valet";
+import { headphoneMount } from "./headphone-mount";
 import { markerCupBlock } from "./marker-cup-block";
 import { partsBin } from "./parts-bin";
 import { plantPot } from "./plant-pot";
 import { plantSaucer } from "./plant-saucer";
 import { remoteCaddy } from "./remote-caddy";
+import { shelfRiser } from "./shelf-riser";
 import { socketTray } from "./socket-tray";
 import { toolFinRack } from "./tool-fin-rack";
+import { wallHookRail } from "./wall-hook-rail";
 import type { AnyProduct, ParameterSpec, ProductDefinition } from "./types";
 
 /** Erases the spec types of a checked ProductDefinition for the registry. */
@@ -34,6 +38,10 @@ export const PRODUCTS: readonly AnyProduct[] = [
   register(plantSaucer),
   register(plantPot),
   register(cardHolder),
+  register(wallHookRail),
+  register(headphoneMount),
+  register(shelfRiser),
+  register(entrywayValet),
 ];
 
 export const DEFAULT_PRODUCT_ID = drawerTray.id;

@@ -174,6 +174,12 @@ export interface ProductDefinition<
    */
   coupon?(parameters: P): Promise<GeneratedModel<P>>;
   /**
+   * The bounds the coupon must report for the given parameters, checked the
+   * way `boundsContract` is checked for the full model. Required whenever
+   * `coupon` is set. See 24_BRACKET_FAMILY_NOTES.md, decision D-1617.
+   */
+  couponBoundsContract?(parameters: P): BoundsContract;
+  /**
    * The parameters that set an outside dimension along X and along Y. The
    * app adds the printer's dimensional correction to them before it builds
    * the mesh. A product without this member is never compensated.

@@ -129,6 +129,10 @@
       "purpose": "Revolve module, plant pot and saucer, card holder (S08)"
     },
     {
+      "path": "24_BRACKET_FAMILY_NOTES.md",
+      "purpose": "Bracket kernel module, load rules and load model, print-pose overhang test, hook rail, headphone mount, shelf riser, entryway valet (S09)"
+    },
+    {
       "path": "25_BROWSER_QA_NOTES.md",
       "purpose": "Playwright suite, CI browser job, runtimes, flake count, and decisions (S10)"
     },
