@@ -21,7 +21,7 @@ test.describe("fit-test coupon download", () => {
       fitTestButton.click(),
     ]);
     const fitTestName = fitTestDownload.suggestedFilename();
-    expect(fitTestName).toMatch(/^drawerforge-fit-test-\d+(?:p\d+)?x\d+(?:p\d+)?-[0-9a-f]{6}\.stl$/);
+    expect(fitTestName).toMatch(/^drawerforge-fit-test-drawer-tray-\d+(?:p\d+)?x\d+(?:p\d+)?-[0-9a-f]{6}\.stl$/);
     const fitTestPath = await fitTestDownload.path();
     const fitTestSize = statSync(fitTestPath!).size;
     // A binary STL is at least an 80-byte header plus a 4-byte triangle

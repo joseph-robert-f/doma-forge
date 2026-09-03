@@ -30,7 +30,7 @@ import { validateWallHookRail } from "./validate";
  * optional shelf on hull gussets. Increase it whenever equal parameters
  * would produce a different mesh, and re-record the golden test.
  */
-export const WALL_HOOK_RAIL_GEOMETRY_VERSION = 1;
+export const WALL_HOOK_RAIL_GEOMETRY_VERSION = 2;
 
 function signature(parameters: WallHookRailParameters): string {
   return signatureFromSpecs(

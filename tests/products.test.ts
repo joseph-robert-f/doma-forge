@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { drawerTray } from "../lib/products/drawer-tray";
@@ -318,23 +318,21 @@ describe("geometry loaders", () => {
       string,
       () => Promise<ProductGeometry>
     >;
-    const original = table["drawer-tray"];
-    table["drawer-tray"] = async () => {
+    // A fresh key nothing else in the suite loads, so the assertion does not
+    // depend on whether an earlier test already populated the cache for a
+    // real product id.
+    const key = "review-eviction";
+    table[key] = async () => {
       attempts += 1;
       if (attempts === 1) throw new Error("chunk load failed");
-      return original();
+      return { generate: async () => { throw new Error("unused"); } };
     };
     try {
-      // The cache may already hold the module from an earlier test; clear it
-      // by loading through a fresh id path is not possible, so this test
-      // asserts the eviction contract on a loader that fails once.
-      const geometry = await loadGeometry("drawer-tray").catch(() => null);
-      if (geometry === null) {
-        await expect(loadGeometry("drawer-tray")).resolves.toBeTruthy();
-        expect(attempts).toBe(2);
-      }
+      await expect(loadGeometry(key)).rejects.toThrow("chunk load failed");
+      await expect(loadGeometry(key)).resolves.toBeTruthy();
+      expect(attempts).toBe(2);
     } finally {
-      table["drawer-tray"] = original;
+      delete table[key];
     }
   });
 
@@ -390,5 +388,137 @@ describe("definition modules stay free of solid builders", () => {
         `${id}/${name} imports its geometry statically`,
       ).not.toMatch(/from "\.\/(geometry|coupon)"/);
     }
+  });
+});
+
+/**
+ * The check above only reads a fixed list of file names per product
+ * directory, so it cannot see a leak through `lib/products/registry.ts`,
+ * `lib/products/shared.ts`, `lib/products/geometry-registry.ts`, `app/`
+ * code, or a definition-side file a later sprint adds under a new name.
+ * This test instead walks the real static import graph the page and the
+ * worker build from, starting at the modules that hold the whole catalog,
+ * and fails if that graph ever reaches a builder module. A dynamic
+ * `import()` (how each product's geometry loader actually reaches a
+ * builder) is not a static edge, so it is not followed; a type-only
+ * `import type` / `export type` statement carries no runtime module, so it
+ * is skipped too.
+ */
+describe("the static import graph from the page and the worker stays free of solid builders", () => {
+  const BUILDER_MODULES = new Set([
+    "lib/kernel/arrays.ts",
+    "lib/kernel/lightening.ts",
+    "lib/kernel/legs.ts",
+    "lib/kernel/brackets.ts",
+    "lib/kernel/revolve.ts",
+    "lib/kernel/shell.ts",
+    "lib/kernel/profiles.ts",
+    "lib/kernel/manifold.ts",
+  ]);
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..",
+  );
+  // The route files Next.js uses to render the page are entry points too:
+  // a leak reachable only through one of them would otherwise walk right
+  // past this test. They are listed without an existence filter so that a
+  // renamed route fails this test loudly instead of dropping out of it.
+  const ROUTE_FILES = [
+    "app/layout.tsx",
+    "app/not-found.tsx",
+    "app/page.tsx",
+    "app/products/[id]/page.tsx",
+  ];
+
+  const ENTRY_FILES = [
+    "lib/products/registry.ts",
+    "lib/generation/protocol.ts",
+    "lib/generation/generation.worker.ts",
+    "app/components/ProductApp.tsx",
+    ...ROUTE_FILES,
+  ];
+
+  /**
+   * Static `import`/`export ... from` specifiers, skipping type-only
+   * statements. A bare side-effect import, `import "./x"`, has no `from`
+   * and is collected by the second pattern so it is followed or reported
+   * like any other.
+   */
+  function staticSpecifiers(source: string): string[] {
+    const specifiers: string[] = [];
+    const pattern = /^(?:import|export)\s+([^;]*?)\bfrom\s*["']([^"']+)["']/gm;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(source))) {
+      const [, body, specifier] = match;
+      if (/^type\b/.test(body.trim())) continue; // whole-statement type import/export
+      specifiers.push(specifier);
+    }
+    const bare = /^import\s*["']([^"']+)["']/gm;
+    while ((match = bare.exec(source))) specifiers.push(match[1]);
+    return specifiers;
+  }
+
+  /**
+   * Resolves a relative specifier from `fromFile` to a repo-relative path, or
+   * undefined if it cannot be found on disk. A specifier can name a compiled
+   * `.js` file that on disk is still a `.ts`/`.tsx` source file (the emitted
+   * extension a bundler like Vite rewrites at build time), so a `.js`
+   * specifier also tries swapping in those two extensions before giving up.
+   */
+  function resolveRelative(
+    fromFile: string,
+    specifier: string,
+  ): string | undefined {
+    const base = path.resolve(path.dirname(fromFile), specifier);
+    const candidates = [base, `${base}.ts`, `${base}.tsx`, path.join(base, "index.ts")];
+    if (specifier.endsWith(".js")) {
+      const withoutJs = base.slice(0, -3);
+      candidates.push(`${withoutJs}.ts`, `${withoutJs}.tsx`);
+    }
+    for (const candidate of candidates) {
+      if (existsSync(candidate) && statSync(candidate).isFile()) {
+        return candidate;
+      }
+    }
+    return undefined;
+  }
+
+  it("never reaches lib/kernel/{arrays,lightening,legs,brackets,revolve,shell,profiles,manifold}.ts", () => {
+    const visited = new Set<string>();
+    const queue = ENTRY_FILES.map((relative) => path.join(repoRoot, relative));
+    const reached: string[] = [];
+    // A relative specifier this walk cannot resolve is not proof the graph
+    // is clean; it is a gap the walk cannot see through. Anything left here
+    // at the end fails the test alongside a reached builder, named, so a
+    // rename or an unconventional specifier is caught instead of silently
+    // skipped.
+    const unresolved: string[] = [];
+
+    while (queue.length > 0) {
+      const file = queue.shift();
+      if (!file || visited.has(file)) continue;
+      visited.add(file);
+      const repoRelative = path.relative(repoRoot, file).split(path.sep).join("/");
+      if (BUILDER_MODULES.has(repoRelative)) {
+        reached.push(repoRelative);
+        continue;
+      }
+      const source = readFileSync(file, "utf8");
+      for (const specifier of staticSpecifiers(source)) {
+        if (!specifier.startsWith(".")) continue; // skip packages and node: builtins
+        const resolved = resolveRelative(file, specifier);
+        if (!resolved) {
+          unresolved.push(`${repoRelative} -> ${specifier}`);
+          continue;
+        }
+        if (!visited.has(resolved)) queue.push(resolved);
+      }
+    }
+
+    expect(reached, `builder module(s) reachable: ${reached.join(", ")}`).toEqual([]);
+    expect(
+      unresolved,
+      `relative specifier(s) the walk could not resolve: ${unresolved.join(", ")}`,
+    ).toEqual([]);
   });
 });

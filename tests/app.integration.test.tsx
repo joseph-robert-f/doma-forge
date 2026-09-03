@@ -260,7 +260,7 @@ describe("DrawerForge app integration", () => {
     await waitFor(() => expect(downloads.createUrl).toHaveBeenCalledOnce());
     expect(downloads.lastBlob().size).toBeGreaterThan(84);
     expect(downloads.downloadName()).toMatch(
-      /^drawerforge-fit-test-299x199-[0-9a-f]{6}\.stl$/,
+      /^drawerforge-fit-test-drawer-tray-299x199-[0-9a-f]{6}\.stl$/,
     );
   });
 
@@ -291,7 +291,7 @@ describe("DrawerForge app integration", () => {
 
     await waitFor(() => expect(downloads.createUrl).toHaveBeenCalledOnce());
     expect(downloads.downloadName()).toMatch(
-      /^left-bench-drawerforge-fit-test-299x199-[0-9a-f]{6}\.stl$/,
+      /^left-bench-drawerforge-fit-test-drawer-tray-299x199-[0-9a-f]{6}\.stl$/,
     );
   });
 
@@ -712,7 +712,7 @@ describe("DrawerForge app integration", () => {
 
       await waitFor(() => expect(downloads.createUrl).toHaveBeenCalledOnce());
       expect(downloads.downloadName()).toMatch(
-        /^drawerforge-fit-test-299p5x199-[0-9a-f]{6}-cx0p5\.stl$/,
+        /^drawerforge-fit-test-drawer-tray-299p5x199-[0-9a-f]{6}-cx0p5\.stl$/,
       );
       downloads.restore();
     });
@@ -739,32 +739,37 @@ describe("DrawerForge app integration", () => {
     it("proposes and applies a correction from a measurement, once", async () => {
       await renderReadyApp();
       await setCorrection("x", "0.5");
-      // The coupon is modeled 299.5 mm wide. It printed 299.4 mm.
+      // A correctly calibrated print should measure the 299 mm target, not
+      // the 299.5 mm the app modeled with the existing 0.5 mm correction
+      // (F-5): the model already holds that correction, so using it here
+      // would count it twice.
       expect(screen.getByTestId("calibration-proposal").textContent).toContain(
-        "Expected width 299.5 mm",
+        "measure width 299 mm",
       );
       const apply = screen.getByTestId("calibration-apply");
       expect(apply).toHaveProperty("disabled", true);
 
+      // The coupon measured 299.4 mm: 0.4 mm over the 299 mm target, so
+      // the 0.5 mm existing correction is reduced, not raised.
       fireEvent.change(screen.getByTestId("calibration-measured-x"), {
         target: { value: "299.4" },
       });
       expect(screen.getByTestId("calibration-proposal").textContent).toContain(
-        "New X correction 0.6 mm = existing 0.5 mm + expected 299.5 mm − measured 299.4 mm",
+        "New X correction 0.1 mm = existing 0.5 mm + target 299 mm − measured 299.4 mm",
       );
       expect(apply).toHaveProperty("disabled", false);
 
       fireEvent.click(apply);
-      expect(screen.getByTestId("printer-correction-x")).toHaveProperty("value", "0.6");
+      expect(screen.getByTestId("printer-correction-x")).toHaveProperty("value", "0.1");
       expect(screen.getByTestId("calibration-measured-x")).toHaveProperty("value", "");
       expect(apply).toHaveProperty("disabled", true);
 
       // A second Apply cannot double the correction: the measurement is gone.
       fireEvent.click(apply);
-      expect(screen.getByTestId("printer-correction-x")).toHaveProperty("value", "0.6");
+      expect(screen.getByTestId("printer-correction-x")).toHaveProperty("value", "0.1");
       await waitFor(() =>
         expect(screen.getAllByTestId("compensation-note")[0].textContent).toContain(
-          "Modeled 299.6 mm = target 299 mm + 0.6 mm correction",
+          "Modeled 299.1 mm = target 299 mm + 0.1 mm correction",
         ),
       );
     });
@@ -819,6 +824,79 @@ describe("DrawerForge app integration", () => {
         /Keep it at most 138 mm, the 150 mm bed in your printer profile less 12 mm\./,
       );
       expect(screen.getByTestId("download-stl-button")).toHaveProperty("disabled", true);
+    });
+
+    it("names the pot's model download by its own compensable list, not by every nonzero axis (F-1)", async () => {
+      // X +0.5 and Y -0.5 cancel in the mean, so the pot (which compensates
+      // only its diameter) prints the same mesh as an uncorrected pot. The
+      // file name must not claim an X or Y correction it never received.
+      saveProfile({ correctionX: 0.5, correctionY: -0.5 });
+      render(<ProductApp productId={PLANT_POT_ID} />);
+      await waitFor(() =>
+        expect(screen.getByTestId("preview-status").textContent).toMatch(/^ready:/),
+      );
+      const downloads = mockDownloads();
+      fireEvent.click(screen.getByTestId("download-stl-button"));
+      expect(downloads.createUrl).toHaveBeenCalledOnce();
+      expect(downloads.downloadName()).toMatch(
+        /^drawerforge-plant-pot-[0-9x.]+-\dh-[0-9a-f]{6}\.stl$/,
+      );
+      expect(downloads.downloadName()).not.toContain("-c");
+      downloads.restore();
+    });
+
+    it("proposes the shared mean correction for a diameter-only product, and holds it (F-3)", async () => {
+      // The pot compensates only its diameter, so the two axis corrections
+      // in the profile (0.4 and 0.2, mean 0.3) do not apply to it directly:
+      // the mean is what the pot's mesh actually moved by. Pairing the
+      // proposal with each axis's own correction instead of that mean would
+      // let the two proposals walk apart every round even once the print
+      // measures the target.
+      saveProfile({ correctionX: 0.4, correctionY: 0.2 });
+      render(<ProductApp productId={PLANT_POT_ID} />);
+      await waitFor(() =>
+        expect(screen.getByTestId("preview-status").textContent).toMatch(/^ready:/),
+      );
+      fireEvent.click(screen.getByTestId("printer-section-toggle"));
+
+      const expected = screen.getByTestId("calibration-proposal").textContent ?? "";
+      const match = expected.match(
+        /measure width ([\d.]+) mm and depth ([\d.]+) mm/,
+      );
+      expect(match).not.toBeNull();
+      const [, targetX, targetY] = match as unknown as [string, string, string];
+
+      // A print that measures exactly the target proposes the existing mean
+      // correction back, on both axes: a fixed point in one step.
+      fireEvent.change(screen.getByTestId("calibration-measured-x"), {
+        target: { value: targetX },
+      });
+      fireEvent.change(screen.getByTestId("calibration-measured-y"), {
+        target: { value: targetY },
+      });
+      const proposal = screen.getByTestId("calibration-proposal").textContent ?? "";
+      expect(proposal).toContain(
+        `New X correction 0.3 mm = existing mean correction 0.3 mm + target ${targetX} mm − measured ${targetX} mm`,
+      );
+      expect(proposal).toContain(
+        `New Y correction 0.3 mm = existing mean correction 0.3 mm + target ${targetY} mm − measured ${targetY} mm`,
+      );
+
+      fireEvent.click(screen.getByTestId("calibration-apply"));
+      expect(screen.getByTestId("printer-correction-x")).toHaveProperty("value", "0.3");
+      expect(screen.getByTestId("printer-correction-y")).toHaveProperty("value", "0.3");
+
+      // Applied, the mean is still 0.3: a second round proposes 0.3 again on
+      // both axes rather than walking away from it.
+      fireEvent.change(screen.getByTestId("calibration-measured-x"), {
+        target: { value: targetX },
+      });
+      fireEvent.change(screen.getByTestId("calibration-measured-y"), {
+        target: { value: targetY },
+      });
+      const secondRound = screen.getByTestId("calibration-proposal").textContent ?? "";
+      expect(secondRound).toContain("New X correction 0.3 mm");
+      expect(secondRound).toContain("New Y correction 0.3 mm");
     });
 
     it("gives no bed warning before a profile is saved", async () => {

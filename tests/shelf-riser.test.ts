@@ -25,7 +25,7 @@ import { describeOverhangs, overhangFaces } from "./helpers/print-pose";
 
 const { normalize, validate, generate } = shelfRiser;
 
-// Recorded at geometryVersion 1 for the defaults. A change here is a
+// Recorded at geometryVersion 1 for the defaults and unchanged at version 2 (S15: the defaults do not split). A change here is a
 // geometry change: bump SHELF_RISER_GEOMETRY_VERSION and re-record on purpose.
 const GOLDEN_TRIANGLES = 2862;
 const GOLDEN_VOLUME = 331378.7;
@@ -99,12 +99,15 @@ describe("shelf riser parameters", () => {
       split: false,
       totalHeight: 240,
     });
+    // One millimetre over the one-piece height: the deck leg would take 236
+    // mm and leave a 1 mm extension, so the deck leg stops at 216 and the
+    // extension keeps the 21 mm peg length. See S15 finding F-5.
     const split = deriveLayout(withChanges({ clearHeight: 237, legSection: 20 })).split;
     expect(split).toMatchObject({
       split: true,
       totalHeight: 241,
-      upperLength: 236,
-      extensionLength: 1,
+      upperLength: 216,
+      extensionLength: 21,
       pegSide: 14,
       pegLength: 21,
       socketSide: 14.2,
@@ -202,6 +205,36 @@ describe("shelf riser geometry", () => {
     expect(faces, describeOverhangs(faces)).toEqual([]);
   });
 
+  // S15 finding F-1. A rib face landing exactly on the deck outline, and on
+  // the pocket-field edge, left the union with triangles whose three corners
+  // were collinear. `finishSolid` drops them, so the viewer's mesh reader
+  // takes the part and the closed-edge count comes back to two per edge.
+  // Neither of these reaches the app through a preset, so the fixture list
+  // above misses both.
+  it.each([
+    ["a rib face on the deck outline", { deckWidth: 600, deckDepth: 400, legSection: 20, cornerRadius: 0 }],
+    ["a rib face on the pocket field", { deckWidth: 600, deckDepth: 400, legSection: 40, cornerRadius: 0 }],
+  ] as Array<[string, Partial<ShelfRiserParameters>]>)(
+    "leaves no triangle without area: %s",
+    async (_name, changes) => {
+      const parameters = withChanges(changes);
+      expect(validate(parameters).valid).toBe(true);
+      const model = await generate(parameters);
+      expect(model.status).toBe("NoError");
+      const geometry = modelToBufferGeometry(model);
+      const analysis = analyzeBufferGeometry(geometry);
+      expect(analysis.finite).toBe(true);
+      expect(analysis.minimumTriangleArea).toBeGreaterThan(1e-8);
+      expect(analysis.minimumNormalLength).toBeCloseTo(1, 5);
+      expect(analysis.signedVolume).toBeGreaterThan(0);
+      for (const edge of closedEdgeCounts(geometry)) {
+        expect(edge.count).toBe(2);
+        expect(edge.balance).toBe(0);
+      }
+      geometry.dispose();
+    },
+  );
+
   it("fills every pocket a rib crosses, and stands four posts and two ribs on the underside", async () => {
     const parameters = withChanges({});
     const layout = deriveLayout(parameters);
@@ -276,7 +309,7 @@ describe("shelf riser geometry", () => {
 
   it("matches the geometry version 1 golden record for the defaults", async () => {
     const model = await generate(normalize(SHELF_RISER_DEFAULTS));
-    expect(shelfRiser.geometryVersion).toBe(1);
+    expect(shelfRiser.geometryVersion).toBe(2);
     expect(model.mesh.triVerts.length / 3).toBe(GOLDEN_TRIANGLES);
     expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(0.001);
     expect(model.bounds).toEqual([
@@ -305,13 +338,37 @@ describe("printed walls", () => {
     }
   });
 
-  it("adds the socket wall once the riser splits", () => {
+  it("adds the socket wall once the riser splits, as the geometry builds it", () => {
     const parameters = withChanges({ clearHeight: 237, legSection: 20 });
     expect(validate(parameters).valid).toBe(true);
-    expect(deriveLayout(parameters).split.split).toBe(true);
+    const split = deriveLayout(parameters).split;
+    expect(split.split).toBe(true);
     const walls = shelfRiser.printedWalls!(parameters);
     const socketWall = walls.find((wall) => wall.key === "socket-wall");
-    expect(socketWall?.value).toBeCloseTo(SOCKET_WALL_MM);
+    // The nominal wall is 3 mm, and the press-fit clearance takes 0.1 mm off
+    // each side of the socket, so the printed wall is 2.9 mm. S15 F-3.
+    expect(SOCKET_WALL_MM).toBe(3);
+    expect(socketWall?.value).toBeCloseTo(2.9);
+    expect(socketWall?.value).toBeCloseTo(
+      (parameters.legSection - (split.split ? split.socketSide : 0)) / 2,
+    );
+  });
+
+  it("reports the solved deck skin, which is thinner than the deck thickness", () => {
+    // S15 finding F-3: the skin over a pocket is deckThickness minus the
+    // solved pocket depth, 2 mm at the 4 mm default deck, and no parameter
+    // carries it.
+    const layout = deriveLayout(SHELF_RISER_DEFAULTS);
+    const byKey = new Map(
+      shelfRiser.printedWalls!(SHELF_RISER_DEFAULTS).map((wall) => [wall.key, wall.value]),
+    );
+    expect(byKey.get("deck-skin")).toBeCloseTo(
+      SHELF_RISER_DEFAULTS.deckThickness - layout.pocketDepth,
+    );
+    expect(byKey.get("deck-skin")).toBeCloseTo(2);
+    // No pockets, no skin to report.
+    const solid = shelfRiser.printedWalls!(withChanges({ lightenDeck: false }));
+    expect(solid.some((wall) => wall.key === "deck-skin")).toBe(false);
   });
 
   it("flags a thin rib at a wide enough nozzle", () => {
@@ -327,6 +384,34 @@ describe("printed walls", () => {
     expect(issues.some((issue) => issue.text.includes("Rib thickness"))).toBe(
       true,
     );
+  });
+
+  it("flags the deck skin alone at a 1.2 mm nozzle", () => {
+    // A 1.2 mm nozzle sets a 2.4 mm floor: the 3 mm rib, the 4 mm web and
+    // the 4 mm deck all clear it, and only the 2 mm skin over a pocket does
+    // not. Before S15 finding F-3 this returned nothing at all.
+    const issues = thinWallIssues(
+      shelfRiser.printedWalls!(SHELF_RISER_DEFAULTS),
+      normalizePrinterProfile({ nozzleDiameter: 1.2 }),
+    );
+    expect(issues.map((issue) => issue.id)).toEqual(["wall-deck-skin"]);
+    expect(issues[0].text).toBe(
+      "Deck over a pocket is 2 mm. A 1.2 mm nozzle needs at least 2.4 mm. A thin wall is weak.",
+    );
+  });
+
+  it("passes the defaults and every preset at a 0.4 mm and a 0.6 mm nozzle", () => {
+    const sets = [
+      normalize(SHELF_RISER_DEFAULTS),
+      ...shelfRiser.presets.map((preset) => preset.parameters),
+    ];
+    for (const nozzleDiameter of [0.4, 0.6]) {
+      const profile = normalizePrinterProfile({ nozzleDiameter });
+      for (const parameters of sets) {
+        const issues = thinWallIssues(shelfRiser.printedWalls!(parameters), profile);
+        expect(issues, `${nozzleDiameter} mm nozzle`).toEqual([]);
+      }
+    }
   });
 
   it("does not throw for a cleared leg section, and reports only finite values", () => {
@@ -361,6 +446,18 @@ describe("one-piece height", () => {
     expect(deriveLayout(thinLegs).split).toMatchObject({ split: false, reason: "section" });
     expect(shelfRiser.validate(thinLegs).byField.legSection?.[0]).toBe(
       "A riser 124 mm tall is over the 100 mm one-piece height, so each leg gets a press-fit extension. That joint needs a leg section of at least 12 mm. Use a larger section, or a clear height of at most 96 mm, or a larger one-piece height if your printer allows it.",
+    );
+    const shortLeg = withChanges({ deckThickness: 10, clearHeight: 95, legSection: 40, onePieceHeight: 102 });
+    expect(deriveLayout(shortLeg).split).toMatchObject({ split: false, reason: "joint" });
+    expect(shelfRiser.validate(shortLeg).byField.clearHeight?.[0]).toBe(
+      "A riser 105 mm tall is over the 102 mm one-piece height, so each leg gets a press-fit extension. That joint needs 51 mm of leg on each side of it, and legs of 95 mm are too short for both. Use a clear height of at least 102 mm, a smaller leg section for a shorter peg, or a clear height of at most 92 mm so nothing splits.",
+    );
+    // Where two peg lengths would not print in one piece each, the message
+    // does not offer that number; it names the one-piece height instead.
+    const shortPiece = withChanges({ deckThickness: 3, clearHeight: 98, legSection: 40, onePieceHeight: 100 });
+    expect(deriveLayout(shortPiece).split).toMatchObject({ split: false, reason: "joint" });
+    expect(shelfRiser.validate(shortPiece).byField.clearHeight?.[0]).toBe(
+      "A riser 101 mm tall is over the 100 mm one-piece height, so each leg gets a press-fit extension. That joint needs 51 mm of leg on each side of it, and legs of 98 mm are too short for both. Use a smaller leg section for a shorter peg, a larger one-piece height if your printer allows it, or a clear height of at most 97 mm so nothing splits.",
     );
     const tooShort = withChanges({ clearHeight: 296, legSection: 28, onePieceHeight: 100 });
     expect(deriveLayout(tooShort).split).toMatchObject({ split: false, reason: "height" });

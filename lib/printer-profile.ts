@@ -329,6 +329,7 @@ export interface CalibrationProposal {
   axis: "x" | "y";
   axisLabel: "X" | "Y";
   existing: number;
+  existingKind: "axis" | "mean";
   expected: number;
   measured: number;
   proposed: number;
@@ -340,15 +341,28 @@ export interface CalibrationProposal {
  *
  * `proposed = existing + expected − measured`
  *
- * `expected` is the size the app modeled, which already holds the existing
- * correction. `measured` is the size of the printed part. Apply replaces the
- * existing correction with the proposal. It never adds to it.
+ * `expected` is the target size the print should measure once the
+ * correction is right, not the modeled size (which already holds the
+ * existing correction, and would count it twice here). `measured` is the
+ * size of the printed part. Apply replaces the existing correction with the
+ * proposal. It never adds to it. At the fixed point (`measured` equal to
+ * `expected`, the target), `proposed` equals `existing`: the loop settles
+ * once the print measures the target, from any starting correction.
+ *
+ * `existingKind` names what `existing` is. A product with separate X and Y
+ * compensable lists passes the axis's own correction ("axis"). A product
+ * whose only compensable list is the diameter has one correction shared by
+ * both axes, the mean of `correctionX` and `correctionY` (D-1704); passing
+ * that per-axis correction here as `existing` would let the two proposed
+ * corrections walk apart round after round even though the printed part
+ * stops changing, so the caller passes the mean and "mean" instead.
  */
 export function calibrationProposal(
   axis: "x" | "y",
   existing: number,
   expected: number,
   measured: number,
+  existingKind: "axis" | "mean" = "axis",
 ): CalibrationProposal | null {
   if (
     !Number.isFinite(existing) ||
@@ -364,14 +378,17 @@ export function calibrationProposal(
   const proposed = roundMillimeters(
     clamp(existing + expected - measured, limit),
   );
+  const existingLabel =
+    existingKind === "mean" ? "existing mean correction" : "existing";
   return {
     axis,
     axisLabel,
     existing,
+    existingKind,
     expected,
     measured,
     proposed,
-    text: `New ${axisLabel} correction ${formatMm(proposed)} mm = existing ${formatMm(existing)} mm + expected ${formatMm(expected)} mm − measured ${formatMm(measured)} mm`,
+    text: `New ${axisLabel} correction ${formatMm(proposed)} mm = ${existingLabel} ${formatMm(existing)} mm + target ${formatMm(expected)} mm − measured ${formatMm(measured)} mm`,
   };
 }
 

@@ -3,9 +3,9 @@ import { expect } from "vitest";
 import type { KernelMesh } from "../../lib/kernel/mesh";
 
 /**
- * Shared mesh checks for product geometry tests. These mirror the helpers
- * that `tests/geometry.test.ts` defines for the drawer tray; that file keeps
- * its own copies so the drawer tray's golden test stays untouched.
+ * Shared mesh checks for product geometry tests, including the drawer
+ * tray's golden test in `tests/geometry.test.ts`, which imports these
+ * instead of keeping its own copies.
  */
 
 function key(point: THREE.Vector3): string {

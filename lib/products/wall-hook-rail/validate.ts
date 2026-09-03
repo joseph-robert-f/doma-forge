@@ -60,12 +60,15 @@ export function validateWallHookRail(
   }
 
   if (parameters.railHeight < layout.minimumHeight - 1e-9) {
+    // The screw row starts above the hook root or the hook lip, whichever is
+    // higher, so the message names the whole hook and offers the lip as a
+    // way out. See S15 finding F-2.
     const parts = parameters.keyShelf
-      ? "the hook root, the screw row, the shelf gussets, and 8 mm of plate around each countersink"
-      : "the hook root, the screw row, and 8 mm of plate around each countersink";
+      ? "the hook, the screw row, the shelf gussets, and 8 mm of plate around each countersink"
+      : "the hook, the screw row, and 8 mm of plate around each countersink";
     add(
       "railHeight",
-      `Rail height must be at least ${mm(layout.minimumHeight)} mm, to hold ${parts}. Use a taller rail, a smaller root, or a smaller screw.`,
+      `Rail height must be at least ${mm(layout.minimumHeight)} mm, to hold ${parts}. Use a taller rail, a smaller root, a shorter lip, or a smaller screw.`,
     );
   }
 

@@ -73,7 +73,7 @@ Generate a low-material perimeter test:
 - At least 2 mm wall
 - No base, regular dividers, or scoop
 - Minimal sacrificial cross-bracing if needed to preserve shape during handling
-- Deterministic name: `drawerforge-fit-test-<width>x<depth>.stl`
+- Deterministic name: `drawerforge-fit-test-<width>x<depth>.stl` (as built: with the hash, and since S15 the product id)
 
 The fit test needs its own manifold, bounds, STL, and slicer regression cases.
 

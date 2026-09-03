@@ -338,9 +338,13 @@ export function deriveLayout(
   const pocketTop = pocket
     ? pocketZ + parameters.pocketFloor + parameters.pocketLip
     : Number.NaN;
+  // Without a pocket the upper screw clears the whole hook, not only its
+  // root. A lip that reaches above the root's top fillet stands in front of
+  // a countersink measured from the root alone, and no screwdriver reaches
+  // it. See S15 finding F-2.
   const topOfFeatures = pocket
     ? Math.max(pocketRootTop, pocketTop)
-    : hookRootTop;
+    : Math.max(hookRootTop, hookLipTop);
   const upperScrewZ =
     parameters.plateHeight - SCREW_MINIMUM_EDGE_MM - headDiameter / 2;
   const minimumHeight =

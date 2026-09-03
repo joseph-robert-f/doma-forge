@@ -310,15 +310,25 @@ export type LegSplitPlan =
   | {
       split: false;
       totalHeight: number;
-      /** The split is needed but refused: the section is too small, or the extension is too long. */
-      reason: "section" | "height";
+      /**
+       * The split is needed but refused: the section is too small, the leg
+       * is too short to hold the joint, or the extension is too long.
+       */
+      reason: "section" | "joint" | "height";
+      /** The peg length the joint would need, set for the joint refusal. */
+      pegLength?: number;
     };
 
 /**
  * Splits each leg into a part that stays on the deck and a press-fit
  * extension when the whole riser is taller than one piece can print. The
  * deck body takes as much leg as the one-piece height allows, so the
- * extension is as short as possible. Pure.
+ * extension is as short as possible, but never shorter than the peg it
+ * carries: an extension under that is a peg on a collar, four extra parts
+ * for a fraction of a millimetre of leg. The deck leg is never shorter than
+ * the peg either, because the socket is bored that deep into it and a
+ * shorter leg would put the socket into the deck. A leg that cannot hold
+ * both is refused. Pure.
  */
 export function planLegSplit(request: LegSplitRequest): LegSplitPlan {
   const { deckThickness, clearHeight, section } = request;
@@ -336,8 +346,21 @@ export function planLegSplit(request: LegSplitRequest): LegSplitPlan {
   }
   const pegSide = section - 2 * SOCKET_WALL_MM;
   const pegLength = Math.max(10, Math.round(pegSide * 1.5));
-  const upperLength = onePieceHeight - deckThickness;
+  // The joint needs a peg length of leg on each side: the socket depth on
+  // the deck leg and the peg on the extension. The deck leg is capped so the
+  // extension keeps at least that, and floored so the socket stays in the
+  // leg. A leg too short for both is refused (S15, D-1908 and D-1909).
+  const upperLength = Math.min(
+    onePieceHeight - deckThickness,
+    Math.max(clearHeight - pegLength, pegLength),
+  );
   const extensionLength = clearHeight - upperLength;
+  if (
+    upperLength < pegLength - 1e-9 ||
+    extensionLength < pegLength - 1e-9
+  ) {
+    return { split: false, totalHeight, reason: "joint", pegLength };
+  }
   if (extensionLength + pegLength > onePieceHeight + 1e-9) {
     return { split: false, totalHeight, reason: "height" };
   }

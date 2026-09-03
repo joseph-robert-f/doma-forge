@@ -1,7 +1,6 @@
 import * as THREE from "three";
+import { DEGENERATE_AREA_EPSILON } from "./kernel/mesh";
 import type { GeneratedModel } from "./kernel/mesh";
-
-const AREA_EPSILON = 1e-10;
 
 export interface MeshAnalysis {
   triangleCount: number;
@@ -41,7 +40,7 @@ export function modelToBufferGeometry(
     normal
       .crossVectors(edgeA.copy(b).sub(a), edgeB.copy(c).sub(a));
     const doubleArea = normal.length();
-    if (!Number.isFinite(doubleArea) || doubleArea <= AREA_EPSILON) {
+    if (!Number.isFinite(doubleArea) || doubleArea <= DEGENERATE_AREA_EPSILON) {
       throw new Error("The geometry kernel returned a degenerate triangle.");
     }
     normal.divideScalar(doubleArea);

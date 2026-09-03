@@ -49,7 +49,7 @@ dimensional correction.
 | Date | |
 | Product and geometry version | Drawer tray, geometry version 1 |
 | Preset or parameters | Preset: Defaults (unmodified). drawerWidth 300, drawerDepth 200, clearancePerSide 0.5, organizerHeight 50, wallThickness 2, baseThickness 2, dividerThickness 2, cornerRadius 8, rows 2, columns 3, meshQuality standard, fingerScoop true |
-| Design file name | drawerforge-fit-test-299x199-<hash>.stl |
+| Design file name | drawerforge-fit-test-drawer-tray-299x199-137f96.stl |
 | Printer, nozzle, material | |
 | Perimeters, layer height | |
 | Target outside width x depth x height, mm | 299 × 199 × 5 |
@@ -66,7 +66,7 @@ dimensional correction.
 | Date | |
 | Product and geometry version | Drawer tray, geometry version 1 |
 | Preset or parameters | Preset: Hand tools. drawerWidth 360, drawerDepth 260, clearancePerSide 0.5, organizerHeight 55, wallThickness 2, baseThickness 2, dividerThickness 2.2, cornerRadius 10, rows 2, columns 4, meshQuality standard, fingerScoop true |
-| Design file name | drawerforge-fit-test-359x259-<hash>.stl |
+| Design file name | drawerforge-fit-test-drawer-tray-359x259-4e45b3.stl |
 | Printer, nozzle, material | |
 | Perimeters, layer height | |
 | Target outside width x depth x height, mm | 359 × 259 × 5 |
@@ -83,7 +83,7 @@ dimensional correction.
 | Date | |
 | Product and geometry version | Drawer tray, geometry version 1 |
 | Preset or parameters | Preset: Desk supplies. drawerWidth 320, drawerDepth 220, clearancePerSide 0.5, organizerHeight 45, wallThickness 2, baseThickness 2, dividerThickness 2, cornerRadius 8, rows 2, columns 3, meshQuality standard, fingerScoop true |
-| Design file name | drawerforge-fit-test-319x219-<hash>.stl |
+| Design file name | drawerforge-fit-test-drawer-tray-319x219-0cd5fe.stl |
 | Printer, nozzle, material | |
 | Perimeters, layer height | |
 | Target outside width x depth x height, mm | 319 × 219 × 5 |
@@ -345,9 +345,9 @@ holds its load.
 | Field | Value |
 |---|---|
 | Date | |
-| Product and geometry version | Wall hook rail, geometry version 1, fit-test coupon |
+| Product and geometry version | Wall hook rail, geometry version 2 (S15; the screw band clears the hook lip), fit-test coupon |
 | Preset or parameters | Defaults (unmodified). railLength 240, railHeight 50, plateThickness 5, hookCount 4, hookWidth 12, hookRoot 8, hookProjection 20, hookLip 6, screwCount 2, screwSpacing 160, screwDiameter 4.5, keyShelf false, shelfDepth 40, cornerRadius 4, meshQuality standard. The coupon is one hook on a 60 mm plate with two screws. |
-| Design file name | drawerforge-fit-test-60x25-<hash>.stl |
+| Design file name | drawerforge-fit-test-wall-hook-rail-60x25-8da4a7.stl |
 | Printer, nozzle, material | |
 | Perimeters, layer height | |
 | Target outside width x depth x height, mm | 60 x 25 x 50 |
@@ -396,9 +396,9 @@ holds its load.
 | Field | Value |
 |---|---|
 | Date | |
-| Product and geometry version | Shelf riser, geometry version 1 |
+| Product and geometry version | Shelf riser, geometry version 2 (S15; the split plan keeps a peg length of leg on each side of the joint) |
 | Preset or parameters | Defaults (unmodified). deckWidth 300, deckDepth 200, deckThickness 4, clearHeight 120, legSection 14, onePieceHeight 240, lightenDeck true, cornerRadius 6, meshQuality standard |
-| Design file name | drawerforge-shelf-riser-300x200x124-e7fd6b.stl |
+| Design file name | drawerforge-shelf-riser-300x200x124-3c7117.stl |
 | Printer, nozzle, material | |
 | Perimeters, layer height | |
 | Target outside width x depth x height, mm | 300 x 200 x 124 |

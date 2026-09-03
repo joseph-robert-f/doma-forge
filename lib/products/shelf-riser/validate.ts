@@ -48,6 +48,19 @@ export function validateShelfRiser(
         "legSection",
         `A riser ${mm(layout.split.totalHeight)} mm tall is over the ${mm(parameters.onePieceHeight)} mm one-piece height, so each leg gets a press-fit extension. That joint needs a leg section of at least ${SPLIT_MINIMUM_SECTION_MM} mm. Use a larger section, or a clear height of at most ${mm(parameters.onePieceHeight - parameters.deckThickness)} mm, or a larger one-piece height if your printer allows it.`,
       );
+    } else if (layout.split.reason === "joint") {
+      const pegLength = layout.split.pegLength ?? 0;
+      // Two peg lengths of leg is a way out only when the height rule then
+      // lets the two halves print in one piece each; otherwise the way out
+      // is a shorter peg, no split, or a larger one-piece height.
+      const tallerLegs =
+        2 * pegLength <= parameters.onePieceHeight + 1e-9
+          ? `Use a clear height of at least ${mm(2 * pegLength)} mm, a smaller leg section for a shorter peg,`
+          : `Use a smaller leg section for a shorter peg, a larger one-piece height if your printer allows it,`;
+      add(
+        "clearHeight",
+        `A riser ${mm(layout.split.totalHeight)} mm tall is over the ${mm(parameters.onePieceHeight)} mm one-piece height, so each leg gets a press-fit extension. That joint needs ${mm(pegLength)} mm of leg on each side of it, and legs of ${mm(parameters.clearHeight)} mm are too short for both. ${tallerLegs} or a clear height of at most ${mm(parameters.onePieceHeight - parameters.deckThickness)} mm so nothing splits.`,
+      );
     } else {
       add(
         "clearHeight",

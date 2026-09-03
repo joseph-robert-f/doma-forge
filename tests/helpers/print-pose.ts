@@ -21,6 +21,8 @@ export interface OverhangFace {
 }
 
 const ANGLE_EPSILON_DEGREES = 0.05;
+/** The smallest face this check treats as printed material, in mm square. */
+const MINIMUM_FACE_AREA_MM2 = 0.01;
 
 export function turnToPrintPose(
   mesh: KernelMesh,
@@ -75,7 +77,13 @@ export function overhangFaces(
     b.fromArray(turned, mesh.triVerts[triangle + 1] * 3);
     c.fromArray(turned, mesh.triVerts[triangle + 2] * 3);
     normal.crossVectors(edgeA.copy(b).sub(a), edgeB.copy(c).sub(a));
-    if (normal.lengthSq() < 1e-14) continue;
+    // Skip a triangle with no printed area. The corners come from float32
+    // vertices, so a sliver on a flat face can have three nearly collinear
+    // corners whose cross product is pure rounding noise, and the normal it
+    // gives points nowhere real. The threshold is physical: half the cross
+    // product's length is the area, and 0.01 mm square is far under any
+    // face a slicer supports and far over this noise. See S15 finding F-4.
+    if (normal.length() / 2 < MINIMUM_FACE_AREA_MM2) continue;
     normal.normalize();
     if (normal.z >= 0) continue;
     const onBed =

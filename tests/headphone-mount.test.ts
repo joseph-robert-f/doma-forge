@@ -123,10 +123,52 @@ describe("headphone mount parameters", () => {
     expect(validate(withChanges({ plateHeight: 116 })).byField.plateHeight?.[0]).toBe(
       "Plate height must be at least 117 mm, to hold the lower screw, the hook, the band gap, the pocket, the upper screw, and 8 mm of plate around each countersink. Use a taller plate, a shorter lip, or a thinner band.",
     );
-    expect(validate(withChanges({ controllerPocket: false, plateHeight: 68 })).valid).toBe(true);
-    expect(validate(withChanges({ controllerPocket: false, plateHeight: 67 })).byField.plateHeight?.[0]).toBe(
-      "Plate height must be at least 68 mm, to hold the lower screw, the hook, the upper screw, and 8 mm of plate around each countersink. Use a taller plate, a shorter lip, or a thinner band.",
+    // Without a pocket the upper screw clears the hook lip, not the hook
+    // root: the defaults' 12 mm lip tops out at 52, so 52 + 8 + 9 + 8 = 77.
+    expect(validate(withChanges({ controllerPocket: false, plateHeight: 77 })).valid).toBe(true);
+    expect(validate(withChanges({ controllerPocket: false, plateHeight: 76 })).byField.plateHeight?.[0]).toBe(
+      "Plate height must be at least 77 mm, to hold the lower screw, the hook, the upper screw, and 8 mm of plate around each countersink. Use a taller plate, a shorter lip, or a thinner band.",
     );
+  });
+
+  it("measures the upper screw from the hook lip once the lip passes the root band", () => {
+    // S15 finding F-2. The root band tops out at the root plus the 3 mm
+    // fillet, and the screw needs 8 mm of plate under it, so a lip of
+    // exactly 3 + 8 = 11 mm reaches the band bottom and half a millimetre
+    // more stands inside it. Both are measured from the lip now.
+    const level = deriveLayout(withChanges({ controllerPocket: false, hookLip: 11, plateHeight: 76 }));
+    expect(level.hookRootTop).toBe(43);
+    expect(level.hookLipTop).toBe(51);
+    expect(level.minimumHeight).toBe(76);
+    const over = deriveLayout(withChanges({ controllerPocket: false, hookLip: 11.5, plateHeight: 77 }));
+    expect(over.hookLipTop).toBe(51.5);
+    expect(over.minimumHeight).toBe(76.5);
+    // The countersink's lower edge keeps 8 mm of plate above the lip in both.
+    for (const [layout, plateHeight] of [
+      [level, 76],
+      [over, 77],
+    ] as const) {
+      const upperScrewZ = plateHeight - 8 - layout.headDiameter / 2;
+      expect(upperScrewZ - layout.headDiameter / 2).toBeGreaterThanOrEqual(layout.hookLipTop + 8);
+    }
+    expect(validate(withChanges({ controllerPocket: false, hookLip: 11, plateHeight: 76 })).valid).toBe(true);
+    expect(validate(withChanges({ controllerPocket: false, hookLip: 11.5, plateHeight: 76 })).valid).toBe(false);
+    // The plate the review found: a 30 mm lip reached 71, well over the
+    // upper countersink at 55, and the mount took it.
+    expect(
+      validate(
+        withChanges({
+          controllerPocket: false,
+          hookRoot: 16,
+          hookProjection: 39,
+          hookLip: 30,
+          bandGauge: 4,
+          screwDiameter: 3,
+          plateWidth: 60,
+          plateHeight: 66,
+        }),
+      ).valid,
+    ).toBe(false);
   });
 
   it("derives and validates a cleared field without throwing", () => {

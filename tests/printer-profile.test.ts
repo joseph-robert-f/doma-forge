@@ -25,6 +25,7 @@ import {
   deriveDimensions,
   drawerTray,
 } from "../lib/products/drawer-tray";
+import { plantPot } from "../lib/products/plant-pot";
 
 function profile(overrides: Partial<PrinterProfileV1> = {}): PrinterProfileV1 {
   return { ...PRINTER_PROFILE_DEFAULTS, ...overrides };
@@ -238,8 +239,30 @@ describe("calibration proposal", () => {
     const proposal = calibrationProposal("x", 0.5, 299.5, 299.4);
     expect(proposal?.proposed).toBe(0.6);
     expect(proposal?.text).toBe(
-      "New X correction 0.6 mm = existing 0.5 mm + expected 299.5 mm − measured 299.4 mm",
+      "New X correction 0.6 mm = existing 0.5 mm + target 299.5 mm − measured 299.4 mm",
     );
+  });
+
+  it("settles on the existing correction once the print measures the target, not twice it (F-5)", () => {
+    // The app must pass the target size as `expected`, not the modeled
+    // size (target plus the existing correction): the modeled size already
+    // holds `existing`, so using it here would count that correction
+    // twice. A correctly calibrated printer prints the target once the
+    // correction is right, so `measured` equal to `target` is the fixed
+    // point the calibration loop should settle at in one step.
+    const existing = 0.6;
+    const target = 299;
+    const measured = target;
+    expect(calibrationProposal("x", existing, target, measured)?.proposed).toBe(
+      existing,
+    );
+    // The bug this guards against: passing the modeled size (which already
+    // includes `existing`) as `expected` counts the correction twice.
+    const modeledIncludingExisting = target + existing;
+    expect(
+      calibrationProposal("x", existing, modeledIncludingExisting, measured)
+        ?.proposed,
+    ).toBe(2 * existing);
   });
 
   it("keeps the correction as it is when the print matches the model", () => {
@@ -268,6 +291,91 @@ describe("calibration proposal", () => {
     expect(calibrationProposal("x", 0, 299, 1)?.proposed).toBe(
       PRINTER_LIMITS.correctionX.max,
     );
+  });
+
+  it("names the existing correction as the mean when existingKind is mean (F-3)", () => {
+    const proposal = calibrationProposal("x", 0.3, 147, 147, "mean");
+    expect(proposal?.existingKind).toBe("mean");
+    expect(proposal?.text).toBe(
+      "New X correction 0.3 mm = existing mean correction 0.3 mm + target 147 mm − measured 147 mm",
+    );
+  });
+
+  it("defaults existingKind to axis, and names it plainly", () => {
+    const proposal = calibrationProposal("x", 0.5, 299.5, 299.4);
+    expect(proposal?.existingKind).toBe("axis");
+    expect(proposal?.text).toContain("= existing 0.5 mm +");
+  });
+
+  it("a diameter-only product's proposal is a fixed point with the mean, and drifts with a per-axis existing (F-3)", () => {
+    // A machine that shrinks by different amounts on the two axes: 0.4 mm
+    // in X, 0.2 mm in Y. The pot compensates only its diameter, so every
+    // round the printed part actually moves by the mean of the two profile
+    // corrections, diameterCorrection(profile), regardless of which number
+    // the caller happens to pass in as `existing`.
+    const target = 147;
+    const shrink = { x: 0.4, y: 0.2 };
+    const mean = (profileNow: PrinterProfileV1) =>
+      (profileNow.correctionX + profileNow.correctionY) / 2;
+
+    // Per-axis existing: the caller passes correctionX and correctionY
+    // straight through, as an x/y product would. The two corrections walk
+    // apart round after round even though the printed part stops moving.
+    let axisProfile = profile({ correctionX: 0, correctionY: 0 });
+    const axisRounds: Array<[number, number]> = [];
+    for (let round = 0; round < 5; round++) {
+      const printedMean = mean(axisProfile);
+      const proposedX = calibrationProposal(
+        "x",
+        axisProfile.correctionX,
+        target,
+        target - shrink.x + printedMean,
+      )!.proposed;
+      const proposedY = calibrationProposal(
+        "y",
+        axisProfile.correctionY,
+        target,
+        target - shrink.y + printedMean,
+      )!.proposed;
+      axisRounds.push([proposedX, proposedY]);
+      axisProfile = profile({ correctionX: proposedX, correctionY: proposedY });
+    }
+    // Each round after the first proposes a wider spread than 0.4/0.2: the
+    // per-axis existing does not settle.
+    expect(axisRounds[0]).toEqual([0.4, 0.2]);
+    expect(axisRounds[1]).not.toEqual(axisRounds[0]);
+    expect(axisRounds[4][0]).toBeGreaterThan(axisRounds[0][0]);
+    expect(axisRounds[4][1]).toBeLessThan(axisRounds[0][1]);
+
+    // Mean existing: the caller passes diameterCorrection(profile) for both
+    // axes, as the app does for a diameter-only product. The proposal is a
+    // fixed point in one step and stays there.
+    let meanProfile = profile({ correctionX: 0, correctionY: 0 });
+    const meanRounds: Array<[number, number]> = [];
+    for (let round = 0; round < 5; round++) {
+      const existing = diameterCorrection(meanProfile);
+      const printedMean = mean(meanProfile);
+      const proposedX = calibrationProposal(
+        "x",
+        existing,
+        target,
+        target - shrink.x + printedMean,
+        "mean",
+      )!.proposed;
+      const proposedY = calibrationProposal(
+        "y",
+        existing,
+        target,
+        target - shrink.y + printedMean,
+        "mean",
+      )!.proposed;
+      meanRounds.push([proposedX, proposedY]);
+      meanProfile = profile({ correctionX: proposedX, correctionY: proposedY });
+    }
+    expect(meanRounds[0]).toEqual([0.4, 0.2]);
+    for (const round of meanRounds) {
+      expect(round).toEqual([0.4, 0.2]);
+    }
   });
 });
 
@@ -600,6 +708,23 @@ describe("diameter compensation in the notes and the file name", () => {
       correctionFilenameTag(profile(0.5, 0.2), { x: ["width"], y: ["depth"] }),
     ).toBe("cx0p5y0p2");
     expect(correctionFilenameTag(profile(0.5, 0.2))).toBe("cx0p5y0p2");
+  });
+
+  it("tags the real plant pot definition by its own compensable list, not by every nonzero axis (F-1, D-1714)", () => {
+    // The plant pot's compensable list names only diameter. A correction
+    // that cancels in the mean (+0.5 X, -0.5 Y) must not mark the file as
+    // corrected: the mesh it names is byte-identical to the uncorrected
+    // one. Passing no third argument (the bug the model download had)
+    // marks every nonzero axis instead, which is what the second pair of
+    // expectations below guards against regressing back to.
+    expect(
+      correctionFilenameTag(profile(0.5, -0.5), plantPot.compensable),
+    ).toBe("");
+    expect(correctionFilenameTag(profile(0.4, 0.2), plantPot.compensable)).toBe(
+      "cd0p3",
+    );
+    expect(correctionFilenameTag(profile(0.5, -0.5))).toBe("cx0p5ym0p5");
+    expect(correctionFilenameTag(profile(0.4, 0.2))).toBe("cx0p4y0p2");
   });
 });
 

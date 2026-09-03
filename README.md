@@ -54,7 +54,7 @@ Select **Download fit test** to get a small, fast print that tests whether the t
 
 Print this ring first. It uses little material and shows whether the tray fits the drawer. The ring wall is never thinner than 2 mm, even if the tray wall is set thinner. A thin wall is weak.
 
-The **Download fit test** button follows the same rules as **Download STL**. It stays disabled until the current settings pass validation and the preview finishes. The coupon builds in the same background worker as the preview, so the page never loads the geometry kernel. While it builds, the button reads **Building fit test…** and stays disabled. An edit during the build cancels it; wait for the preview, then select the button again. The file name is `drawerforge-fit-test-<width>x<depth>-<hash>.stl`. The design name, when set, becomes the first part of the file name, the same way it does for the STL download.
+The **Download fit test** button follows the same rules as **Download STL**. It stays disabled until the current settings pass validation and the preview finishes. The coupon builds in the same background worker as the preview, so the page never loads the geometry kernel. While it builds, the button reads **Building fit test…** and stays disabled. An edit during the build cancels it; wait for the preview, then select the button again. The file name is `drawerforge-fit-test-<product id>-<width>x<depth>-<hash>.stl`, so two coupons in one downloads folder are told apart the way two model files are. The design name, when set, becomes the first part of the file name, the same way it does for the STL download.
 
 ### Print notes
 
@@ -207,7 +207,7 @@ Print the rack flat on the bed, fins up. Do not use supports. No printed record 
 
 The first bracket product is a rail that screws to a wall, with hooks along its bottom edge and an optional shelf along its top. Open it from the product switcher or at `/products/wall-hook-rail`.
 
-Set the rail length, the hook count, and the screw spacing that matches the wall. The app centers the screws on the rail and keeps 8 mm of plate between every countersink and any edge, any hook root, and any gusset. It names the largest spacing that fits when yours does not.
+Set the rail length, the hook count, and the screw spacing that matches the wall. The app centers the screws on the rail and keeps 8 mm of plate between every countersink and any edge, any hook, and any gusset. It names the largest spacing that fits when yours does not.
 
 Two load rules protect every hook, and they are validation errors, not warnings. The hook root, the thickness where the hook meets the plate, is at least 8 mm. The projection is at most 2.5 times the root and never over 60 mm. The app names the longest projection the root carries and the smallest root the projection needs. The root is filleted above and below, and the hook lip has a 45 degree ramp on its inside, so nothing under the lip needs support in the print pose. The calculated result shows an approximate load per hook. It is a bending estimate at 5 MPa, for three perimeters in PLA, and it is not a rating.
 
@@ -237,7 +237,7 @@ The third bracket product is a deck on four legs, for a second level on a shelf 
 
 Set the deck size and the clear height under it. The leg rule from the drawer riser applies: the clear height is at most 12 times the leg section, the section is at least 8 mm, and every leg flares into the deck with a gusset. A rib stands under the deck wherever the span between two legs passes 150 mm. The deck underside is lightened with pockets inside the leg pads, each pocket ceiling at most 40 mm, and you can turn the pockets off.
 
-The **one-piece height** is the tallest part your printer builds in one go: normally your bed height, 240 mm by default. Once you save a printer profile, a riser that is taller than your bed is refused on that field until the one-piece height is at most the bed height, so the legs split where your printer needs them. A riser that fits the bed prints whatever the setting says. A riser taller than the one-piece height does not print in one piece. The app then splits each leg: the deck keeps as much leg as one piece allows, and four extensions with square pegs stand beside the deck in the same file. The joint needs a leg section of at least 12 mm; the peg is the section minus 6 mm, with 0.1 mm of clearance per side. The calculated result names the pieces.
+The **one-piece height** is the tallest part your printer builds in one go: normally your bed height, 240 mm by default. Once you save a printer profile, a riser that is taller than your bed is refused on that field until the one-piece height is at most the bed height, so the legs split where your printer needs them. A riser that fits the bed prints whatever the setting says. A riser taller than the one-piece height does not print in one piece. The app then splits each leg: the deck keeps as much leg as one piece allows, but never so much that an extension would be shorter than the peg it carries, and four extensions with square pegs stand beside the deck in the same file. The joint needs a leg section of at least 12 mm; the peg is the section minus 6 mm, with 0.1 mm of clearance per side. The calculated result names the pieces.
 
 ### Print notes for the riser
 
@@ -280,9 +280,9 @@ A file name keeps the design hash and gets a marker for the correction, for exam
 1. Set the correction to 0 mm in X and in Y for a first calibration.
 2. Select **Download fit test** and print the coupon.
 3. Measure the outside width and the outside depth of the print. Use a caliper.
-4. Open the **Printer** section. Read the expected width and depth.
+4. Open the **Printer** section. Read the target width and depth: the size a correctly calibrated print should measure.
 5. Enter the two measurements.
-6. Read the proposal. It shows `existing + expected − measured` for each axis.
+6. Read the proposal. It shows `existing + target − measured` for each axis.
 7. Select **Apply correction**. The proposal replaces the correction. It does not add to it.
 8. Print the coupon again and measure it again to confirm the result.
 
@@ -298,7 +298,7 @@ The bed warning starts only after you save a printer profile. Open the **Printer
 
 The app shows an **error** when a wall is thinner than two nozzle widths. A wall that thin is weak, so DrawerForge does not print it. The error names the nozzle and the wall, and it keeps **Download STL** and **Download fit test** disabled until you set a larger wall or a smaller nozzle.
 
-The rule reads the walls and thicknesses you set, and the thin features the product itself reports: the webs between bores or slots, the webs between underside pockets, leg sections, ribs, lips, and gussets. A socket tray whose solved web falls under two nozzle widths therefore shows the same error as a thin outer wall, and the error names the web.
+The rule reads the walls and thicknesses you set, and the thin features the product itself reports: the webs between bores or slots, the webs between underside pockets, the skin left over a pocket, leg sections, ribs, press-fit socket walls, and lips. A socket tray whose solved web falls under two nozzle widths therefore shows the same error as a thin outer wall, and the error names the web.
 
 The app also shows an error when a correction takes a value past its limit. The example is a drawer width of 600 mm with a 0.5 mm correction. The field still shows 600 mm, which is legal, so the message names the correction: "The X correction takes the drawer width past its limit." Lower the correction, or lower the value.
 

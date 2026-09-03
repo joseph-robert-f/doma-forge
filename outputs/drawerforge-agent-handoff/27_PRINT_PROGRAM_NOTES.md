@@ -51,7 +51,7 @@ protocol is:
 1. Print with 0 mm correction in both X and Y.
 2. Let the print cool and measure the outside width and depth.
 3. Enter the two measurements in the app's **Printer** section.
-4. Read the proposal (existing + expected − measured).
+4. Read the proposal (existing + target − measured).
 5. Select **Apply correction**.
 6. Print again and measure to confirm.
 
@@ -61,15 +61,15 @@ Three drawer tray records are prepared with target values filled:
 
 1. **Defaults**: 300 × 200 mm drawer → 299 × 199 × 5 mm coupon.
    Preset: defaults (2 × 3 compartments, 8 mm corner radius, 50 mm height).
-   Design file: `drawerforge-fit-test-299x199-<hash>.stl`.
+   Design file: `drawerforge-fit-test-drawer-tray-299x199-137f96.stl` (name since S15).
 
 2. **Hand tools preset**: 360 × 260 mm drawer → 359 × 259 × 5 mm coupon.
    Preset: Hand tools (2 × 4 compartments, 10 mm corner radius, 55 mm height).
-   Design file: `drawerforge-fit-test-359x259-<hash>.stl`.
+   Design file: `drawerforge-fit-test-drawer-tray-359x259-4e45b3.stl` (name since S15).
 
 3. **Desk supplies preset**: 320 × 220 mm drawer → 319 × 219 × 5 mm coupon.
    Preset: Desk supplies (2 × 3 compartments, 8 mm corner radius, 45 mm height).
-   Design file: `drawerforge-fit-test-319x219-<hash>.stl`.
+   Design file: `drawerforge-fit-test-drawer-tray-319x219-0cd5fe.stl` (name since S15).
 
 The hash is a six-character hex string from `shortHash(product.signature(parameters))`.
 It is the same hash the full tray's STL file carries. It is unknown at authoring time,
@@ -118,7 +118,7 @@ the preset or parameter values and recorded in the template. The person fills
 in measured values after printing and cooling.
 
 **D-1204. The design file name uses the coupon naming convention from S01.**
-The coupon filename pattern is `drawerforge-fit-test-<width>x<depth>-<hash>.stl`,
+The coupon filename pattern is `drawerforge-fit-test-<width>x<depth>-<hash>.stl` (since S15 with the product id after `fit-test`),
 where width and depth come from the coupon's own bounds (the outside dimensions).
 The hash is the same six-character hash the full tray's STL file carries. At
 authoring time the hash is unknown, so it is written as `<hash>`. The person

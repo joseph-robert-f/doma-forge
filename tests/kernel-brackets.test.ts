@@ -294,11 +294,14 @@ describe("ribs and leg split", () => {
       clearHeight: 237,
       section: 12,
     });
+    // One millimetre over the one-piece height, so the deck leg would take
+    // 236 mm and leave a 1 mm extension. The peg is 10 mm, so the deck leg
+    // stops at 227 and the extension is the peg length. See S15 finding F-5.
     expect(split).toMatchObject({
       split: true,
       totalHeight: 241,
-      upperLength: 236,
-      extensionLength: 1,
+      upperLength: 227,
+      extensionLength: 10,
       pegSide: 6,
       pegLength: 10,
       socketSide: 6.2,
@@ -309,6 +312,55 @@ describe("ribs and leg split", () => {
       split: false,
       reason: "section",
     });
+  });
+
+  it("never plans an extension shorter than the peg it carries", () => {
+    // S15 finding F-5: this set derived four extensions of 0.5 mm, each a
+    // 21 mm peg on a collar, to add half a millimetre of leg.
+    const plan = planLegSplit({
+      deckThickness: 4.5,
+      clearHeight: 96,
+      section: 20,
+      onePieceHeight: 100,
+    });
+    expect(plan).toMatchObject({
+      split: true,
+      pegSide: 14,
+      pegLength: 21,
+      upperLength: 75,
+      extensionLength: 21,
+    });
+    // Every split anywhere in the range keeps a peg length of leg on each
+    // side of the joint, and the deck body still fits one piece.
+    for (const deckThickness of [3, 3.5, 4.5, 10]) {
+      for (const section of [12, 20, 28, 36, 37, 39, 40]) {
+        for (const onePieceHeight of [100, 102, 240, 500]) {
+          for (const clearHeight of [30, 95, 96, 97, 100, 237, 296, 350]) {
+            const each = planLegSplit({ deckThickness, clearHeight, section, onePieceHeight });
+            if (!each.split) continue;
+            expect(each.extensionLength).toBeGreaterThanOrEqual(each.pegLength);
+            expect(each.upperLength).toBeGreaterThanOrEqual(each.pegLength);
+            expect(deckThickness + each.upperLength).toBeLessThanOrEqual(onePieceHeight + 1e-9);
+          }
+        }
+      }
+    }
+  });
+
+  it("refuses a split whose leg cannot hold the socket and the peg", () => {
+    // A 40 mm section carries a 51 mm peg, and the socket is bored that deep
+    // into the deck leg. A 95 mm leg cannot give both sides of the joint 51
+    // mm; without the floor the socket would run into the deck (S15).
+    expect(
+      planLegSplit({ deckThickness: 10, clearHeight: 95, section: 40, onePieceHeight: 102 }),
+    ).toEqual({ split: false, totalHeight: 105, reason: "joint", pegLength: 51 });
+    expect(
+      planLegSplit({ deckThickness: 3.5, clearHeight: 97, section: 39, onePieceHeight: 100 }),
+    ).toMatchObject({ split: false, reason: "joint" });
+    // The same leg two peg lengths tall splits with the socket inside the leg.
+    expect(
+      planLegSplit({ deckThickness: 10, clearHeight: 102, section: 40, onePieceHeight: 110 }),
+    ).toMatchObject({ split: true, upperLength: 51, extensionLength: 51, pegLength: 51 });
   });
 });
 
