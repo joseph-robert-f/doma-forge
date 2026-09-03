@@ -54,7 +54,7 @@ Select **Download fit test** to get a small, fast print that tests whether the t
 
 Print this ring first. It uses little material and shows whether the tray fits the drawer. The ring wall is never thinner than 2 mm, even if the tray wall is set thinner. A thin wall is weak.
 
-The **Download fit test** button follows the same rules as **Download STL**. It stays disabled until the current settings pass validation and the preview finishes. The file name is `drawerforge-fit-test-<width>x<depth>-<hash>.stl`. The design name, when set, becomes the first part of the file name, the same way it does for the STL download.
+The **Download fit test** button follows the same rules as **Download STL**. It stays disabled until the current settings pass validation and the preview finishes. The coupon builds in the same background worker as the preview, so the page never loads the geometry kernel. While it builds, the button reads **Building fit test…** and stays disabled. An edit during the build cancels it; wait for the preview, then select the button again. The file name is `drawerforge-fit-test-<width>x<depth>-<hash>.stl`. The design name, when set, becomes the first part of the file name, the same way it does for the STL download.
 
 ### Print notes
 
@@ -126,7 +126,7 @@ Use four perimeters and at least 25 percent infill in the legs. Use a stiff fila
 
 The third product is a round saucer that matches the base of a plant pot. Open it from the product switcher or at `/products/plant-saucer`.
 
-Measure the base of the pot with a caliper. Set the inner floor diameter to that measurement plus 2 mm. Set the rim height and the wall taper. The wall opens upward, between 3 and 12 degrees from vertical, so the saucer lifts off the bed cleanly and stacks with another saucer. The inner floor diameter stops at 208 mm, the 220 mm printer bed less 12 mm. The app rejects a saucer whose outside diameter passes the same 208 mm, and names the taper.
+Measure the base of the pot with a caliper. Set the inner floor diameter to that measurement plus 2 mm. The printer profile's correction reaches the inner floor diameter as the mean of the X and Y corrections; see [Printer profile and calibration](#printer-profile-and-calibration). Set the rim height and the wall taper. The wall opens upward, between 3 and 12 degrees from vertical, so the saucer lifts off the bed cleanly and stacks with another saucer. The inner floor diameter stops at 208 mm, the 220 mm printer bed less 12 mm. The app rejects a saucer whose outside diameter passes the same 208 mm, and names the taper.
 
 The rolled rim is a bead that rolls inward from the top of the wall. It never overhangs the outside, so the saucer prints without supports. The app reduces the bead radius when the setting does not fit: the bead is never more than a quarter of the rim height, never wider than the wall it rolls over, and never near the axis. The calculated result names the radius the app used and the radius you asked for.
 
@@ -140,7 +140,7 @@ Print the saucer upright, floor on the bed. Do not use supports. Use three perim
 
 The fourth product is a round plant pot with drainage. Open it from the product switcher or at `/products/plant-pot`.
 
-Set the outside diameter at the base, the height, and the wall angle. The base diameter is the measurement the saucer must match, so the calculated result shows **Matching saucer floor**: the base diameter plus 2 mm. Enter that number as the saucer's inner floor diameter. The saucer floor is then 2 mm wider than the pot base all round, which is a 1 mm gap on each side.
+Set the outside diameter at the base, the height, and the wall angle. The printer profile's correction reaches the base diameter as the mean of the X and Y corrections, and the flare above it follows. The base diameter is the measurement the saucer must match, so the calculated result shows **Matching saucer floor**: the base diameter plus 2 mm. Enter that number as the saucer's inner floor diameter. The saucer floor is then 2 mm wider than the pot base all round, which is a 1 mm gap on each side.
 
 The wall angle runs from 0 to 45 degrees from vertical. The app rejects a pot that is more than 208 mm across at the rim, the 220 mm printer bed less 12 mm, and names the wall angle. The drainage holes are 4 to 8 mm, and they go through the flat base only. They never cut the wall: a single hole sits at the center, and two or more sit on a circle of half the floor radius. The app rejects holes that leave less than 2.5 mm between two neighbours, or less than 2.5 mm between a hole and the wall.
 
@@ -263,6 +263,8 @@ Select **Printer** to open the section. The defaults are a bed of 220 × 220 × 
 
 A correction is the millimeters that this printer prints small in one axis. The app adds the correction to the modeled part before it builds the mesh. It adds the X correction to the outside width and the Y correction to the outside depth. It changes no other value.
 
+A round part has no width or depth of its own. The plant pot's base diameter and the saucer's inner floor diameter take the mean of the two corrections, once. A machine that prints small by different amounts in X and Y prints a circle as a slight oval, and one number cannot correct that; the mean keeps the average size right. Measure a round print across X and across Y and enter both, the same way as for a tray.
+
 The app shows one line for each corrected axis:
 
 ```
@@ -294,11 +296,13 @@ The bed warning starts only after you save a printer profile. Open the **Printer
 
 The app shows an **error** when a wall is thinner than two nozzle widths. A wall that thin is weak, so DrawerForge does not print it. The error names the nozzle and the wall, and it keeps **Download STL** and **Download fit test** disabled until you set a larger wall or a smaller nozzle.
 
+The rule reads the walls and thicknesses you set, and the thin features the product itself reports: the webs between bores or slots, the webs between underside pockets, leg sections, ribs, lips, and gussets. A socket tray whose solved web falls under two nozzle widths therefore shows the same error as a thin outer wall, and the error names the web.
+
 The app also shows an error when a correction takes a value past its limit. The example is a drawer width of 600 mm with a 0.5 mm correction. The field still shows 600 mm, which is legal, so the message names the correction: "The X correction takes the drawer width past its limit." Lower the correction, or lower the value.
 
 ## Code layout
 
-- `lib/kernel/` — shared geometry code: the Manifold loader, profile builders (`profiles.ts`), the shell pattern (`shell.ts`), cutter arrays, the pitch solver and dividers at explicit positions (`arrays.ts`), leg posts with hull gussets (`legs.ts`), underside lightening (`lightening.ts`), revolved profiles and shells (`revolve.ts`), the bracket family with the hook rule, the J-hook profile, screw cutters, hull gussets, ribs, the leg split, and the load model (`brackets.ts`), and the mesh copy.
+- `lib/kernel/` — shared geometry code in two layers. The pure planners, which a product's schema and validation import: the pitch solver (`pitch.ts`), the lightening plan (`lightening-plan.ts`), the leg plan and its rules (`leg-plan.ts`), the bracket rules, the J-hook outline, the screw row, the ribs, the leg split, and the load model (`bracket-rules.ts`), the vessel profile (`vessel-profile.ts`), and the Boolean overlap constant (`overlap.ts`). The solid builders, which only a product's geometry module imports: the Manifold loader, profile builders (`profiles.ts`), the shell pattern (`shell.ts`), cutter arrays and dividers at explicit positions (`arrays.ts`), leg posts with hull gussets (`legs.ts`), underside lightening (`lightening.ts`), revolved shells (`revolve.ts`), the J-hook, screw cutters, and hull gussets (`brackets.ts`), and the mesh copy. A test in `tests/products.test.ts` fails when a definition-side module imports a builder.
 - `lib/products/types.ts` — the `ProductDefinition` contract every product satisfies.
 - `lib/products/shared.ts` — normalization, range validation, signature, slug, and hash helpers.
 - `lib/products/drawer-tray/` — the drawer organizer: schema, validation, geometry, presets.
@@ -316,8 +320,9 @@ The app also shows an error when a correction takes a value past its limit. The 
 - `lib/products/headphone-mount/` — the headphone and controller mount: schema with the bottom-to-top layout, validation, geometry, presets.
 - `lib/products/shelf-riser/` — the shelf riser: schema with the leg plan, the ribs, the pockets, and the leg split, validation, geometry, presets.
 - `lib/products/entryway-valet/` — the entryway valet: schema with the well-width layout and the rest wedge, validation, geometry, presets.
-- `lib/products/registry.ts` — the ordered list of products the app can build.
-- `lib/generation/` — the Web Worker that runs `product.generate()` off the main thread, its message protocol, and the page-side client.
+- `lib/products/registry.ts` — the ordered list of products the app can build: each product's schema, validation, copy, presets, and derived values, with its geometry loaded on demand.
+- `lib/products/geometry-registry.ts` — one lazy loader per product for its geometry and, where it has one, its fit-test coupon. The worker and every product definition build through this table, so the geometry of a product loads once, when a page first asks for it.
+- `lib/generation/` — the Web Worker that loads one product's geometry on demand and builds the preview or the fit-test coupon off the main thread, its message protocol with a `kind` of model or coupon, and the page-side client.
 - `lib/design-file.ts` — the portable `.drawerforge.json` format, export, and non-destructive import.
 - `lib/printer-profile.ts` — the local printer profile, the pure `compensate()` step, the compensation and calibration text, the build-volume warning, and the thin-wall error.
 - `lib/workspace.ts` — the versioned local storage envelope with one current design per product, and the version 1 migration.

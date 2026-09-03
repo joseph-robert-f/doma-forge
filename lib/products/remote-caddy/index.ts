@@ -6,8 +6,8 @@ import {
   signatureFromSpecs,
 } from "../shared";
 import type { DerivedValue, ProductDefinition } from "../types";
+import { loadGeometry } from "../geometry-registry";
 import { REMOTE_CADDY_COPY, REMOTE_CADDY_ID } from "./copy";
-import { generateRemoteCaddy } from "./geometry";
 import { REMOTE_CADDY_PRESETS } from "./presets";
 import {
   REMOTE_CADDY_DEFAULTS,
@@ -85,7 +85,10 @@ export const remoteCaddy: ProductDefinition<RemoteCaddySpecs> = {
   validate: validateRemoteCaddy,
   signature,
   derive,
-  generate: generateRemoteCaddy,
+  generate: (parameters) =>
+    loadGeometry<RemoteCaddyParameters>(REMOTE_CADDY_ID).then((geometry) =>
+      geometry.generate(parameters),
+    ),
   // The outside width is caddyWidth and the outside depth is caddyDepth, one
   // to one, the same semantics the drawer tray uses. The solved well takes
   // the correction on the width, so the wells the user typed keep their size.
@@ -117,7 +120,6 @@ export const remoteCaddy: ProductDefinition<RemoteCaddySpecs> = {
 };
 
 export { REMOTE_CADDY_COPY, REMOTE_CADDY_ID } from "./copy";
-export { generateRemoteCaddy } from "./geometry";
 export {
   MINIMUM_FRONT_WALL_ABOVE_FLOOR_MM,
   MINIMUM_WELL_MM,

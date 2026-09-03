@@ -1,4 +1,4 @@
-import { solvePitch, type PitchResult } from "../../kernel/arrays";
+import { solvePitch, type PitchResult } from "../../kernel/pitch";
 import {
   HOOK_MAXIMUM_PROJECTION_MM,
   HOOK_MINIMUM_ROOT_MM,
@@ -8,7 +8,7 @@ import {
   planScrewRow,
   type HookRuleResult,
   type ScrewRowPlan,
-} from "../../kernel/brackets";
+} from "../../kernel/bracket-rules";
 import type {
   BooleanSpec,
   EnumSpec,
@@ -139,7 +139,8 @@ export const WALL_HOOK_RAIL_SPECS = {
   keyShelf: {
     kind: "boolean",
     label: "Key shelf",
-    description: "A shelf along the top of the rail, with a gusset at each end.",
+    description:
+      "A shelf along the top of the rail, with a gusset at each end.",
   } satisfies BooleanSpec,
   shelfDepth: {
     kind: "number",
@@ -301,7 +302,9 @@ export function numbersAreFinite(parameters: WallHookRailParameters): boolean {
  * refused plans. Validation, the derived values, and generation read this
  * one function.
  */
-export function deriveLayout(parameters: WallHookRailParameters): WallHookRailLayout {
+export function deriveLayout(
+  parameters: WallHookRailParameters,
+): WallHookRailLayout {
   const numbersOk = numbersAreFinite(parameters);
   const T = parameters.plateThickness;
   const armZ = HOOK_BOTTOM_MARGIN_MM + HOOK_FILLET_MM;
@@ -331,7 +334,9 @@ export function deriveLayout(parameters: WallHookRailParameters): WallHookRailLa
   }
   const headDiameter = parameters.screwDiameter * SCREW_HEAD_RATIO;
   const shelfThickness = T;
-  const gussetRun = parameters.keyShelf ? parameters.shelfDepth * GUSSET_RATIO : 0;
+  const gussetRun = parameters.keyShelf
+    ? parameters.shelfDepth * GUSSET_RATIO
+    : 0;
   const gussetRise = Math.min(gussetRun, GUSSET_MAXIMUM_RISE_MM);
   const shelfUnderside = parameters.keyShelf
     ? parameters.railHeight - shelfThickness
@@ -358,7 +363,11 @@ export function deriveLayout(parameters: WallHookRailParameters): WallHookRailLa
   return {
     outsideWidth: parameters.railLength,
     outsideDepth:
-      T + Math.max(parameters.hookProjection, parameters.keyShelf ? parameters.shelfDepth : 0),
+      T +
+      Math.max(
+        parameters.hookProjection,
+        parameters.keyShelf ? parameters.shelfDepth : 0,
+      ),
     outsideHeight: parameters.railHeight,
     armZ,
     rootTop,
@@ -384,4 +393,24 @@ export function deriveLayout(parameters: WallHookRailParameters): WallHookRailLa
 /** The projection a hook needs for its fillet, its ramp, and its lip. */
 export function minimumProjection(parameters: WallHookRailParameters): number {
   return HOOK_FILLET_MM + LIP_THICKNESS_MM + parameters.hookLip;
+}
+
+/**
+ * The fit-test coupon: one hook on a short plate with two screws, at the
+ * same root, projection, lip, and plate thickness as the rail. Print it
+ * first and hang the load on it. The hook rail coupon is a single hook.
+ */
+export function couponParameters(
+  parameters: WallHookRailParameters,
+): WallHookRailParameters {
+  const railLength = Math.max(60, parameters.hookWidth + 2 * HOOK_GAP_MM);
+  const headDiameter = deriveLayout(parameters).headDiameter;
+  return {
+    ...parameters,
+    railLength,
+    hookCount: 1,
+    keyShelf: false,
+    screwCount: 2,
+    screwSpacing: Math.floor(railLength - headDiameter - 16),
+  };
 }

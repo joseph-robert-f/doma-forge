@@ -3,12 +3,19 @@ import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { describe, expect, it } from "vitest";
 import {
   PLANT_SAUCER_DEFAULTS,
+  PLANT_SAUCER_SPECS,
+  RIB_WIDTH_MM,
   SAUCER_MAXIMUM_OUTSIDE_DIAMETER_MM,
   deriveSaucerLayout,
   minimumRimHeight,
   plantSaucer,
   type PlantSaucerParameters,
 } from "../lib/products/plant-saucer";
+import {
+  normalizePrinterProfile,
+  thinWallIssues,
+  wallLikeKeys,
+} from "../lib/printer-profile";
 import { inspectBinaryStl, serializeBinaryStl } from "../lib/stl";
 import {
   analyzeBufferGeometry,
@@ -385,5 +392,45 @@ describe("plant saucer geometry", () => {
     expect(model.bounds[1][0]).toBeCloseTo(GOLDEN_RADIUS, 3);
     expect(model.bounds[1][1]).toBeCloseTo(GOLDEN_RADIUS, 3);
     expect(model.bounds[1][2]).toBeCloseTo(15, 5);
+  });
+});
+
+describe("printed walls", () => {
+  it("adds the lift rib width at the defaults", () => {
+    expect(PLANT_SAUCER_DEFAULTS.liftRibs).toBeGreaterThan(0);
+    const walls = plantSaucer.printedWalls!(PLANT_SAUCER_DEFAULTS);
+    const byKey = new Map(walls.map((wall) => [wall.key, wall.value]));
+    expect(byKey.get("rib-width")).toBeCloseTo(RIB_WIDTH_MM);
+    for (const key of wallLikeKeys(PLANT_SAUCER_SPECS)) {
+      expect(byKey.has(key), `${key} missing`).toBe(true);
+    }
+  });
+
+  it("omits the rib width with a flat floor", () => {
+    const parameters = withChanges({ liftRibs: 0 });
+    const walls = plantSaucer.printedWalls!(parameters);
+    expect(walls.some((wall) => wall.key === "rib-width")).toBe(false);
+  });
+
+  it("flags a thin rib at a wide enough nozzle", () => {
+    // The rib width is fixed at 3 mm, exactly the floor a 1.5 mm nozzle
+    // sets (two nozzle widths), so it is not itself thin there. A
+    // slightly wider nozzle pushes the floor past the fixed rib and
+    // demonstrates the same rule.
+    const profile = normalizePrinterProfile({ nozzleDiameter: 1.6 });
+    const issues = thinWallIssues(
+      plantSaucer.printedWalls!(PLANT_SAUCER_DEFAULTS),
+      profile,
+    );
+    expect(
+      issues.some((issue) => issue.text.includes("Lift rib width")),
+    ).toBe(true);
+  });
+
+  it("does not throw for a cleared field, and reports only finite values", () => {
+    const cleared = { ...PLANT_SAUCER_DEFAULTS, liftRibs: Number.NaN };
+    const walls = plantSaucer.printedWalls!(cleared);
+    expect(walls.every((wall) => Number.isFinite(wall.value))).toBe(true);
+    expect(walls.some((wall) => wall.key === "rib-width")).toBe(false);
   });
 });

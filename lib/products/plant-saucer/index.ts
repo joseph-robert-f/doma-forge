@@ -5,9 +5,10 @@ import {
   shortHash,
   signatureFromSpecs,
 } from "../shared";
+import { wallsFromSpecs } from "../../printer-profile";
 import type { BoundsContract, DerivedValue, ProductDefinition } from "../types";
+import { loadGeometry } from "../geometry-registry";
 import { PLANT_SAUCER_COPY, PLANT_SAUCER_ID } from "./copy";
-import { generatePlantSaucer } from "./geometry";
 import { PLANT_SAUCER_PRESETS } from "./presets";
 import {
   NOTCH_WIDTH_MM,
@@ -15,6 +16,7 @@ import {
   PLANT_SAUCER_GROUPS,
   PLANT_SAUCER_SPECS,
   QUALITY_SEGMENTS,
+  RIB_WIDTH_MM,
   deriveSaucerLayout,
   type PlantSaucerParameters,
   type PlantSaucerSpecs,
@@ -83,7 +85,8 @@ function derive(parameters: PlantSaucerParameters): DerivedValue[] {
       id: "lift-ribs",
       label: "Lift ribs",
       value:
-        !Number.isFinite(parameters.liftRibs) || !Number.isFinite(parameters.ribHeight)
+        !Number.isFinite(parameters.liftRibs) ||
+        !Number.isFinite(parameters.ribHeight)
           ? "does not fit"
           : parameters.liftRibs >= 1
             ? `${parameters.liftRibs} across the floor, ${formatMillimeters(parameters.ribHeight)} mm high`
@@ -103,7 +106,8 @@ function boundsContract(parameters: PlantSaucerParameters): BoundsContract {
   const radius = Number.isFinite(layout.outsideDiameter)
     ? layout.outsideDiameter / 2
     : 0;
-  const segments = QUALITY_SEGMENTS[parameters.meshQuality] ?? QUALITY_SEGMENTS.standard;
+  const segments =
+    QUALITY_SEGMENTS[parameters.meshQuality] ?? QUALITY_SEGMENTS.standard;
   const half = NOTCH_WIDTH_MM / 2;
   const notchCut =
     layout.notchDepth > 0
@@ -135,11 +139,32 @@ export const plantSaucer: ProductDefinition<PlantSaucerSpecs> = {
   validate: validatePlantSaucer,
   signature,
   derive,
-  generate: generatePlantSaucer,
+  generate: (parameters) =>
+    loadGeometry<PlantSaucerParameters>(PLANT_SAUCER_ID).then((geometry) =>
+      geometry.generate(parameters),
+    ),
   // A round part has one diameter, not an X size and a Y size. The contract
   // corrects a named parameter once per axis, so a diameter named on both
   // axes would take the correction twice. See 23_REVOLVED_FORMS_NOTES.md,
   // D-1511 and open issue 3. The saucer is not compensated.
+  // A round part takes the mean of the X and Y corrections, once (D-1704).
+  // The inner diameter is the fit to the pot base; the rim and the outside
+  // follow it, so the whole saucer grows by the correction.
+  compensable: { diameter: ["innerDiameter"] },
+  // The wall and the floor are parameters, so the key rule finds them. Each
+  // lift rib is fixed at RIB_WIDTH_MM wide, so the product reports that
+  // width whenever the floor gets at least one rib (D-1703).
+  printedWalls: (parameters) => {
+    const walls = wallsFromSpecs(PLANT_SAUCER_SPECS, parameters);
+    if (Number.isFinite(parameters.liftRibs) && parameters.liftRibs > 0) {
+      walls.push({
+        key: "rib-width",
+        label: "Lift rib width",
+        value: RIB_WIDTH_MM,
+      });
+    }
+    return walls;
+  },
   boundsContract,
   filename: (parameters) => {
     const size = [parameters.innerDiameter, parameters.rimHeight]
@@ -157,7 +182,6 @@ export const plantSaucer: ProductDefinition<PlantSaucerSpecs> = {
 };
 
 export { PLANT_SAUCER_COPY, PLANT_SAUCER_ID } from "./copy";
-export { generatePlantSaucer } from "./geometry";
 export {
   NOTCH_WIDTH_MM,
   PLANT_SAUCER_DEFAULTS,

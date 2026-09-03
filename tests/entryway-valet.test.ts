@@ -2,10 +2,17 @@ import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import {
   ENTRYWAY_VALET_DEFAULTS,
+  ENTRYWAY_VALET_SPECS,
+  SLOT_LIP_THICKNESS_MM,
   deriveLayout,
   entrywayValet,
   type EntrywayValetParameters,
 } from "../lib/products/entryway-valet";
+import {
+  normalizePrinterProfile,
+  thinWallIssues,
+  wallLikeKeys,
+} from "../lib/printer-profile";
 import { analyzeBufferGeometry, modelToBufferGeometry } from "../lib/three-geometry";
 import {
   closedEdgeCounts,
@@ -234,5 +241,39 @@ describe("entryway valet geometry", () => {
       [-120, -75, 0],
       [120, 75, 70],
     ]);
+  });
+});
+
+describe("printed walls", () => {
+  it("adds the slot lip and the rest wedge top at the defaults", () => {
+    const layout = deriveLayout(ENTRYWAY_VALET_DEFAULTS);
+    const walls = entrywayValet.printedWalls!(ENTRYWAY_VALET_DEFAULTS);
+    const byKey = new Map(walls.map((wall) => [wall.key, wall.value]));
+    expect(byKey.get("slot-lip")).toBeCloseTo(SLOT_LIP_THICKNESS_MM);
+    expect(byKey.get("rest-wedge-top")).toBeCloseTo(layout.wedgeTopDepth);
+    for (const key of wallLikeKeys(ENTRYWAY_VALET_SPECS)) {
+      expect(byKey.has(key), `${key} missing`).toBe(true);
+    }
+  });
+
+  it("flags the fixed slot lip as thin at a 1.5 mm nozzle", () => {
+    // The slot lip is fixed at 2 mm, under a 1.5 mm nozzle's 3 mm floor,
+    // at the defaults already: the rest wedge top stays well above 4 mm
+    // by REST_MINIMUM_TOP_MM's own rule, so only the lip is thin here.
+    const profile = normalizePrinterProfile({ nozzleDiameter: 1.5 });
+    const issues = thinWallIssues(
+      entrywayValet.printedWalls!(ENTRYWAY_VALET_DEFAULTS),
+      profile,
+    );
+    expect(
+      issues.some((issue) => issue.text.includes("Slot lip thickness")),
+    ).toBe(true);
+  });
+
+  it("does not throw for a cleared field, and reports only finite values", () => {
+    const cleared = { ...ENTRYWAY_VALET_DEFAULTS, restHeight: Number.NaN };
+    const walls = entrywayValet.printedWalls!(cleared);
+    expect(walls.every((wall) => Number.isFinite(wall.value))).toBe(true);
+    expect(walls.some((wall) => wall.key === "rest-wedge-top")).toBe(false);
   });
 });

@@ -1,6 +1,10 @@
 import type { GeneratedModel } from "../kernel/mesh";
 import type { AnyParameters } from "../products/types";
-import type { GenerationRequest, GenerationResponse } from "./protocol";
+import type {
+  GenerationKind,
+  GenerationRequest,
+  GenerationResponse,
+} from "./protocol";
 
 /** Thrown for a request the client abandoned before a result arrived. */
 export class GenerationCancelledError extends Error {
@@ -12,13 +16,15 @@ export class GenerationCancelledError extends Error {
 
 export interface GenerationClient {
   /**
-   * Generates one model. Only the newest request matters: calling this while
-   * another request is in flight cancels the older one, whose promise rejects
-   * with GenerationCancelledError.
+   * Generates one model, or the product's fit-test coupon when `kind` is
+   * "coupon". Only the newest request matters: calling this while another
+   * request is in flight cancels the older one, whose promise rejects with
+   * GenerationCancelledError.
    */
   generate(
     productId: string,
     parameters: AnyParameters,
+    kind?: GenerationKind,
   ): Promise<GeneratedModel<AnyParameters>>;
   /** Cancels the in-flight request, if any. */
   cancel(): void;
@@ -83,6 +89,7 @@ export class WorkerGenerationClient implements GenerationClient {
   generate(
     productId: string,
     parameters: AnyParameters,
+    kind: GenerationKind = "model",
   ): Promise<GeneratedModel<AnyParameters>> {
     if (this.disposed) {
       return Promise.reject(new Error("The generation client was disposed."));
@@ -104,6 +111,7 @@ export class WorkerGenerationClient implements GenerationClient {
           id,
           productId,
           parameters,
+          kind,
         });
       } catch (error) {
         this.pending = null;
@@ -208,6 +216,7 @@ export class InlineGenerationClient implements GenerationClient {
   generate(
     productId: string,
     parameters: AnyParameters,
+    kind: GenerationKind = "model",
   ): Promise<GeneratedModel<AnyParameters>> {
     if (this.disposed) {
       return Promise.reject(new Error("The generation client was disposed."));
@@ -223,12 +232,19 @@ export class InlineGenerationClient implements GenerationClient {
         if (response.type === "result") pending.resolve(response.model);
         else pending.reject(new Error(response.message));
       };
-      // The protocol module pulls in the kernel and every product. Loading it
-      // lazily keeps that code out of the page bundle in browsers, where the
+      // The protocol module pulls in every product, and each product loads
+      // its geometry and the kernel on demand. Loading the protocol lazily
+      // keeps all of that out of the page bundle in browsers, where the
       // worker client is used instead.
       import("./protocol")
         .then(({ handleGenerationRequest }) =>
-          handleGenerationRequest({ type: "generate", id, productId, parameters }),
+          handleGenerationRequest({
+            type: "generate",
+            id,
+            productId,
+            parameters,
+            kind,
+          }),
         )
         .then(settle)
         .catch((error: unknown) =>
@@ -236,7 +252,9 @@ export class InlineGenerationClient implements GenerationClient {
             type: "error",
             id,
             message:
-              error instanceof Error ? error.message : "Preview generation failed.",
+              error instanceof Error
+                ? error.message
+                : "Preview generation failed.",
           }),
         );
     });

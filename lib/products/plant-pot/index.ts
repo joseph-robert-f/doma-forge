@@ -5,9 +5,10 @@ import {
   shortHash,
   signatureFromSpecs,
 } from "../shared";
+import { wallsFromSpecs } from "../../printer-profile";
 import type { BoundsContract, DerivedValue, ProductDefinition } from "../types";
+import { loadGeometry } from "../geometry-registry";
 import { PLANT_POT_COPY, PLANT_POT_ID } from "./copy";
-import { generatePlantPot } from "./geometry";
 import { PLANT_POT_PRESETS } from "./presets";
 import {
   PLANT_POT_DEFAULTS,
@@ -115,10 +116,41 @@ export const plantPot: ProductDefinition<PlantPotSpecs> = {
   validate: validatePlantPot,
   signature,
   derive,
-  generate: generatePlantPot,
+  generate: (parameters) =>
+    loadGeometry<PlantPotParameters>(PLANT_POT_ID).then((geometry) =>
+      geometry.generate(parameters),
+    ),
   // A round part has one diameter, not an X size and a Y size. See
   // 23_REVOLVED_FORMS_NOTES.md, D-1511 and open issue 3. The pot is not
   // compensated.
+  // A round part takes the mean of the X and Y corrections, once (D-1704).
+  // The base diameter sets the footprint, and the flare above it follows,
+  // so the whole pot grows by the correction.
+  compensable: { diameter: ["baseDiameter"] },
+  // The wall and the base are parameters, so the key rule finds them. The
+  // holes are drilled into the flat base only, and the base always holds at
+  // least one hole, so the material the hole leaves is solved, not typed:
+  // the web out to the wall, and, past one hole, the web to the next hole
+  // around the circle (D-1703).
+  printedWalls: (parameters) => {
+    const walls = wallsFromSpecs(PLANT_POT_SPECS, parameters);
+    const layout = derivePotLayout(parameters);
+    if (Number.isFinite(layout.wallWeb) && layout.wallWeb > 0) {
+      walls.push({
+        key: "wall-web",
+        label: "Web from a drain hole to the wall",
+        value: layout.wallWeb,
+      });
+    }
+    if (Number.isFinite(layout.neighbourWeb) && layout.neighbourWeb > 0) {
+      walls.push({
+        key: "neighbour-web",
+        label: "Web between drain holes",
+        value: layout.neighbourWeb,
+      });
+    }
+    return walls;
+  },
   boundsContract,
   filename: (parameters) => {
     const size = [parameters.baseDiameter, parameters.potHeight]
@@ -141,7 +173,6 @@ export const plantPot: ProductDefinition<PlantPotSpecs> = {
 };
 
 export { PLANT_POT_COPY, PLANT_POT_ID } from "./copy";
-export { generatePlantPot } from "./geometry";
 export {
   DRAIN_WEB_MM,
   PLANT_POT_DEFAULTS,

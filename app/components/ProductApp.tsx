@@ -32,7 +32,7 @@ import {
   normalizePrinterName,
   normalizePrinterProfile,
   validatePrinterProfile,
-  wallLikeKeys,
+  wallsFromSpecs,
   withCorrectionTag,
   type CalibrationProposal,
   type Extents,
@@ -97,9 +97,7 @@ function designKey(name: string, parameters: Parameters): string {
 const PRINTER_SAVE_DELAY_MS = 300;
 
 /** The size of the part along each axis, or null when it cannot be found. */
-function partExtents(
-  bounds: () => BoundsContract,
-): Extents | null {
+function partExtents(bounds: () => BoundsContract): Extents | null {
   try {
     const extents = extentsFromBounds(bounds());
     return Number.isFinite(extents.x) &&
@@ -155,7 +153,9 @@ function DerivedValuesCard({
           <span className="eyebrow">Calculated result</span>
           <h2 id="derived-title">{title}</h2>
         </div>
-        <span className={`design-state${valid ? "" : " design-state--warning"}`}>
+        <span
+          className={`design-state${valid ? "" : " design-state--warning"}`}
+        >
           {valid ? "Ready to build" : "Check inputs"}
         </span>
       </div>
@@ -236,7 +236,9 @@ export function ProductApp({ productId }: { productId: string }) {
   const [printerOpen, setPrinterOpen] = useState(false);
   /** True once this browser holds a profile the user confirmed. */
   const [printerSaved, setPrinterSaved] = useState(false);
-  const [printerDrafts, setPrinterDrafts] = useState<Record<string, string>>({});
+  const [printerDrafts, setPrinterDrafts] = useState<Record<string, string>>(
+    {},
+  );
   const [printerFieldMessages, setPrinterFieldMessages] = useState<
     Record<string, string>
   >({});
@@ -349,9 +351,9 @@ export function ProductApp({ productId }: { productId: string }) {
   const compensation = useMemo(
     () =>
       targetExtents && modeledExtents
-        ? compensationNotes(targetExtents, modeledExtents, activeProfile)
+        ? compensationNotes(targetExtents, modeledExtents)
         : [],
-    [targetExtents, modeledExtents, activeProfile],
+    [targetExtents, modeledExtents],
   );
   // The bed values are placeholders until the user saves a profile. A
   // warning about a bed nobody entered is noise, and noise trains a person
@@ -362,17 +364,19 @@ export function ProductApp({ productId }: { productId: string }) {
   );
   // Rule 9 of the expansion plan: a wall below two nozzle widths is a
   // validation error, not a warning. It refuses the download.
+  // The product reports its own printed walls when it has webs, legs, ribs,
+  // or lips that no parameter names; otherwise the wall-like parameters are
+  // read by key. The compensated parameters are what the printer builds, so
+  // a solved web is measured after the correction (D-1703).
   const wallIssues = useMemo(
     () =>
       thinWallIssues(
-        wallLikeKeys(product.specs).map((key) => ({
-          key,
-          label: product.specs[key].label,
-          value: targetParameters[key] as number,
-        })),
+        product.printedWalls
+          ? product.printedWalls(compensatedParameters)
+          : wallsFromSpecs(product.specs, compensatedParameters),
         activeProfile,
       ),
-    [product, targetParameters, activeProfile],
+    [product, compensatedParameters, activeProfile],
   );
   const calibrationProposals = useMemo(() => {
     if (!modeledExtents) return [] as CalibrationProposal[];
@@ -562,7 +566,9 @@ export function ProductApp({ productId }: { productId: string }) {
   // a preset record or of the defaults record by reference.
   const applyPreset = (presetId: string) => {
     setSelectedPreset(presetId);
-    const preset = product.presets.find((candidate) => candidate.id === presetId);
+    const preset = product.presets.find(
+      (candidate) => candidate.id === presetId,
+    );
     if (preset) setParameters(product.normalize(preset.parameters));
   };
 
@@ -595,7 +601,10 @@ export function ProductApp({ productId }: { productId: string }) {
     } catch (error) {
       setFileMessage({
         tone: "error",
-        text: error instanceof Error ? error.message : "The design file could not be saved.",
+        text:
+          error instanceof Error
+            ? error.message
+            : "The design file could not be saved.",
       });
     }
   };
@@ -667,11 +676,16 @@ export function ProductApp({ productId }: { productId: string }) {
       setPrinterMessage(field, "");
       return;
     }
-    setPrinterMessage(field, validatePrinterProfile({ [field]: text })[0]?.message ?? "");
+    setPrinterMessage(
+      field,
+      validatePrinterProfile({ [field]: text })[0]?.message ?? "",
+    );
     const numeric = Number(text);
     if (!Number.isFinite(numeric)) return;
     printerTouched.current = true;
-    setPrinter((current) => normalizePrinterProfile({ ...current, [field]: numeric }));
+    setPrinter((current) =>
+      normalizePrinterProfile({ ...current, [field]: numeric }),
+    );
   };
 
   const updatePrinterName = (text: string) => {
@@ -753,7 +767,9 @@ export function ProductApp({ productId }: { productId: string }) {
         !preview.geometry.boundingBox ||
         !boxesMatch(inspection.bounds, preview.geometry.boundingBox)
       ) {
-        throw new Error("The STL safety check did not match the visible preview.");
+        throw new Error(
+          "The STL safety check did not match the visible preview.",
+        );
       }
       triggerDownload(
         new Blob([data], { type: "model/stl" }),
@@ -787,7 +803,13 @@ export function ProductApp({ productId }: { productId: string }) {
       // The coupon carries the same correction the full part carries, so the
       // ring a person measures is the ring the tray will print. Each product
       // states its own coupon bounds (D-1617 in 24_BRACKET_FAMILY_NOTES.md).
-      const model = await product.coupon(preview.compensatedParameters);
+      // It builds in the generation worker, like the preview, so the page
+      // never loads the kernel (D-1702).
+      const model = await getClient().generate(
+        product.id,
+        preview.compensatedParameters,
+        "coupon",
+      );
       const geometry = modelToBufferGeometry(model);
       const analysis = analyzeBufferGeometry(geometry);
       const couponContract: BoundsContract = product.couponBoundsContract(
@@ -826,13 +848,19 @@ export function ProductApp({ productId }: { productId: string }) {
             fitTestCouponFilename(model, preview.signature),
           ),
           activeProfile,
+          product.compensable,
         ),
       );
       geometry.dispose();
     } catch (error) {
       setFileMessage({
         tone: "error",
-        text: error instanceof Error ? error.message : "Fit-test export failed.",
+        text:
+          error instanceof GenerationCancelledError
+            ? "An edit cancelled the fit test. Wait for the preview, then try again."
+            : error instanceof Error
+              ? error.message
+              : "Fit-test export failed.",
       });
     } finally {
       setFitTestBusy(false);
@@ -1057,8 +1085,8 @@ export function ProductApp({ productId }: { productId: string }) {
                 )}
 
                 <p className="design-hint">
-                  A correction is the millimeters this printer prints small.
-                  The app adds the correction to the modeled part. It does not
+                  A correction is the millimeters this printer prints small. The
+                  app adds the correction to the modeled part. It does not
                   change your target, your design file, or your saved design.
                 </p>
 
@@ -1238,12 +1266,15 @@ export function ProductApp({ productId }: { productId: string }) {
                 className="button button--quiet download-button"
                 type="button"
                 data-testid="download-fit-test-button"
-                disabled={downloadDisabled}
+                disabled={downloadDisabled || fitTestBusy}
+                aria-busy={fitTestBusy}
                 aria-describedby="download-help fit-test-help"
                 onClick={downloadFitTest}
               >
-                <span>Download fit test</span>
-                <span aria-hidden="true">↓</span>
+                <span>
+                  {fitTestBusy ? "Building fit test…" : "Download fit test"}
+                </span>
+                <span aria-hidden="true">{fitTestBusy ? "…" : "↓"}</span>
               </button>
             ) : null}
             <p id="download-help">
@@ -1252,15 +1283,18 @@ export function ProductApp({ productId }: { productId: string }) {
             </p>
             {product.coupon ? (
               <p id="fit-test-help">
-                Print this ring first. It uses little material and shows
-                whether the tray fits the drawer. The ring wall is never
-                thinner than 2 mm, even if the tray wall is set thinner.
+                Print this ring first. It uses little material and shows whether
+                the tray fits the drawer. The ring wall is never thinner than 2
+                mm, even if the tray wall is set thinner.
               </p>
             ) : null}
           </div>
         </aside>
 
-        <section className="preview-panel" aria-label={product.copy.previewLabel}>
+        <section
+          className="preview-panel"
+          aria-label={product.copy.previewLabel}
+        >
           <ModelViewer
             geometry={preview?.geometry ?? null}
             modelKey={preview?.meshSignature ?? ""}

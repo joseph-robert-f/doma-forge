@@ -1,4 +1,4 @@
-import { cantileverLoadNewtons, loadNote } from "../../kernel/brackets";
+import { cantileverLoadNewtons, loadNote } from "../../kernel/bracket-rules";
 import {
   filenameNumber,
   formatMillimeters,
@@ -6,14 +6,16 @@ import {
   shortHash,
   signatureFromSpecs,
 } from "../shared";
+import { wallsFromSpecs } from "../../printer-profile";
 import type { DerivedValue, ProductDefinition } from "../types";
+import { loadGeometry } from "../geometry-registry";
 import { ENTRYWAY_VALET_COPY, ENTRYWAY_VALET_ID } from "./copy";
-import { generateEntrywayValet } from "./geometry";
 import { ENTRYWAY_VALET_PRESETS } from "./presets";
 import {
   ENTRYWAY_VALET_DEFAULTS,
   ENTRYWAY_VALET_GROUPS,
   ENTRYWAY_VALET_SPECS,
+  SLOT_LIP_THICKNESS_MM,
   deriveLayout,
   solveLastWell,
   type EntrywayValetParameters,
@@ -64,7 +66,11 @@ function derive(parameters: EntrywayValetParameters): DerivedValue[] {
       id: "rest-load",
       label: "Push on the rest top",
       value: loadNote(
-        cantileverLoadNewtons(layout.innerWidth, layout.wedgeTopDepth, parameters.restHeight),
+        cantileverLoadNewtons(
+          layout.innerWidth,
+          layout.wedgeTopDepth,
+          parameters.restHeight,
+        ),
       ),
     },
   ];
@@ -83,24 +89,61 @@ export const entrywayValet: ProductDefinition<EntrywayValetSpecs> = {
   // The solved width is written into the last well, so the field, the
   // signature, and the mesh carry one number (D-1415).
   normalize: (input) =>
-    solveLastWell(normalizeFromSpecs(ENTRYWAY_VALET_SPECS, ENTRYWAY_VALET_DEFAULTS, input)),
+    solveLastWell(
+      normalizeFromSpecs(ENTRYWAY_VALET_SPECS, ENTRYWAY_VALET_DEFAULTS, input),
+    ),
   validate: validateEntrywayValet,
   signature,
   derive,
-  generate: generateEntrywayValet,
+  generate: (parameters) =>
+    loadGeometry<EntrywayValetParameters>(ENTRYWAY_VALET_ID).then((geometry) =>
+      geometry.generate(parameters),
+    ),
+  // The walls and the dividers are parameters, so the key rule finds them.
+  // The slot lip ahead of the phone slot is a fixed ridge, always built at
+  // SLOT_LIP_THICKNESS_MM, and the rest wedge thins toward its top as it
+  // leans back, a solved thickness the key rule cannot see either (D-1703).
+  printedWalls: (parameters) => {
+    const walls = wallsFromSpecs(ENTRYWAY_VALET_SPECS, parameters);
+    walls.push({
+      key: "slot-lip",
+      label: "Slot lip thickness",
+      value: SLOT_LIP_THICKNESS_MM,
+    });
+    const layout = deriveLayout(parameters);
+    if (
+      Number.isFinite(layout.wedgeTopDepth) &&
+      layout.wedgeTopDepth > 0
+    ) {
+      walls.push({
+        key: "rest-wedge-top",
+        label: "Rest wedge top thickness",
+        value: layout.wedgeTopDepth,
+      });
+    }
+    return walls;
+  },
   // The modeled pose is the print pose: base on the bed, wells and rest
   // up. The rest face leans back, so it points up and forward.
   boundsContract: (parameters) => {
     const layout = deriveLayout(parameters);
     return {
       min: [-layout.outsideWidth / 2, -layout.outsideDepth / 2, 0],
-      max: [layout.outsideWidth / 2, layout.outsideDepth / 2, layout.outsideHeight],
+      max: [
+        layout.outsideWidth / 2,
+        layout.outsideDepth / 2,
+        layout.outsideHeight,
+      ],
       tolerance: 1e-3,
     };
   },
   filename: (parameters) => {
     const layout = deriveLayout(parameters);
-    const size = [layout.outsideWidth, layout.outsideDepth, layout.outsideHeight]
+    const size = [
+      layout.outsideWidth,
+      layout.outsideDepth,
+      layout.outsideHeight,
+    ]
       .map(filenameNumber)
       .join("x");
     return `drawerforge-${ENTRYWAY_VALET_ID}-${size}-${layout.wellCount}wells-${shortHash(signature(parameters))}.stl`;
@@ -112,7 +155,6 @@ export const entrywayValet: ProductDefinition<EntrywayValetSpecs> = {
 };
 
 export { ENTRYWAY_VALET_COPY, ENTRYWAY_VALET_ID } from "./copy";
-export { generateEntrywayValet } from "./geometry";
 export {
   ENTRYWAY_VALET_DEFAULTS,
   ENTRYWAY_VALET_SPECS,

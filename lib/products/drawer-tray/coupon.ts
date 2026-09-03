@@ -2,8 +2,10 @@ import { getKernel } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
 import { roundedRectangle } from "../../kernel/profiles";
 import {
+  FIT_TEST_COUPON_HEIGHT,
   QUALITY_SEGMENTS,
   deriveDimensions,
+  getCouponWallThickness,
   type DrawerTrayParameters,
 } from "./schema";
 import { validateDrawerTray } from "./validate";
@@ -11,21 +13,11 @@ import { validateDrawerTray } from "./validate";
 /** Hidden overlap so Boolean faces never sit exactly coplanar. */
 const BOOLEAN_OVERLAP = 0.2;
 
-/** The coupon ring height, in millimeters. Independent of organizer height. */
-export const FIT_TEST_COUPON_HEIGHT = 5;
-
-/** No ring wall is ever thinner than this, whatever the tray wall setting is. */
-export const FIT_TEST_COUPON_MINIMUM_WALL = 2;
-
-/**
- * The coupon's ring wall thickness: the tray's own outer wall thickness, or
- * the print-safe minimum, whichever is larger.
- */
-export function getCouponWallThickness(
-  parameters: DrawerTrayParameters,
-): number {
-  return Math.max(FIT_TEST_COUPON_MINIMUM_WALL, parameters.wallThickness);
-}
+export {
+  FIT_TEST_COUPON_HEIGHT,
+  FIT_TEST_COUPON_MINIMUM_WALL,
+  getCouponWallThickness,
+} from "./schema";
 
 /**
  * Builds the fit-test coupon mesh with no validation step of its own. A

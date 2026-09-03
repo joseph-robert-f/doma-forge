@@ -188,8 +188,8 @@ with the same parameters.
 |---|---|
 | Date | |
 | Product and geometry version | Parts bin, geometry version 1 |
-| Preset or parameters | Defaults (unmodified). binWidth 150, binDepth 100, binHeight 70, stacking true, lipHeight 4, lipWallThickness 1.2, stackClearance 0.3, frontScoop true, labelLedge true, wallThickness 3, baseThickness 3, cornerRadius 3, meshQuality standard |
-| Design file name | drawerforge-parts-bin-150x100x70-stack-7e1edf.stl |
+| Preset or parameters | Defaults (unmodified). binWidth 150, binDepth 100, binHeight 70, stacking true, lipHeight 4, lipWallThickness 1.2, stackClearance 0.3, frontScoop true, labelLedge true, wallThickness 3.4, baseThickness 3, cornerRadius 3, meshQuality standard. The outer wall was 3 mm until S13; 3.4 mm leaves 0.8 mm of wall on each side of the stacking recess, two widths of a 0.4 mm nozzle (28_CONTRACT_FOLLOW_UPS_NOTES.md, D-1713) |
+| Design file name | drawerforge-parts-bin-150x100x70-stack-e65f30.stl |
 | Printer, nozzle, material | |
 | Perimeters, layer height | |
 | Target outside width x depth x height, mm | 150 × 100 × 70, and 74 over the lip |
@@ -208,7 +208,7 @@ with the same parameters.
 | Date | |
 | Product and geometry version | Parts bin, geometry version 1 |
 | Preset or parameters | The same parameters as record 8 |
-| Design file name | drawerforge-parts-bin-150x100x70-stack-7e1edf.stl |
+| Design file name | drawerforge-parts-bin-150x100x70-stack-e65f30.stl |
 | Printer, nozzle, material | |
 | Perimeters, layer height | |
 | Target stack pitch, mm | 70 |
@@ -286,7 +286,7 @@ with the same parameters.
 | Correction applied, X and Y, mm | |
 | Fit result | too tight, fits, loose, with the gap in mm |
 | Photo | file name |
-| Notes | Stand the matching pot on the ribs. Measure the inner floor diameter across two points 90 degrees apart. Fill the saucer with water and leave it for one hour to check the floor. The saucer is not compensated by the printer profile; record the diameter shrink as a number. |
+| Notes | Stand the matching pot on the ribs. Measure the inner floor diameter across two points 90 degrees apart. Fill the saucer with water and leave it for one hour to check the floor. The saucer's inner diameter takes the mean of the X and Y corrections from the printer profile (S13, D-1704), so measure the inner floor diameter across X and across Y and record both; the calibration protocol then reads each as that axis's measurement. Record the diameter shrink as a number as well. |
 
 ## Nursery plant pot
 
@@ -309,7 +309,7 @@ with the same parameters.
 | Correction applied, X and Y, mm | |
 | Fit result | too tight, fits, loose, with the gap in mm |
 | Photo | file name |
-| Notes | Print the matching saucer at an inner floor diameter of 122 mm and stand the pot in it. Measure two of the four drainage holes. Check the first layer under each hole for a dropped bridge. The pot is not compensated by the printer profile; record the diameter shrink as a number. |
+| Notes | Print the matching saucer at an inner floor diameter of 122 mm and stand the pot in it. Measure two of the four drainage holes. Check the first layer under each hole for a dropped bridge. The pot's base diameter takes the mean of the X and Y corrections from the printer profile (S13, D-1704), so measure the base diameter across X and across Y and record both; the calibration protocol then reads each as that axis's measurement. Record the diameter shrink as a number as well. |
 
 ## Card and cartridge slot holder
 

@@ -5,9 +5,10 @@ import {
   shortHash,
   signatureFromSpecs,
 } from "../shared";
+import { wallsFromSpecs } from "../../printer-profile";
 import type { DerivedValue, ProductDefinition } from "../types";
+import { loadGeometry } from "../geometry-registry";
 import { DRAWER_RISER_COPY, DRAWER_RISER_ID } from "./copy";
-import { generateDrawerRiser } from "./geometry";
 import { DRAWER_RISER_PRESETS } from "./presets";
 import {
   DRAWER_RISER_DEFAULTS,
@@ -86,10 +87,32 @@ export const drawerRiser: ProductDefinition<DrawerRiserSpecs> = {
   validate: validateDrawerRiser,
   signature,
   derive,
-  generate: generateDrawerRiser,
+  generate: (parameters) =>
+    loadGeometry<DrawerRiserParameters>(DRAWER_RISER_ID).then((geometry) =>
+      geometry.generate(parameters),
+    ),
   // The outside width follows drawerWidth and the outside depth follows
   // drawerDepth, one to one, the same semantics the drawer tray uses.
   compensable: { x: ["drawerWidth"], y: ["drawerDepth"] },
+  // Leg section is a printed column, but its key holds neither "wall" nor
+  // "thickness", so the key rule misses it; it is reported here (D-1703).
+  // The gusset only flares the post outward toward the deck, so its
+  // material only ever grows past the leg section and needs no entry of
+  // its own.
+  printedWalls: (parameters) => {
+    const walls = wallsFromSpecs(DRAWER_RISER_SPECS, parameters);
+    if (
+      Number.isFinite(parameters.legSection) &&
+      parameters.legSection > 0
+    ) {
+      walls.push({
+        key: "leg-section",
+        label: "Leg section",
+        value: parameters.legSection,
+      });
+    }
+    return walls;
+  },
   // The modeled pose is the pose in the drawer: legs down. The print pose
   // turns the part over. The tray rim then lies on the bed and the legs
   // point up, so every gusset carries the layer above it. The deck over each
@@ -102,13 +125,21 @@ export const drawerRiser: ProductDefinition<DrawerRiserSpecs> = {
     const layout = deriveLayout(parameters);
     return {
       min: [-layout.outsideWidth / 2, -layout.outsideDepth / 2, 0],
-      max: [layout.outsideWidth / 2, layout.outsideDepth / 2, layout.outsideHeight],
+      max: [
+        layout.outsideWidth / 2,
+        layout.outsideDepth / 2,
+        layout.outsideHeight,
+      ],
       tolerance: 1e-3,
     };
   },
   filename: (parameters) => {
     const layout = deriveLayout(parameters);
-    const size = [layout.outsideWidth, layout.outsideDepth, layout.outsideHeight]
+    const size = [
+      layout.outsideWidth,
+      layout.outsideDepth,
+      layout.outsideHeight,
+    ]
       .map(filenameNumber)
       .join("x");
     return `drawerforge-${DRAWER_RISER_ID}-${size}-${parameters.rows}x${parameters.columns}-${shortHash(signature(parameters))}.stl`;
@@ -120,7 +151,6 @@ export const drawerRiser: ProductDefinition<DrawerRiserSpecs> = {
 };
 
 export { DRAWER_RISER_COPY, DRAWER_RISER_ID } from "./copy";
-export { generateDrawerRiser } from "./geometry";
 export {
   DRAWER_RISER_DEFAULTS,
   DRAWER_RISER_SPECS,

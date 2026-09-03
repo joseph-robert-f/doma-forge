@@ -1,12 +1,9 @@
 import type { CrossSection, ManifoldToplevel } from "manifold-3d";
 import type { Solid } from "./manifold";
 import { roundedRectangle } from "./profiles";
+import { BOOLEAN_OVERLAP } from "./overlap";
 
-/**
- * Hidden overlap so Boolean faces never sit exactly coplanar. Every kernel
- * module and every product uses this one value.
- */
-export const BOOLEAN_OVERLAP = 0.2;
+export { BOOLEAN_OVERLAP };
 
 export interface RoundedSlabOptions {
   width: number;

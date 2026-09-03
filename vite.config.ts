@@ -18,6 +18,12 @@ export default defineConfig(async () => {
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,
+    // The generation worker is a module worker, and each product loads its
+    // geometry on demand inside it. The ES format lets the worker build
+    // split those loads into their own chunks; the default IIFE format
+    // would inline every product's geometry back into the worker chunk.
+    // See 28_CONTRACT_FOLLOW_UPS_NOTES.md, decision D-1701.
+    worker: { format: "es" as const },
     plugins: [
       vinext(),
       // No `config` override: the plugin reads the root `wrangler.jsonc`

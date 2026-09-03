@@ -1,5 +1,5 @@
 import type { GeneratedModel } from "../kernel/mesh";
-import type { CompensableParameters } from "../printer-profile";
+import type { CompensableParameters, WallValue } from "../printer-profile";
 
 export type MeshQuality = "draft" | "standard" | "fine";
 
@@ -185,6 +185,15 @@ export interface ProductDefinition<
    * the mesh. A product without this member is never compensated.
    */
   compensable?: CompensableParameters;
+  /**
+   * The thin features this product prints, as labeled millimeter values:
+   * the walls the user sets, the webs the layout solves, and the ribs and
+   * lips the product fixes. The printer profile's thin-wall rule reads this
+   * list. A product without this member is read by key name instead: a
+   * number parameter in millimeters whose key names a wall or a thickness.
+   * See 28_CONTRACT_FOLLOW_UPS_NOTES.md, decision D-1703.
+   */
+  printedWalls?(parameters: P): WallValue[];
   boundsContract(parameters: P): BoundsContract;
   filename(parameters: P): string;
   /** Short summary shown beside the viewer status, e.g. "299 × 199 × 50 mm". */

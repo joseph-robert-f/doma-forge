@@ -1,5 +1,9 @@
-import { SPLIT_MINIMUM_SECTION_MM } from "../../kernel/brackets";
-import { IssueCollector, formatMillimeters, validateAgainstSpecs } from "../shared";
+import { SPLIT_MINIMUM_SECTION_MM } from "../../kernel/bracket-rules";
+import {
+  IssueCollector,
+  formatMillimeters,
+  validateAgainstSpecs,
+} from "../shared";
 import type { ValidationResult } from "../types";
 import {
   LEG_MAXIMUM_SLENDERNESS,

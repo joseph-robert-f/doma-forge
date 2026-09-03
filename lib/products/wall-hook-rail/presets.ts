@@ -16,10 +16,14 @@ function preset(
     id,
     label,
     description,
-    parameters: normalizeFromSpecs(WALL_HOOK_RAIL_SPECS, WALL_HOOK_RAIL_DEFAULTS, {
-      ...WALL_HOOK_RAIL_DEFAULTS,
-      ...overrides,
-    }),
+    parameters: normalizeFromSpecs(
+      WALL_HOOK_RAIL_SPECS,
+      WALL_HOOK_RAIL_DEFAULTS,
+      {
+        ...WALL_HOOK_RAIL_DEFAULTS,
+        ...overrides,
+      },
+    ),
   };
 }
 

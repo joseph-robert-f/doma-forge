@@ -1,4 +1,8 @@
-import { beamLoadNewtons, cantileverLoadNewtons, loadNote } from "../../kernel/brackets";
+import {
+  beamLoadNewtons,
+  cantileverLoadNewtons,
+  loadNote,
+} from "../../kernel/bracket-rules";
 import {
   filenameNumber,
   formatMillimeters,
@@ -6,14 +10,17 @@ import {
   shortHash,
   signatureFromSpecs,
 } from "../shared";
+import { wallsFromSpecs } from "../../printer-profile";
 import type { DerivedValue, ProductDefinition } from "../types";
+import { loadGeometry } from "../geometry-registry";
 import { HEADPHONE_MOUNT_COPY, HEADPHONE_MOUNT_ID } from "./copy";
-import { generateHeadphoneMount } from "./geometry";
 import { HEADPHONE_MOUNT_PRESETS } from "./presets";
 import {
   HEADPHONE_MOUNT_DEFAULTS,
   HEADPHONE_MOUNT_GROUPS,
   HEADPHONE_MOUNT_SPECS,
+  LIP_THICKNESS_MM,
+  POCKET_WALL_MM,
   deriveLayout,
   type HeadphoneMountParameters,
   type HeadphoneMountSpecs,
@@ -79,7 +86,11 @@ function derive(parameters: HeadphoneMountParameters): DerivedValue[] {
       id: "pocket-load",
       label: "Load in the pocket",
       value: loadNote(
-        beamLoadNewtons(parameters.pocketDepth, parameters.pocketFloor, parameters.pocketWidth),
+        beamLoadNewtons(
+          parameters.pocketDepth,
+          parameters.pocketFloor,
+          parameters.pocketWidth,
+        ),
       ),
     });
   }
@@ -101,7 +112,10 @@ export const headphoneMount: ProductDefinition<HeadphoneMountSpecs> = {
   validate: validateHeadphoneMount,
   signature,
   derive,
-  generate: generateHeadphoneMount,
+  generate: (parameters) =>
+    loadGeometry<HeadphoneMountParameters>(HEADPHONE_MOUNT_ID).then(
+      (geometry) => geometry.generate(parameters),
+    ),
   // The modeled pose is the pose on the wall, hook and pocket toward -Y.
   // The print pose turns the part -90 degrees about X: the wall face goes on
   // the bed, and the hook and the pocket point up. The pocket floor and its
@@ -110,6 +124,28 @@ export const headphoneMount: ProductDefinition<HeadphoneMountSpecs> = {
   printOrientation: {
     rotationDegrees: { x: -90, y: 0, z: 0 },
     note: "Print the mount with the plate flat on the bed and the hook and the pocket pointing up. The hook arm, the pocket floor, and the pocket walls stand vertical, and the only faces that point down are the 45 degree ramps under the two lips.",
+  },
+  // The plate is a parameter, so the key rule finds it. The hook root is a
+  // load-bearing section the hook rule already covers, not a wall, so it is
+  // left out on purpose. The lip at the top of the hook, and of the pocket
+  // floor when there is one, is always LIP_THICKNESS_MM; the pocket's two
+  // side walls are always POCKET_WALL_MM when the pocket is on. Neither key
+  // holds "wall" or "thickness", so the product reports both (D-1703).
+  printedWalls: (parameters) => {
+    const walls = wallsFromSpecs(HEADPHONE_MOUNT_SPECS, parameters);
+    walls.push({
+      key: "lip",
+      label: "Lip thickness",
+      value: LIP_THICKNESS_MM,
+    });
+    if (parameters.controllerPocket) {
+      walls.push({
+        key: "pocket-wall",
+        label: "Pocket side wall",
+        value: POCKET_WALL_MM,
+      });
+    }
+    return walls;
   },
   boundsContract: (parameters) => {
     const layout = deriveLayout(parameters);
@@ -121,7 +157,11 @@ export const headphoneMount: ProductDefinition<HeadphoneMountSpecs> = {
   },
   filename: (parameters) => {
     const layout = deriveLayout(parameters);
-    const size = [layout.outsideWidth, layout.outsideDepth, layout.outsideHeight]
+    const size = [
+      layout.outsideWidth,
+      layout.outsideDepth,
+      layout.outsideHeight,
+    ]
       .map(filenameNumber)
       .join("x");
     return `drawerforge-${HEADPHONE_MOUNT_ID}-${size}-${shortHash(signature(parameters))}.stl`;
@@ -133,7 +173,6 @@ export const headphoneMount: ProductDefinition<HeadphoneMountSpecs> = {
 };
 
 export { HEADPHONE_MOUNT_COPY, HEADPHONE_MOUNT_ID } from "./copy";
-export { generateHeadphoneMount } from "./geometry";
 export {
   BAND_CLEARANCE_MM,
   BAND_SLIP_MM,

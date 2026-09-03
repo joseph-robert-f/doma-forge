@@ -1,8 +1,12 @@
 import {
   HOOK_MAXIMUM_PROJECTION_RATIO,
   SCREW_MINIMUM_EDGE_MM,
-} from "../../kernel/brackets";
-import { IssueCollector, formatMillimeters, validateAgainstSpecs } from "../shared";
+} from "../../kernel/bracket-rules";
+import {
+  IssueCollector,
+  formatMillimeters,
+  validateAgainstSpecs,
+} from "../shared";
 import type { ValidationResult } from "../types";
 import {
   HOOK_GAP_MM,

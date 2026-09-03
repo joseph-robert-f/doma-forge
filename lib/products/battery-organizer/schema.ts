@@ -1,5 +1,8 @@
-import { planLightening, type LighteningPlan } from "../../kernel/lightening";
-import { solvePitch, type PitchResult } from "../../kernel/arrays";
+import {
+  planLightening,
+  type LighteningPlan,
+} from "../../kernel/lightening-plan";
+import { solvePitch, type PitchResult } from "../../kernel/pitch";
 import type {
   BooleanSpec,
   EnumSpec,
@@ -192,7 +195,8 @@ export const BATTERY_ORGANIZER_GROUPS: ParameterGroup<BatteryOrganizerKey>[] = [
     id: "size",
     index: "01",
     title: "Size",
-    description: "The outside of the organizer. Measure the space it goes into.",
+    description:
+      "The outside of the organizer. Measure the space it goes into.",
     keys: ["organizerWidth", "organizerDepth", "organizerHeight"],
   },
   {
@@ -281,7 +285,11 @@ export function footprintClearsOuterWall(
  * A round cell stands on its own length; a coin cell stands on edge, so its
  * diameter is what runs vertical.
  */
-export function standingLength(shape: CellShape, diameter: number, length: number): number {
+export function standingLength(
+  shape: CellShape,
+  diameter: number,
+  length: number,
+): number {
   return shape === "slot" ? diameter : length;
 }
 
@@ -324,7 +332,10 @@ export interface BatteryOrganizerLayout {
   lightening: LighteningPlan | null;
 }
 
-export function lighteningOptions(parameters: BatteryOrganizerParameters, segments: number) {
+export function lighteningOptions(
+  parameters: BatteryOrganizerParameters,
+  segments: number,
+) {
   return {
     width: parameters.organizerWidth,
     depth: parameters.organizerDepth,
@@ -334,8 +345,11 @@ export function lighteningOptions(parameters: BatteryOrganizerParameters, segmen
       parameters.organizerHeight -
       Math.max(
         0,
-        standingLength(parameters.cellShape, parameters.cellDiameter, parameters.cellLength) -
-          parameters.exposedHeight,
+        standingLength(
+          parameters.cellShape,
+          parameters.cellDiameter,
+          parameters.cellLength,
+        ) - parameters.exposedHeight,
       ) -
       parameters.baseThickness,
     maximumSpan: LIGHTENING_MAXIMUM_SPAN_MM,
@@ -350,10 +364,14 @@ export function lighteningOptions(parameters: BatteryOrganizerParameters, segmen
  * in the result as `ok: false` so validation can name the field, and
  * generation refuses it.
  */
-export function deriveLayout(parameters: BatteryOrganizerParameters): BatteryOrganizerLayout {
+export function deriveLayout(
+  parameters: BatteryOrganizerParameters,
+): BatteryOrganizerLayout {
   const innerWidth = parameters.organizerWidth - parameters.wallThickness * 2;
   const innerDepth = parameters.organizerDepth - parameters.wallThickness * 2;
-  const rows = Number.isInteger(parameters.rows) ? Math.max(1, parameters.rows) : 1;
+  const rows = Number.isInteger(parameters.rows)
+    ? Math.max(1, parameters.rows)
+    : 1;
   const count = Number.isInteger(parameters.cellsPerRow)
     ? Math.max(1, parameters.cellsPerRow)
     : 1;
@@ -375,7 +393,12 @@ export function deriveLayout(parameters: BatteryOrganizerParameters): BatteryOrg
     minimumWeb: MINIMUM_WEB_MM,
   });
 
-  const footprint = cellFootprint(parameters.cellShape, diameter, length, clearance);
+  const footprint = cellFootprint(
+    parameters.cellShape,
+    diameter,
+    length,
+    clearance,
+  );
   const xCutterSize = footprint.semiX * 2;
   const yCutterSize = footprint.semiY * 2;
 
@@ -404,7 +427,8 @@ export function deriveLayout(parameters: BatteryOrganizerParameters): BatteryOrg
 
   const boreDepth = Math.max(
     0,
-    standingLength(parameters.cellShape, diameter, length) - parameters.exposedHeight,
+    standingLength(parameters.cellShape, diameter, length) -
+      parameters.exposedHeight,
   );
   const lightening = parameters.lightenUnderside
     ? planLightening(lighteningOptions(parameters, QUALITY_SEGMENTS.standard))
@@ -454,14 +478,22 @@ function findCornerConflicts(
 ): CornerConflict[] {
   if (!rowSpacing.ok || !Number.isFinite(parameters.cornerRadius)) return [];
   const widen = parameters.fingerRelief ? FINGER_RELIEF_WIDEN_MM : 0;
-  const footprint = cellFootprint(parameters.cellShape, diameter, length, clearance);
+  const footprint = cellFootprint(
+    parameters.cellShape,
+    diameter,
+    length,
+    clearance,
+  );
   const semiX = footprint.semiX + widen / 2;
   const semiY = footprint.semiY + widen / 2;
   const conflicts: CornerConflict[] = [];
   rowLayouts.forEach((rowLayout, index) => {
     if (!rowLayout.ok) return;
     const y = rowSpacing.firstCenter + index * rowSpacing.pitch;
-    const xEnds = [rowLayout.firstCenter, rowLayout.firstCenter + (count - 1) * rowLayout.pitch];
+    const xEnds = [
+      rowLayout.firstCenter,
+      rowLayout.firstCenter + (count - 1) * rowLayout.pitch,
+    ];
     const clears = (cornerRadius: number) =>
       xEnds.every((x) =>
         footprintClearsOuterWall(
@@ -480,7 +512,10 @@ function findCornerConflicts(
     while (maximumCornerRadius > 0 && !clears(maximumCornerRadius)) {
       maximumCornerRadius -= 0.5;
     }
-    conflicts.push({ row: index + 1, maximumCornerRadius: Math.max(0, maximumCornerRadius) });
+    conflicts.push({
+      row: index + 1,
+      maximumCornerRadius: Math.max(0, maximumCornerRadius),
+    });
   });
   return conflicts;
 }

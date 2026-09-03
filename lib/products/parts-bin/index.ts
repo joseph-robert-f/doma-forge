@@ -5,11 +5,14 @@ import {
   shortHash,
   signatureFromSpecs,
 } from "../shared";
+import { wallsFromSpecs } from "../../printer-profile";
 import type { DerivedValue, ProductDefinition } from "../types";
+import { loadGeometry } from "../geometry-registry";
 import { PARTS_BIN_COPY, PARTS_BIN_ID } from "./copy";
-import { generatePartsBin } from "./geometry";
 import { PARTS_BIN_PRESETS } from "./presets";
 import {
+  LABEL_LEDGE_SHELF_MM,
+  LABEL_LEDGE_UPSTAND_MM,
   PARTS_BIN_DEFAULTS,
   PARTS_BIN_GROUPS,
   PARTS_BIN_SPECS,
@@ -78,7 +81,9 @@ function derive(parameters: PartsBinParameters): DerivedValue[] {
     {
       id: "front-scoop",
       label: "Front scoop",
-      value: parameters.frontScoop ? `${mm(layout.scoopRadius)} mm radius` : "none",
+      value: parameters.frontScoop
+        ? `${mm(layout.scoopRadius)} mm radius`
+        : "none",
     },
     {
       id: "label-ledge",
@@ -105,14 +110,55 @@ export const partsBin: ProductDefinition<PartsBinSpecs> = {
   validate: validatePartsBin,
   signature,
   derive,
-  generate: generatePartsBin,
+  generate: (parameters) =>
+    loadGeometry<PartsBinParameters>(PARTS_BIN_ID).then((geometry) =>
+      geometry.generate(parameters),
+    ),
   // The outside width is binWidth and the outside depth is binDepth, one to
   // one. The label ledge stands in front of the corrected depth.
   compensable: { x: ["binWidth"], y: ["binDepth"] },
+  // The outer wall, the lip wall, and the base are parameters, so the
+  // key-name rule finds them. Two more thin walls are fixed by the layout,
+  // not named by any parameter: the skin the outer wall leaves on each side
+  // of the underside recess once the lip wall and the two stacking
+  // clearances are taken out (`wallBesideRecess`, only when the recess
+  // builds), and the label ledge's shelf and upstand, two fixed constants.
+  // The product reports all three (D-1703). The defaults and both stacking
+  // presets leave 0.8 mm or more beside the recess, two widths of a 0.4 mm
+  // nozzle (D-1713). The front scoop is a notch, not a wall, and the label
+  // slot it forms with the upstand is the card's own clearance.
+  printedWalls: (parameters) => {
+    const walls = wallsFromSpecs(PARTS_BIN_SPECS, parameters);
+    const layout = deriveLayout(parameters);
+    if (layout.recess && Number.isFinite(layout.wallBesideRecess)) {
+      walls.push({
+        key: "stacking-wall",
+        label: "Wall beside the recess",
+        value: layout.wallBesideRecess,
+      });
+    }
+    if (parameters.labelLedge) {
+      walls.push({
+        key: "ledge-shelf",
+        label: "Label ledge shelf",
+        value: LABEL_LEDGE_SHELF_MM,
+      });
+      walls.push({
+        key: "ledge-upstand",
+        label: "Label ledge upstand",
+        value: LABEL_LEDGE_UPSTAND_MM,
+      });
+    }
+    return walls;
+  },
   boundsContract: (parameters) => {
     const layout = deriveLayout(parameters);
     return {
-      min: [-layout.bodyWidth / 2, -layout.bodyDepth / 2 - layout.ledgeProjection, 0],
+      min: [
+        -layout.bodyWidth / 2,
+        -layout.bodyDepth / 2 - layout.ledgeProjection,
+        0,
+      ],
       // The lip stands on the top rim, so the model is taller than the bin
       // height by the lip height. The contract states the true top.
       max: [layout.bodyWidth / 2, layout.bodyDepth / 2, layout.outsideHeight],
@@ -120,7 +166,11 @@ export const partsBin: ProductDefinition<PartsBinSpecs> = {
     };
   },
   filename: (parameters) => {
-    const size = [parameters.binWidth, parameters.binDepth, parameters.binHeight]
+    const size = [
+      parameters.binWidth,
+      parameters.binDepth,
+      parameters.binHeight,
+    ]
       .map(filenameNumber)
       .join("x");
     const stack = parameters.stacking ? "stack" : "plain";
@@ -135,13 +185,13 @@ export const partsBin: ProductDefinition<PartsBinSpecs> = {
 };
 
 export { PARTS_BIN_COPY, PARTS_BIN_ID } from "./copy";
-export { buildPartsBinSolid, generatePartsBin } from "./geometry";
 export { PARTS_BIN_PRESETS } from "./presets";
 export {
   LABEL_LEDGE_HEIGHT_MM,
   LABEL_LEDGE_PROJECTION_MM,
   LABEL_LEDGE_SHELF_MM,
   LABEL_LEDGE_SLOT_MM,
+  LABEL_LEDGE_UPSTAND_MM,
   MINIMUM_STACKING_WALL_MM,
   PARTS_BIN_DEFAULTS,
   PARTS_BIN_SPECS,

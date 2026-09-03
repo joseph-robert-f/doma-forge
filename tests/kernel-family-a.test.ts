@@ -4,10 +4,9 @@ import {
   LEG_MAXIMUM_SLENDERNESS,
   LEG_MINIMUM_GAP_MM,
   LEG_MINIMUM_SECTION_MM,
-  legPost,
-  legPosts,
   planLegPosts,
-} from "../lib/kernel/legs";
+} from "../lib/kernel/leg-plan";
+import { legPost, legPosts } from "../lib/kernel/legs";
 import { getKernel } from "../lib/kernel/manifold";
 import { BOOLEAN_OVERLAP, roundedSlab } from "../lib/kernel/shell";
 
@@ -134,13 +133,19 @@ describe("divider array at explicit positions", () => {
       centerZ: 5,
     };
     expect(() =>
-      dividerArrayAtPositions(kernel, outer, { ...options, thickness: Number.NaN }),
+      dividerArrayAtPositions(kernel, outer, {
+        ...options,
+        thickness: Number.NaN,
+      }),
     ).toThrow(/finite, positive/);
     expect(() =>
       dividerArrayAtPositions(kernel, outer, { ...options, height: 0 }),
     ).toThrow(/finite, positive/);
     expect(() =>
-      dividerArrayAtPositions(kernel, outer, { ...options, positions: [Number.NaN] }),
+      dividerArrayAtPositions(kernel, outer, {
+        ...options,
+        positions: [Number.NaN],
+      }),
     ).toThrow(/finite positions/);
     outer.delete();
   });
@@ -171,7 +176,8 @@ describe("leg post plan", () => {
   it("accepts a leg exactly at the slenderness limit and refuses one over it", () => {
     const atLimit = planLegPosts({ ...request, section: 10, height: 120 });
     expect(atLimit.ok).toBe(true);
-    if (atLimit.ok) expect(atLimit.slenderness).toBeCloseTo(LEG_MAXIMUM_SLENDERNESS, 10);
+    if (atLimit.ok)
+      expect(atLimit.slenderness).toBeCloseTo(LEG_MAXIMUM_SLENDERNESS, 10);
     const overLimit = planLegPosts({ ...request, section: 10, height: 120.5 });
     expect(overLimit.ok).toBe(false);
     if (overLimit.ok) return;
@@ -181,7 +187,11 @@ describe("leg post plan", () => {
   });
 
   it("accepts a section exactly at the minimum and refuses one under it", () => {
-    const atMinimum = planLegPosts({ ...request, section: LEG_MINIMUM_SECTION_MM, height: 90 });
+    const atMinimum = planLegPosts({
+      ...request,
+      section: LEG_MINIMUM_SECTION_MM,
+      height: 90,
+    });
     expect(atMinimum.ok).toBe(true);
     const underMinimum = planLegPosts({ ...request, section: 7.9, height: 60 });
     expect(underMinimum.ok).toBe(false);
@@ -214,7 +224,13 @@ describe("leg post plan", () => {
   });
 
   it("never throws on a cleared field and reports the value reason", () => {
-    for (const key of ["deckWidth", "deckDepth", "section", "height", "inset"] as const) {
+    for (const key of [
+      "deckWidth",
+      "deckDepth",
+      "section",
+      "height",
+      "inset",
+    ] as const) {
       const plan = planLegPosts({ ...request, [key]: Number.NaN });
       expect(plan.ok).toBe(false);
       if (plan.ok) return;
@@ -299,7 +315,9 @@ describe("leg post geometry", () => {
       gusset: 4,
       segments: SEGMENTS,
     };
-    expect(() => legPost(kernel, { ...options, section: 0 })).toThrow(/finite, positive/);
+    expect(() => legPost(kernel, { ...options, section: 0 })).toThrow(
+      /finite, positive/,
+    );
     expect(() => legPost(kernel, { ...options, height: Number.NaN })).toThrow(
       /finite, positive/,
     );

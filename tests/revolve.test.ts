@@ -5,12 +5,11 @@ import {
   RIM_AXIS_MARGIN_MM,
   buildVesselProfile,
   clampRimRadius,
-  revolveProfile,
-  revolveShell,
   rimArcSegments,
   type ProfilePoint,
   type VesselProfileOptions,
-} from "../lib/kernel/revolve";
+} from "../lib/kernel/vessel-profile";
+import { revolveProfile, revolveShell } from "../lib/kernel/revolve";
 import { BOOLEAN_OVERLAP } from "../lib/kernel/shell";
 import { connectedComponentCount } from "./helpers/mesh-checks";
 
@@ -137,7 +136,10 @@ describe("the rolled rim clamp", () => {
     // The cavity cuts the inner half of the bead away, so the bead survives
     // only while r × (1 + tan θ) is under the horizontal wall less the overlap.
     expect(clampRimRadius(request)).toBeCloseTo(4 - BOOLEAN_OVERLAP, 6);
-    expect(clampRimRadius({ ...request, wallThickness: 1.6 })).toBeCloseTo(1.4, 6);
+    expect(clampRimRadius({ ...request, wallThickness: 1.6 })).toBeCloseTo(
+      1.4,
+      6,
+    );
   });
 
   it("keeps the bead clear of the axis", () => {
@@ -204,12 +206,22 @@ describe("the vessel profile builder", () => {
   });
 
   it("returns null when the numbers do not make a vessel", () => {
-    expect(buildVesselProfile({ ...BASE_OPTIONS, height: Number.NaN })).toBeNull();
-    expect(buildVesselProfile({ ...BASE_OPTIONS, outerRadiusAtBase: 0 })).toBeNull();
-    expect(buildVesselProfile({ ...BASE_OPTIONS, baseThickness: 40 })).toBeNull();
-    expect(buildVesselProfile({ ...BASE_OPTIONS, taperDegrees: 75 })).toBeNull();
+    expect(
+      buildVesselProfile({ ...BASE_OPTIONS, height: Number.NaN }),
+    ).toBeNull();
+    expect(
+      buildVesselProfile({ ...BASE_OPTIONS, outerRadiusAtBase: 0 }),
+    ).toBeNull();
+    expect(
+      buildVesselProfile({ ...BASE_OPTIONS, baseThickness: 40 }),
+    ).toBeNull();
+    expect(
+      buildVesselProfile({ ...BASE_OPTIONS, taperDegrees: 75 }),
+    ).toBeNull();
     // A wall thicker than the radius closes the cavity.
-    expect(buildVesselProfile({ ...BASE_OPTIONS, wallThickness: 45 })).toBeNull();
+    expect(
+      buildVesselProfile({ ...BASE_OPTIONS, wallThickness: 45 }),
+    ).toBeNull();
   });
 
   it("never lets the rolled rim cross itself, down to the smallest radius", () => {
@@ -235,12 +247,14 @@ describe("the vessel profile builder", () => {
             if (!profile) continue;
             checked += 1;
             expect(profile.rimRadius).toBeLessThanOrEqual(height / 4 + 1e-9);
-            expect(profile.maximumRadius - 2 * profile.rimRadius).toBeGreaterThanOrEqual(
-              RIM_AXIS_MARGIN_MM - 1e-9,
-            );
+            expect(
+              profile.maximumRadius - 2 * profile.rimRadius,
+            ).toBeGreaterThanOrEqual(RIM_AXIS_MARGIN_MM - 1e-9);
             expect(isSimplePolygon(profile.outer)).toBe(true);
             expect(isSimplePolygon(profile.inner)).toBe(true);
-            expect(profile.outer.every(([r, z]) => r >= 0 && z >= 0)).toBe(true);
+            expect(profile.outer.every(([r, z]) => r >= 0 && z >= 0)).toBe(
+              true,
+            );
           }
         }
       }

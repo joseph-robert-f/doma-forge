@@ -5,7 +5,7 @@ import {
   SCREW_MINIMUM_EDGE_MM,
   checkHookRule,
   type HookRuleResult,
-} from "../../kernel/brackets";
+} from "../../kernel/bracket-rules";
 import type {
   BooleanSpec,
   EnumSpec,
@@ -106,7 +106,8 @@ export const HEADPHONE_MOUNT_SPECS = {
   controllerPocket: {
     kind: "boolean",
     label: "Controller pocket",
-    description: "A pocket above the hook, with a floor, two side walls, and a lip.",
+    description:
+      "A pocket above the hook, with a floor, two side walls, and a lip.",
   } satisfies BooleanSpec,
   pocketWidth: {
     kind: "number",
@@ -220,7 +221,13 @@ export const HEADPHONE_MOUNT_GROUPS: ParameterGroup<HeadphoneMountKey>[] = [
     title: "Pocket",
     description:
       "An optional pocket above the hook. Measure the controller: the pocket width is its width plus your clearance, and the depth is its thickness plus your clearance.",
-    keys: ["controllerPocket", "pocketWidth", "pocketDepth", "pocketLip", "pocketFloor"],
+    keys: [
+      "controllerPocket",
+      "pocketWidth",
+      "pocketDepth",
+      "pocketLip",
+      "pocketFloor",
+    ],
   },
   {
     id: "construction",
@@ -287,7 +294,9 @@ const NUMBER_KEYS = [
   "cornerRadius",
 ] as const;
 
-export function numbersAreFinite(parameters: HeadphoneMountParameters): boolean {
+export function numbersAreFinite(
+  parameters: HeadphoneMountParameters,
+): boolean {
   return NUMBER_KEYS.every((key) => Number.isFinite(parameters[key]));
 }
 
@@ -298,29 +307,47 @@ export function numbersAreFinite(parameters: HeadphoneMountParameters): boolean 
  * values. Validation, the derived values, and generation read this one
  * function.
  */
-export function deriveLayout(parameters: HeadphoneMountParameters): HeadphoneMountLayout {
+export function deriveLayout(
+  parameters: HeadphoneMountParameters,
+): HeadphoneMountLayout {
   const numbersOk = numbersAreFinite(parameters);
   const headDiameter = parameters.screwDiameter * SCREW_HEAD_RATIO;
   const lowerScrewZ = SCREW_MINIMUM_EDGE_MM + headDiameter / 2;
-  const hookArmZ = lowerScrewZ + headDiameter / 2 + SCREW_MINIMUM_EDGE_MM + HOOK_FILLET_MM;
+  const hookArmZ =
+    lowerScrewZ + headDiameter / 2 + SCREW_MINIMUM_EDGE_MM + HOOK_FILLET_MM;
   const hookRootTop = hookArmZ + parameters.hookRoot + HOOK_FILLET_MM;
   const hookLipTop = hookArmZ + parameters.hookRoot + parameters.hookLip;
   const hookRule = checkHookRule({
     root: parameters.hookRoot,
     projection: parameters.hookProjection,
   });
-  const hookOpening = parameters.hookProjection - LIP_THICKNESS_MM - parameters.hookLip;
+  const hookOpening =
+    parameters.hookProjection - LIP_THICKNESS_MM - parameters.hookLip;
   const minimumProjection =
-    LIP_THICKNESS_MM + parameters.hookLip + parameters.bandGauge + BAND_CLEARANCE_MM;
+    LIP_THICKNESS_MM +
+    parameters.hookLip +
+    parameters.bandGauge +
+    BAND_CLEARANCE_MM;
   const pocket = parameters.controllerPocket;
   const pocketZ = pocket
     ? hookLipTop + parameters.bandGauge + BAND_SLIP_MM + HOOK_FILLET_MM
     : Number.NaN;
-  const pocketRootTop = pocket ? pocketZ + parameters.pocketFloor + HOOK_FILLET_MM : Number.NaN;
-  const pocketTop = pocket ? pocketZ + parameters.pocketFloor + parameters.pocketLip : Number.NaN;
-  const topOfFeatures = pocket ? Math.max(pocketRootTop, pocketTop) : hookRootTop;
-  const upperScrewZ = parameters.plateHeight - SCREW_MINIMUM_EDGE_MM - headDiameter / 2;
-  const minimumHeight = topOfFeatures + SCREW_MINIMUM_EDGE_MM + headDiameter + SCREW_MINIMUM_EDGE_MM;
+  const pocketRootTop = pocket
+    ? pocketZ + parameters.pocketFloor + HOOK_FILLET_MM
+    : Number.NaN;
+  const pocketTop = pocket
+    ? pocketZ + parameters.pocketFloor + parameters.pocketLip
+    : Number.NaN;
+  const topOfFeatures = pocket
+    ? Math.max(pocketRootTop, pocketTop)
+    : hookRootTop;
+  const upperScrewZ =
+    parameters.plateHeight - SCREW_MINIMUM_EDGE_MM - headDiameter / 2;
+  const minimumHeight =
+    topOfFeatures +
+    SCREW_MINIMUM_EDGE_MM +
+    headDiameter +
+    SCREW_MINIMUM_EDGE_MM;
   return {
     outsideWidth: parameters.plateWidth,
     outsideDepth:

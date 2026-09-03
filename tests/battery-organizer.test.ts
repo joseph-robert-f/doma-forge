@@ -3,11 +3,18 @@ import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { describe, expect, it } from "vitest";
 import {
   BATTERY_ORGANIZER_DEFAULTS,
+  BATTERY_ORGANIZER_SPECS,
   FINGER_RELIEF_DEPTH_MM,
+  FINGER_RELIEF_WIDEN_MM,
   batteryOrganizer,
   deriveLayout,
   type BatteryOrganizerParameters,
 } from "../lib/products/battery-organizer";
+import {
+  normalizePrinterProfile,
+  thinWallIssues,
+  wallLikeKeys,
+} from "../lib/printer-profile";
 import { inspectBinaryStl, serializeBinaryStl } from "../lib/stl";
 import {
   analyzeBufferGeometry,
@@ -166,6 +173,60 @@ describe("battery organizer parameters", () => {
     expect(values[1].label).toBe("Well depth");
     const noPockets = batteryOrganizer.derive(withChanges({ lightenUnderside: false }));
     expect(noPockets.at(-1)?.value).toBe("none");
+  });
+});
+
+describe("printed walls", () => {
+  it("reports the solved well, row, and pocket webs, narrowed by the finger relief, alongside the wall-like parameters", () => {
+    const layout = deriveLayout(BATTERY_ORGANIZER_DEFAULTS);
+    const widen = BATTERY_ORGANIZER_DEFAULTS.fingerRelief ? FINGER_RELIEF_WIDEN_MM : 0;
+    const walls = batteryOrganizer.printedWalls!(BATTERY_ORGANIZER_DEFAULTS);
+    const byKey = new Map(walls.map((wall) => [wall.key, wall]));
+
+    expect(byKey.get("well-web")?.label).toBe("Web between wells");
+    expect(byKey.get("well-web")?.value).toBeCloseTo(
+      Math.min(...layout.rowLayouts.map((row) => (row.ok ? row.web - widen : Infinity))),
+      9,
+    );
+    expect(byKey.get("row-web")?.label).toBe("Web between rows");
+    expect(layout.rowSpacing.ok).toBe(true);
+    if (layout.rowSpacing.ok) {
+      expect(byKey.get("row-web")?.value).toBeCloseTo(layout.rowSpacing.web - widen, 9);
+    }
+    expect(byKey.get("pocket-web")?.label).toBe("Web between underside pockets");
+    expect(byKey.get("pocket-web")?.value).toBeCloseTo(2.5, 9);
+
+    for (const key of wallLikeKeys(BATTERY_ORGANIZER_SPECS)) {
+      expect(byKey.has(key), `${key} missing`).toBe(true);
+    }
+  });
+
+  it("flags the default row web, thinned by the finger relief, against a 1.5 mm nozzle", () => {
+    // Defaults already leave a row-to-row web under 3 mm once the finger
+    // relief's own widening is taken out; no custom parameter set is needed.
+    expect(batteryOrganizer.validate(BATTERY_ORGANIZER_DEFAULTS).valid).toBe(true);
+    const layout = deriveLayout(BATTERY_ORGANIZER_DEFAULTS);
+    expect(layout.rowSpacing.ok).toBe(true);
+    if (layout.rowSpacing.ok) {
+      expect(layout.rowSpacing.web - FINGER_RELIEF_WIDEN_MM).toBeLessThan(3);
+    }
+
+    const profile = normalizePrinterProfile({ nozzleDiameter: 1.5 });
+    const issues = thinWallIssues(
+      batteryOrganizer.printedWalls!(BATTERY_ORGANIZER_DEFAULTS),
+      profile,
+    );
+    expect(
+      issues.some((issue) => issue.text.includes("Web between rows")),
+    ).toBe(true);
+  });
+
+  it("does not throw and reports only finite values for a cleared field", () => {
+    const cleared = { ...BATTERY_ORGANIZER_DEFAULTS, organizerWidth: Number.NaN };
+    const walls = batteryOrganizer.printedWalls!(cleared);
+    for (const wall of walls) {
+      expect(Number.isFinite(wall.value), wall.key).toBe(true);
+    }
   });
 });
 

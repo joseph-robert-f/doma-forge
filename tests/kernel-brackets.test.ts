@@ -7,14 +7,16 @@ import {
   beamLoadNewtons,
   cantileverLoadNewtons,
   checkHookRule,
-  extrudeAlongX,
-  hullGusset,
-  jHook,
   jHookProfilePoints,
   loadNote,
   planLegSplit,
   planRibs,
   planScrewRow,
+} from "../lib/kernel/bracket-rules";
+import {
+  extrudeAlongX,
+  hullGusset,
+  jHook,
   screwCutter,
   screwCutters,
 } from "../lib/kernel/brackets";
@@ -28,9 +30,18 @@ const SEGMENTS = 24;
 
 describe("hook rule", () => {
   it("accepts the smallest root and refuses one step under it", () => {
-    expect(checkHookRule({ root: HOOK_MINIMUM_ROOT_MM, projection: 20 }).ok).toBe(true);
-    const refused = checkHookRule({ root: HOOK_MINIMUM_ROOT_MM - 0.1, projection: 20 });
-    expect(refused).toMatchObject({ ok: false, reason: "root", minimumRoot: 8 });
+    expect(
+      checkHookRule({ root: HOOK_MINIMUM_ROOT_MM, projection: 20 }).ok,
+    ).toBe(true);
+    const refused = checkHookRule({
+      root: HOOK_MINIMUM_ROOT_MM - 0.1,
+      projection: 20,
+    });
+    expect(refused).toMatchObject({
+      ok: false,
+      reason: "root",
+      minimumRoot: 8,
+    });
   });
 
   it("accepts a projection at 2.5 times the root and refuses one step over it", () => {
@@ -45,8 +56,12 @@ describe("hook rule", () => {
   });
 
   it("caps the projection at 60 mm whatever the root", () => {
-    expect(checkHookRule({ root: 30, projection: HOOK_MAXIMUM_PROJECTION_MM }).ok).toBe(true);
-    expect(checkHookRule({ root: 30, projection: HOOK_MAXIMUM_PROJECTION_MM + 0.1 })).toMatchObject({
+    expect(
+      checkHookRule({ root: 30, projection: HOOK_MAXIMUM_PROJECTION_MM }).ok,
+    ).toBe(true);
+    expect(
+      checkHookRule({ root: 30, projection: HOOK_MAXIMUM_PROJECTION_MM + 0.1 }),
+    ).toMatchObject({
       ok: false,
       reason: "projection",
       maximumProjection: 60,
@@ -90,8 +105,12 @@ describe("J-hook profile", () => {
   });
 
   it("refuses a projection that leaves no room for the fillet, the ramp, and the lip", () => {
-    expect(() => jHookProfilePoints({ ...options, projection: 11.9 })).toThrow(/room/);
-    expect(() => jHookProfilePoints({ ...options, projection: 12 })).not.toThrow();
+    expect(() => jHookProfilePoints({ ...options, projection: 11.9 })).toThrow(
+      /room/,
+    );
+    expect(() =>
+      jHookProfilePoints({ ...options, projection: 12 }),
+    ).not.toThrow();
   });
 
   it("extrudes the profile along X, centered, with the profile in the Y-Z plane", async () => {
@@ -132,7 +151,10 @@ describe("J-hook profile", () => {
     const kernel = await getKernel();
     const hook = jHook(kernel, { ...options, width: 12, segments: SEGMENTS });
     const model = finishSolid(hook, {}, "hook");
-    const faces = overhangFaces(model.mesh, { rotationDegrees: { x: 90, y: 0, z: 0 }, note: "" });
+    const faces = overhangFaces(model.mesh, {
+      rotationDegrees: { x: 90, y: 0, z: 0 },
+      note: "",
+    });
     expect(faces).toEqual([]);
   });
 });
@@ -159,12 +181,19 @@ describe("screw cutters", () => {
 
   it("places one cutter per (X, Z) position", async () => {
     const kernel = await getKernel();
-    const cutters = screwCutters(kernel, [[-30, 10], [30, 10]], {
-      diameter: 4,
-      headDiameter: 8,
-      plateThickness: 5,
-      segments: SEGMENTS,
-    });
+    const cutters = screwCutters(
+      kernel,
+      [
+        [-30, 10],
+        [30, 10],
+      ],
+      {
+        diameter: 4,
+        headDiameter: 8,
+        plateThickness: 5,
+        segments: SEGMENTS,
+      },
+    );
     const box = cutters.boundingBox();
     expect(box.min[0]).toBeCloseTo(-34.2, 5);
     expect(box.max[0]).toBeCloseTo(34.2, 5);
@@ -174,12 +203,33 @@ describe("screw cutters", () => {
 
   it("centers a screw row and refuses one whose end screw is too close to the plate end", () => {
     // 100 mm plate, 8.5 mm head: the widest spacing that keeps 8 mm is 75.5 mm.
-    const plan = planScrewRow({ plateWidth: 100, count: 2, spacing: 75.5, headDiameter: 8.5 });
+    const plan = planScrewRow({
+      plateWidth: 100,
+      count: 2,
+      spacing: 75.5,
+      headDiameter: 8.5,
+    });
     expect(plan).toMatchObject({ ok: true, positions: [-37.75, 37.75] });
     expect(plan.ok && plan.margin).toBeCloseTo(SCREW_MINIMUM_EDGE_MM, 9);
-    const refused = planScrewRow({ plateWidth: 100, count: 2, spacing: 75.6, headDiameter: 8.5 });
-    expect(refused).toMatchObject({ ok: false, reason: "margin", maximumSpacing: 75.5 });
-    expect(planScrewRow({ plateWidth: 100, count: 1, spacing: 0, headDiameter: 8.5 })).toMatchObject({
+    const refused = planScrewRow({
+      plateWidth: 100,
+      count: 2,
+      spacing: 75.6,
+      headDiameter: 8.5,
+    });
+    expect(refused).toMatchObject({
+      ok: false,
+      reason: "margin",
+      maximumSpacing: 75.5,
+    });
+    expect(
+      planScrewRow({
+        plateWidth: 100,
+        count: 1,
+        spacing: 0,
+        headDiameter: 8.5,
+      }),
+    ).toMatchObject({
       ok: true,
       positions: [0],
     });
@@ -189,7 +239,12 @@ describe("screw cutters", () => {
 describe("hull gusset", () => {
   it("is a wedge between the plate face and the shelf underside", async () => {
     const kernel = await getKernel();
-    const gusset = hullGusset(kernel, { thickness: 4, rise: 30, run: 40, overlap: 0 });
+    const gusset = hullGusset(kernel, {
+      thickness: 4,
+      rise: 30,
+      run: 40,
+      overlap: 0,
+    });
     const box = gusset.boundingBox();
     expect(box.min[0]).toBeCloseTo(-2, 6);
     expect(box.max[0]).toBeCloseTo(2, 6);
@@ -198,8 +253,15 @@ describe("hull gusset", () => {
     expect(box.min[2]).toBeCloseTo(-30, 6);
     expect(box.max[2]).toBeCloseTo(0, 6);
     // Half the box, within the thin strips the hull spans.
-    expect(Math.abs(gusset.volume() - 0.5 * 4 * 30 * 40) / 2400).toBeLessThan(0.001);
-    const withOverlap = hullGusset(kernel, { thickness: 4, rise: 30, run: 40, overlap: 0.2 });
+    expect(Math.abs(gusset.volume() - 0.5 * 4 * 30 * 40) / 2400).toBeLessThan(
+      0.001,
+    );
+    const withOverlap = hullGusset(kernel, {
+      thickness: 4,
+      rise: 30,
+      run: 40,
+      overlap: 0.2,
+    });
     const overlapBox = withOverlap.boundingBox();
     expect(overlapBox.min[1]).toBeCloseTo(-0.2, 6);
     expect(overlapBox.max[2]).toBeCloseTo(0.2, 6);
@@ -213,16 +275,25 @@ describe("ribs and leg split", () => {
     expect(planRibs(150)).toEqual([]);
     expect(planRibs(150.5)).toEqual([0]);
     expect(planRibs(300)).toEqual([0]);
-    expect(planRibs(301)).toEqual([-301 / 2 + 301 / 3, -301 / 2 + (2 * 301) / 3]);
+    expect(planRibs(301)).toEqual([
+      -301 / 2 + 301 / 3,
+      -301 / 2 + (2 * 301) / 3,
+    ]);
     expect(planRibs(Number.NaN)).toEqual([]);
   });
 
   it("splits a leg only above the one-piece height, with the extension as short as possible", () => {
-    expect(planLegSplit({ deckThickness: 4, clearHeight: 236, section: 12 })).toEqual({
+    expect(
+      planLegSplit({ deckThickness: 4, clearHeight: 236, section: 12 }),
+    ).toEqual({
       split: false,
       totalHeight: ONE_PIECE_HEIGHT_MM,
     });
-    const split = planLegSplit({ deckThickness: 4, clearHeight: 237, section: 12 });
+    const split = planLegSplit({
+      deckThickness: 4,
+      clearHeight: 237,
+      section: 12,
+    });
     expect(split).toMatchObject({
       split: true,
       totalHeight: 241,
@@ -232,7 +303,9 @@ describe("ribs and leg split", () => {
       pegLength: 10,
       socketSide: 6.2,
     });
-    expect(planLegSplit({ deckThickness: 4, clearHeight: 237, section: 11 })).toMatchObject({
+    expect(
+      planLegSplit({ deckThickness: 4, clearHeight: 237, section: 11 }),
+    ).toMatchObject({
       split: false,
       reason: "section",
     });
@@ -243,12 +316,19 @@ describe("load model", () => {
   it("rates a hook as a cantilever and a deck as a beam", () => {
     // 12 mm wide, 8 mm root, 20 mm arm: 5 * 12 * 64 / (6 * 20) = 32 N.
     expect(cantileverLoadNewtons(12, 8, 20)).toBeCloseTo(32, 9);
-    expect(beamLoadNewtons(300, 4, 400)).toBeCloseTo((8 * 5 * 300 * 16) / (6 * 400), 9);
+    expect(beamLoadNewtons(300, 4, 400)).toBeCloseTo(
+      (8 * 5 * 300 * 16) / (6 * 400),
+      9,
+    );
   });
 
   it("names the material and the perimeters, and never shows a number over 5 kg", () => {
-    expect(loadNote(32)).toBe("about 3.3 kg at 3 perimeters in PLA, approximate");
-    expect(loadNote(4)).toBe("about 0.40 kg at 3 perimeters in PLA, approximate");
+    expect(loadNote(32)).toBe(
+      "about 3.3 kg at 3 perimeters in PLA, approximate",
+    );
+    expect(loadNote(4)).toBe(
+      "about 0.40 kg at 3 perimeters in PLA, approximate",
+    );
     expect(loadNote(111)).toBe(
       "5 kg or more at 3 perimeters in PLA, approximate. This app rates nothing above 5 kg.",
     );

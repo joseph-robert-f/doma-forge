@@ -1,6 +1,13 @@
 import type { GeneratedModel } from "../kernel/mesh";
-import { getProduct } from "../products/registry";
+import { loadGeometry } from "../products/geometry-registry";
 import type { AnyParameters } from "../products/types";
+
+/**
+ * What a request builds: the full model, or the product's fit-test coupon.
+ * Both run in the worker, so the page never loads the kernel. See
+ * 28_CONTRACT_FOLLOW_UPS_NOTES.md, decision D-1702.
+ */
+export type GenerationKind = "model" | "coupon";
 
 /** Sent from the page to the worker. One request per generation. */
 export interface GenerationRequest {
@@ -8,6 +15,7 @@ export interface GenerationRequest {
   id: number;
   productId: string;
   parameters: AnyParameters;
+  kind: GenerationKind;
 }
 
 /** Sent from the worker back to the page. Exactly one per request. */
@@ -24,8 +32,14 @@ export async function handleGenerationRequest(
   request: GenerationRequest,
 ): Promise<GenerationResponse> {
   try {
-    const product = getProduct(request.productId);
-    const model = await product.generate(request.parameters);
+    const geometry = await loadGeometry(request.productId);
+    if (request.kind === "coupon" && !geometry.coupon) {
+      throw new Error(`${request.productId} has no fit-test coupon.`);
+    }
+    const model =
+      request.kind === "coupon" && geometry.coupon
+        ? await geometry.coupon(request.parameters)
+        : await geometry.generate(request.parameters);
     return { type: "result", id: request.id, model };
   } catch (error) {
     return {

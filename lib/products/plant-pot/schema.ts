@@ -3,7 +3,7 @@ import {
   buildVesselProfile,
   rimArcSegments,
   type VesselProfile,
-} from "../../kernel/revolve";
+} from "../../kernel/vessel-profile";
 import type {
   EnumSpec,
   MeshQuality,
@@ -230,7 +230,10 @@ export function derivePotLayout(
 }
 
 /** The center of each drainage hole, in millimeters, on the XY plane. */
-export function drainHoleCenters(layout: PlantPotLayout, holes: number): Array<[number, number]> {
+export function drainHoleCenters(
+  layout: PlantPotLayout,
+  holes: number,
+): Array<[number, number]> {
   if (holes <= 1) return [[0, 0]];
   const centers: Array<[number, number]> = [];
   for (let index = 0; index < holes; index += 1) {

@@ -2,16 +2,20 @@ import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { describe, expect, it } from "vitest";
 import { getKernel } from "../lib/kernel/manifold";
-import { wallLikeKeys } from "../lib/printer-profile";
+import {
+  normalizePrinterProfile,
+  thinWallIssues,
+  wallLikeKeys,
+} from "../lib/printer-profile";
 import {
   CARD_HOLDER_DEFAULTS,
   MINIMUM_WEB_MM,
   cardHolder,
   deriveCardHolderLayout,
   pointClearsCorner,
-  slotCutter,
   type CardHolderParameters,
 } from "../lib/products/card-holder";
+import { slotCutter } from "../lib/products/card-holder/geometry";
 import { inspectBinaryStl, serializeBinaryStl } from "../lib/stl";
 import {
   analyzeBufferGeometry,
@@ -30,24 +34,50 @@ const { normalize, validate, generate } = cardHolder;
 const GOLDEN_TRIANGLES = 268;
 const GOLDEN_VOLUME = 314885.38;
 
-function withChanges(changes: Partial<CardHolderParameters>): CardHolderParameters {
+function withChanges(
+  changes: Partial<CardHolderParameters>,
+): CardHolderParameters {
   return normalize({ ...CARD_HOLDER_DEFAULTS, ...changes });
 }
 
 const MINIMUM_CASE: Partial<CardHolderParameters> = {
-  holderWidth: 40, holderDepth: 20, holderHeight: 8, cardGauge: 0.5,
-  slotClearance: 0.1, cardWidth: 10, slotCount: 1, slotDepth: 3, slotTilt: 0,
-  wallThickness: 1.6, baseThickness: 1.2, cornerRadius: 0, meshQuality: "draft",
+  holderWidth: 40,
+  holderDepth: 20,
+  holderHeight: 8,
+  cardGauge: 0.5,
+  slotClearance: 0.1,
+  cardWidth: 10,
+  slotCount: 1,
+  slotDepth: 3,
+  slotTilt: 0,
+  wallThickness: 1.6,
+  baseThickness: 1.2,
+  cornerRadius: 0,
+  meshQuality: "draft",
 };
 const MAXIMUM_CASE: Partial<CardHolderParameters> = {
-  holderWidth: 400, holderDepth: 300, holderHeight: 80, cardGauge: 6,
-  slotClearance: 1.5, cardWidth: 200, slotCount: 10, slotDepth: 60,
-  slotTilt: 20, wallThickness: 4, baseThickness: 6, cornerRadius: 20,
+  holderWidth: 400,
+  holderDepth: 300,
+  holderHeight: 80,
+  cardGauge: 6,
+  slotClearance: 1.5,
+  cardWidth: 200,
+  slotCount: 10,
+  slotDepth: 60,
+  slotTilt: 20,
+  wallThickness: 4,
+  baseThickness: 6,
+  cornerRadius: 20,
   meshQuality: "fine",
 };
 const CORNER_CASE: Partial<CardHolderParameters> = {
-  holderWidth: 100, holderDepth: 40, holderHeight: 24, cardWidth: 30,
-  slotCount: 8, slotDepth: 12, cornerRadius: 20,
+  holderWidth: 100,
+  holderDepth: 40,
+  holderHeight: 24,
+  cardWidth: 30,
+  slotCount: 8,
+  slotDepth: 12,
+  cornerRadius: 20,
 };
 
 describe("card holder parameters", () => {
@@ -76,9 +106,9 @@ describe("card holder parameters", () => {
   it("keeps the tilt between 0 and 20 degrees", () => {
     expect(cardHolder.specs.slotTilt.min).toBe(0);
     expect(cardHolder.specs.slotTilt.max).toBe(20);
-    expect(validate({ ...CARD_HOLDER_DEFAULTS, slotTilt: 25 }).byField.slotTilt).toHaveLength(
-      1,
-    );
+    expect(
+      validate({ ...CARD_HOLDER_DEFAULTS, slotTilt: 25 }).byField.slotTilt,
+    ).toHaveLength(1);
   });
 
   it("adds the clearance to the card thickness and to the card width", () => {
@@ -136,8 +166,12 @@ describe("card holder parameters", () => {
     expect(result.byField.cornerRadius?.[0]).toBe(
       "Corner radius 20 mm cuts into the end slots. Use at most 17 mm, a shorter card width, or fewer slots.",
     );
-    expect(validate(withChanges({ ...CORNER_CASE, cornerRadius: 17 })).valid).toBe(true);
-    expect(validate(withChanges({ ...CORNER_CASE, cornerRadius: 17.5 })).valid).toBe(false);
+    expect(
+      validate(withChanges({ ...CORNER_CASE, cornerRadius: 17 })).valid,
+    ).toBe(true);
+    expect(
+      validate(withChanges({ ...CORNER_CASE, cornerRadius: 17.5 })).valid,
+    ).toBe(false);
   });
 
   it("clears a point that is not in the corner region", () => {
@@ -166,12 +200,15 @@ describe("card holder parameters", () => {
       expect(result.byField[key]?.[0]).toMatch(/must be a number/);
     }
     expect(
-      cardHolder.derive({ ...CARD_HOLDER_DEFAULTS, holderWidth: Number.NaN })[2].value,
+      cardHolder.derive({ ...CARD_HOLDER_DEFAULTS, holderWidth: Number.NaN })[2]
+        .value,
     ).toBe("does not fit");
     // A cleared count must never print "NaN slots".
     const clearedCount = { ...CARD_HOLDER_DEFAULTS, slotCount: Number.NaN };
     expect(cardHolder.summary(clearedCount)).toMatch(/· — slots$/);
-    expect(cardHolder.summary(withChanges({ slotCount: 1 }))).toMatch(/· 1 slot$/);
+    expect(cardHolder.summary(withChanges({ slotCount: 1 }))).toMatch(
+      /· 1 slot$/,
+    );
     for (const value of cardHolder.derive(clearedCount)) {
       expect(value.value).not.toMatch(/NaN/);
     }
@@ -187,13 +224,57 @@ describe("card holder parameters", () => {
   });
 
   it("derives the slot, the pitch, the lean, and the base", () => {
-    expect(cardHolder.derive(withChanges({})).map((value) => value.value)).toEqual([
+    expect(
+      cardHolder.derive(withChanges({})).map((value) => value.value),
+    ).toEqual([
       "180 × 60 × 30 mm",
       "2.6 × 24.4 mm",
       "16.5 mm, web 11.4 mm",
       "2.5 mm",
       "16 mm",
     ]);
+  });
+});
+
+describe("printed walls", () => {
+  it("reports the solved slot web alongside the wall-like parameters", () => {
+    const layout = deriveCardHolderLayout(CARD_HOLDER_DEFAULTS);
+    const walls = cardHolder.printedWalls!(CARD_HOLDER_DEFAULTS);
+    const byKey = new Map(walls.map((wall) => [wall.key, wall]));
+
+    expect(byKey.get("slot-web")?.label).toBe("Web between slots");
+    expect(layout.pitch.ok).toBe(true);
+    if (layout.pitch.ok) {
+      expect(byKey.get("slot-web")?.value).toBeCloseTo(layout.pitch.web, 9);
+    }
+
+    for (const key of wallLikeKeys(cardHolder.specs)) {
+      expect(byKey.has(key), `${key} missing`).toBe(true);
+    }
+  });
+
+  it("flags a thin slot web against a 1.5 mm nozzle, on a design the product still validates", () => {
+    const parameters = withChanges({ slotCount: 22 });
+    expect(cardHolder.validate(parameters).valid).toBe(true);
+    const layout = deriveCardHolderLayout(parameters);
+    expect(layout.pitch.ok).toBe(true);
+    if (layout.pitch.ok) {
+      expect(layout.pitch.web).toBeLessThan(3);
+    }
+
+    const profile = normalizePrinterProfile({ nozzleDiameter: 1.5 });
+    const issues = thinWallIssues(cardHolder.printedWalls!(parameters), profile);
+    expect(
+      issues.some((issue) => issue.text.includes("Web between slots")),
+    ).toBe(true);
+  });
+
+  it("does not throw and reports only finite values for a cleared field", () => {
+    const cleared = { ...CARD_HOLDER_DEFAULTS, holderWidth: Number.NaN };
+    const walls = cardHolder.printedWalls!(cleared);
+    for (const wall of walls) {
+      expect(Number.isFinite(wall.value), wall.key).toBe(true);
+    }
   });
 });
 
@@ -236,38 +317,43 @@ describe("card holder geometry", () => {
     ["corner case", { ...CORNER_CASE, cornerRadius: 17 }],
   ];
 
-  it.each(fixtures)("creates a finite, outward, closed %s holder", async (_name, changes) => {
-    const parameters = withChanges(changes);
-    expect(validate(parameters).valid).toBe(true);
-    const model = await generate(parameters);
-    const geometry = modelToBufferGeometry(model);
-    const analysis = analyzeBufferGeometry(geometry);
-    const size = analysis.bounds.getSize(new THREE.Vector3());
+  it.each(fixtures)(
+    "creates a finite, outward, closed %s holder",
+    async (_name, changes) => {
+      const parameters = withChanges(changes);
+      expect(validate(parameters).valid).toBe(true);
+      const model = await generate(parameters);
+      const geometry = modelToBufferGeometry(model);
+      const analysis = analyzeBufferGeometry(geometry);
+      const size = analysis.bounds.getSize(new THREE.Vector3());
 
-    expect(model.status).toBe("NoError");
-    expect(model.volume).toBeGreaterThan(0);
-    expect(analysis.finite).toBe(true);
-    expect(analysis.minimumTriangleArea).toBeGreaterThan(1e-8);
-    expect(analysis.minimumNormalLength).toBeCloseTo(1, 5);
-    expect(analysis.signedVolume).toBeGreaterThan(0);
-    expect(connectedComponentCount(model.mesh.triVerts)).toBe(1);
-    expect(size.x).toBeCloseTo(parameters.holderWidth, 4);
-    expect(size.y).toBeCloseTo(parameters.holderDepth, 4);
-    expect(size.z).toBeCloseTo(parameters.holderHeight, 4);
-    expect(analysis.bounds.min.z).toBeCloseTo(0, 5);
-    const contract = cardHolder.boundsContract(parameters);
-    expect(model.bounds[0]).toEqual(contract.min);
-    expect(model.bounds[1]).toEqual(contract.max);
+      expect(model.status).toBe("NoError");
+      expect(model.volume).toBeGreaterThan(0);
+      expect(analysis.finite).toBe(true);
+      expect(analysis.minimumTriangleArea).toBeGreaterThan(1e-8);
+      expect(analysis.minimumNormalLength).toBeCloseTo(1, 5);
+      expect(analysis.signedVolume).toBeGreaterThan(0);
+      expect(connectedComponentCount(model.mesh.triVerts)).toBe(1);
+      expect(size.x).toBeCloseTo(parameters.holderWidth, 4);
+      expect(size.y).toBeCloseTo(parameters.holderDepth, 4);
+      expect(size.z).toBeCloseTo(parameters.holderHeight, 4);
+      expect(analysis.bounds.min.z).toBeCloseTo(0, 5);
+      const contract = cardHolder.boundsContract(parameters);
+      expect(model.bounds[0]).toEqual(contract.min);
+      expect(model.bounds[1]).toEqual(contract.max);
 
-    for (const edge of closedEdgeCounts(geometry)) {
-      expect(edge.count).toBe(2);
-      expect(edge.balance).toBe(0);
-    }
-    geometry.dispose();
-  });
+      for (const edge of closedEdgeCounts(geometry)) {
+        expect(edge.count).toBe(2);
+        expect(edge.balance).toBe(0);
+      }
+      geometry.dispose();
+    },
+  );
 
   it("refuses the conflict case instead of building it", async () => {
-    await expect(generate(withChanges({ slotCount: 24, slotTilt: 20 }))).rejects.toThrow(
+    await expect(
+      generate(withChanges({ slotCount: 24, slotTilt: 20 })),
+    ).rejects.toThrow(
       /24 slots of 7.5 mm do not fit in the 176 mm inside the rim/,
     );
   });
@@ -285,7 +371,11 @@ describe("card holder geometry", () => {
         // One outer contour and one closed hole per slot at every depth. A
         // slot that reached the rim would merge with the outside and drop the
         // hole count.
-        expect({ z, contours: topology.contours, holes: topology.holes }).toEqual({
+        expect({
+          z,
+          contours: topology.contours,
+          holes: topology.holes,
+        }).toEqual({
           z,
           contours: 1 + slots,
           holes: slots,
@@ -294,7 +384,11 @@ describe("card holder geometry", () => {
       }
       // Under the slot floor the section is solid.
       const under = horizontalSliceTopology(model.mesh, floorZ / 2);
-      expect(under).toMatchObject({ contours: 1, solidComponents: 1, holes: 0 });
+      expect(under).toMatchObject({
+        contours: 1,
+        solidComponents: 1,
+        holes: 0,
+      });
     },
   );
 
@@ -317,7 +411,10 @@ describe("card holder geometry", () => {
     const parameters = withChanges({ slotCount: 1, slotTilt: 20 });
     const layout = deriveCardHolderLayout(parameters);
     const model = await generate(parameters);
-    const mouth = horizontalSliceTopology(model.mesh, parameters.holderHeight - 0.2);
+    const mouth = horizontalSliceTopology(
+      model.mesh,
+      parameters.holderHeight - 0.2,
+    );
     const middle = horizontalSliceTopology(
       model.mesh,
       parameters.holderHeight - parameters.slotDepth / 2,
@@ -346,8 +443,14 @@ describe("card holder geometry", () => {
 
   it("builds a packed row of fine slots inside the kernel time budget", async () => {
     const parameters = withChanges({
-      holderWidth: 400, holderDepth: 220, holderHeight: 60, cardWidth: 200,
-      slotCount: 24, slotDepth: 20, slotTilt: 10, cornerRadius: 20,
+      holderWidth: 400,
+      holderDepth: 220,
+      holderHeight: 60,
+      cardWidth: 200,
+      slotCount: 24,
+      slotDepth: 20,
+      slotTilt: 10,
+      cornerRadius: 20,
       meshQuality: "fine",
     });
     expect(validate(parameters).valid).toBe(true);
@@ -365,11 +468,17 @@ describe("card holder geometry", () => {
     const data = serializeBinaryStl(geometry);
     const inspected = inspectBinaryStl(data);
     geometry.computeBoundingBox();
-    expect(inspected.triangleCount).toBe(geometry.getAttribute("position").count / 3);
+    expect(inspected.triangleCount).toBe(
+      geometry.getAttribute("position").count / 3,
+    );
     expect(inspected.finite).toBe(true);
     expect(inspected.minimumNormalAlignment).toBeGreaterThan(0.99999);
-    expect(inspected.bounds.min.distanceTo(geometry.boundingBox!.min)).toBeLessThan(1e-5);
-    expect(inspected.bounds.max.distanceTo(geometry.boundingBox!.max)).toBeLessThan(1e-5);
+    expect(
+      inspected.bounds.min.distanceTo(geometry.boundingBox!.min),
+    ).toBeLessThan(1e-5);
+    expect(
+      inspected.bounds.max.distanceTo(geometry.boundingBox!.max),
+    ).toBeLessThan(1e-5);
     const parsed = new STLLoader().parse(data);
     expect(parsed.getAttribute("position").count).toBe(
       geometry.getAttribute("position").count,
@@ -382,7 +491,9 @@ describe("card holder geometry", () => {
     const model = await generate(normalize(CARD_HOLDER_DEFAULTS));
     expect(cardHolder.geometryVersion).toBe(1);
     expect(model.mesh.triVerts.length / 3).toBe(GOLDEN_TRIANGLES);
-    expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(0.001);
+    expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(
+      0.001,
+    );
     expect(model.bounds).toEqual([
       [-90, -30, 0],
       [90, 30, 30],

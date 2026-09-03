@@ -3,7 +3,7 @@ import {
   buildVesselProfile,
   rimArcSegments,
   type VesselProfile,
-} from "../../kernel/revolve";
+} from "../../kernel/vessel-profile";
 import type {
   BooleanSpec,
   EnumSpec,
@@ -34,7 +34,8 @@ export const RIB_HEADROOM_MM = 1;
 /** The least water depth a saucer is built with. */
 export const MINIMUM_HOLDING_DEPTH_MM = 3;
 /** The widest a saucer may be outside. The bed less the same 12 mm margin. */
-export const SAUCER_MAXIMUM_OUTSIDE_DIAMETER_MM = SAUCER_MAXIMUM_INNER_DIAMETER_MM;
+export const SAUCER_MAXIMUM_OUTSIDE_DIAMETER_MM =
+  SAUCER_MAXIMUM_INNER_DIAMETER_MM;
 /** The pot base is this much smaller than the saucer floor it sits on. */
 export const POT_BASE_GAP_MM = 2;
 

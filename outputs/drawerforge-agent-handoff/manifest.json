@@ -145,6 +145,10 @@
       "purpose": "Print record program, calibration protocol, print notes, and decisions (S12)"
     },
     {
+      "path": "28_CONTRACT_FOLLOW_UPS_NOTES.md",
+      "purpose": "Geometry per product, worker chunk, coupon in the worker, printed walls, diameter correction, and decisions (S13)"
+    },
+    {
       "path": "sprints/S01_FIT_TEST_COUPON.md",
       "purpose": "Sprint spec: fit-test coupon export"
     },
@@ -191,6 +195,10 @@
     {
       "path": "sprints/S12_PHYSICAL_PRINT_PROGRAM.md",
       "purpose": "Sprint spec: physical print program"
+    },
+    {
+      "path": "sprints/S13_CONTRACT_FOLLOW_UPS.md",
+      "purpose": "Sprint spec: contract follow-ups"
     },
     {
       "path": "sprints/PRINT_RECORDS.md",

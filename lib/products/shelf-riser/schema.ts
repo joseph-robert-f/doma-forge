@@ -4,14 +4,17 @@ import {
   planLegSplit,
   planRibs,
   type LegSplitPlan,
-} from "../../kernel/brackets";
+} from "../../kernel/bracket-rules";
 import {
   LEG_MAXIMUM_SLENDERNESS,
   LEG_MINIMUM_SECTION_MM,
   planLegPosts,
   type LegPlan,
-} from "../../kernel/legs";
-import { planLightening, type LighteningPlan } from "../../kernel/lightening";
+} from "../../kernel/leg-plan";
+import {
+  planLightening,
+  type LighteningPlan,
+} from "../../kernel/lightening-plan";
 import type {
   BooleanSpec,
   EnumSpec,
@@ -90,7 +93,8 @@ export const SHELF_RISER_SPECS = {
   lightenDeck: {
     kind: "boolean",
     label: "Lighten the deck",
-    description: "Pockets in the deck underside, inside the leg pads, with ceilings at most 40 mm.",
+    description:
+      "Pockets in the deck underside, inside the leg pads, with ceilings at most 40 mm.",
   } satisfies BooleanSpec,
   cornerRadius: {
     kind: "number",
@@ -233,11 +237,18 @@ export function lighteningOptions(
  * refused leg plan. Validation, the derived values, and generation read this
  * one function.
  */
-export function deriveLayout(parameters: ShelfRiserParameters): ShelfRiserLayout {
+export function deriveLayout(
+  parameters: ShelfRiserParameters,
+): ShelfRiserLayout {
   const numbersOk = numbersAreFinite(parameters);
-  const { deckWidth, deckDepth, deckThickness, clearHeight, legSection } = parameters;
+  const { deckWidth, deckDepth, deckThickness, clearHeight, legSection } =
+    parameters;
   const legGusset = Math.min(legSection * LEG_GUSSET_RATIO, clearHeight / 2);
-  const legInset = Math.max(MINIMUM_LEG_INSET_MM, parameters.cornerRadius, legGusset);
+  const legInset = Math.max(
+    MINIMUM_LEG_INSET_MM,
+    parameters.cornerRadius,
+    legGusset,
+  );
   const legs = planLegPosts({
     deckWidth,
     deckDepth,
@@ -247,15 +258,26 @@ export function deriveLayout(parameters: ShelfRiserParameters): ShelfRiserLayout
   });
   const spanX = deckWidth - 2 * (legInset + legSection);
   const spanY = deckDepth - 2 * (legInset + legSection);
-  const lighteningRim = legInset + legSection + 2 * legGusset + LIGHTENING_MARGIN_MM;
-  const pocketDepth = deckThickness - Math.max(DECK_MINIMUM_SKIN_MM, deckThickness / 2);
+  const lighteningRim =
+    legInset + legSection + 2 * legGusset + LIGHTENING_MARGIN_MM;
+  const pocketDepth =
+    deckThickness - Math.max(DECK_MINIMUM_SKIN_MM, deckThickness / 2);
   const lightening =
     parameters.lightenDeck && numbersOk
       ? planLightening(
-          lighteningOptions(parameters, lighteningRim, pocketDepth, QUALITY_SEGMENTS.standard),
+          lighteningOptions(
+            parameters,
+            lighteningRim,
+            pocketDepth,
+            QUALITY_SEGMENTS.standard,
+          ),
         )
       : null;
-  const split = planLegSplit({ deckThickness, clearHeight, section: legSection });
+  const split = planLegSplit({
+    deckThickness,
+    clearHeight,
+    section: legSection,
+  });
   const deckLegLength = split.split ? split.upperLength : clearHeight;
   const extensionPitch = legSection + EXTENSION_GAP_MM;
   const extensionX = deckWidth / 2 + EXTENSION_GAP_MM + legSection / 2;
@@ -265,7 +287,10 @@ export function deriveLayout(parameters: ShelfRiserParameters): ShelfRiserLayout
   const deckBodyHeight = deckThickness + deckLegLength;
   const layoutMin: [number, number, number] = [
     -deckWidth / 2,
-    -Math.max(deckDepth / 2, split.split ? 1.5 * extensionPitch + legSection / 2 : 0),
+    -Math.max(
+      deckDepth / 2,
+      split.split ? 1.5 * extensionPitch + legSection / 2 : 0,
+    ),
     0,
   ];
   const layoutMax: [number, number, number] = [
@@ -299,4 +324,9 @@ export function deriveLayout(parameters: ShelfRiserParameters): ShelfRiserLayout
   };
 }
 
-export { LEG_MAXIMUM_SLENDERNESS, LEG_MINIMUM_SECTION_MM, ONE_PIECE_HEIGHT_MM, RIB_SPAN_MM };
+export {
+  LEG_MAXIMUM_SLENDERNESS,
+  LEG_MINIMUM_SECTION_MM,
+  ONE_PIECE_HEIGHT_MM,
+  RIB_SPAN_MM,
+};

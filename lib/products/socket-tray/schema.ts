@@ -1,5 +1,8 @@
-import { planLightening, type LighteningPlan } from "../../kernel/lightening";
-import { solvePitch, type PitchResult } from "../../kernel/arrays";
+import {
+  planLightening,
+  type LighteningPlan,
+} from "../../kernel/lightening-plan";
+import { solvePitch, type PitchResult } from "../../kernel/pitch";
 import type {
   BooleanSpec,
   EnumSpec,
@@ -272,7 +275,10 @@ export function activeRowDiameters(parameters: SocketTrayParameters): number[] {
   return all.slice(0, rows);
 }
 
-export function lighteningOptions(parameters: SocketTrayParameters, segments: number) {
+export function lighteningOptions(
+  parameters: SocketTrayParameters,
+  segments: number,
+) {
   return {
     width: parameters.trayWidth,
     depth: parameters.trayDepth,
@@ -292,7 +298,9 @@ export function lighteningOptions(parameters: SocketTrayParameters, segments: nu
  * in the result as `ok: false` so validation can name the field, and
  * generation refuses it.
  */
-export function deriveLayout(parameters: SocketTrayParameters): SocketTrayLayout {
+export function deriveLayout(
+  parameters: SocketTrayParameters,
+): SocketTrayLayout {
   const innerWidth = parameters.trayWidth - parameters.wallThickness * 2;
   const innerDepth = parameters.trayDepth - parameters.wallThickness * 2;
   const rowDiameters = activeRowDiameters(parameters);
@@ -377,7 +385,10 @@ function findCornerConflicts(
     if (!rowLayout.ok) return;
     const radius = rowDiameters[index] / 2 + mouthExtra;
     const y = rowSpacing.firstCenter + index * rowSpacing.pitch;
-    const xEnds = [rowLayout.firstCenter, rowLayout.firstCenter + (count - 1) * rowLayout.pitch];
+    const xEnds = [
+      rowLayout.firstCenter,
+      rowLayout.firstCenter + (count - 1) * rowLayout.pitch,
+    ];
     const clears = (cornerRadius: number) =>
       xEnds.every((x) =>
         boreClearsCorner(
@@ -395,7 +406,10 @@ function findCornerConflicts(
     while (maximumCornerRadius > 0 && !clears(maximumCornerRadius)) {
       maximumCornerRadius -= 0.5;
     }
-    conflicts.push({ row: index + 1, maximumCornerRadius: Math.max(0, maximumCornerRadius) });
+    conflicts.push({
+      row: index + 1,
+      maximumCornerRadius: Math.max(0, maximumCornerRadius),
+    });
   });
   return conflicts;
 }

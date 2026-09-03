@@ -5,9 +5,10 @@ import {
   shortHash,
   signatureFromSpecs,
 } from "../shared";
+import { wallsFromSpecs } from "../../printer-profile";
 import type { DerivedValue, ProductDefinition } from "../types";
+import { loadGeometry } from "../geometry-registry";
 import { CARD_HOLDER_COPY, CARD_HOLDER_ID } from "./copy";
-import { generateCardHolder } from "./geometry";
 import { CARD_HOLDER_PRESETS } from "./presets";
 import {
   CARD_HOLDER_DEFAULTS,
@@ -85,11 +86,29 @@ export const cardHolder: ProductDefinition<CardHolderSpecs> = {
   validate: validateCardHolder,
   signature,
   derive,
-  generate: generateCardHolder,
+  generate: (parameters) =>
+    loadGeometry<CardHolderParameters>(CARD_HOLDER_ID).then((geometry) =>
+      geometry.generate(parameters),
+    ),
   // The outside width is holderWidth and the outside depth is holderDepth,
   // one to one. The slots are not compensated; the slot clearance is the
   // user's own fit allowance.
   compensable: { x: ["holderWidth"], y: ["holderDepth"] },
+  // The rim and the base are parameters, so the key-name rule finds them.
+  // The web between slots is solved by the pitch solver, not named by any
+  // parameter, so the product reports it itself (D-1703).
+  printedWalls: (parameters) => {
+    const walls = wallsFromSpecs(CARD_HOLDER_SPECS, parameters);
+    const layout = deriveCardHolderLayout(parameters);
+    if (parameters.slotCount > 1 && layout.pitch.ok) {
+      walls.push({
+        key: "slot-web",
+        label: "Web between slots",
+        value: layout.pitch.web,
+      });
+    }
+    return walls;
+  },
   boundsContract: (parameters) => ({
     min: [-parameters.holderWidth / 2, -parameters.holderDepth / 2, 0],
     max: [
@@ -120,7 +139,6 @@ export const cardHolder: ProductDefinition<CardHolderSpecs> = {
 };
 
 export { CARD_HOLDER_COPY, CARD_HOLDER_ID } from "./copy";
-export { generateCardHolder, slotCutter } from "./geometry";
 export {
   CARD_HOLDER_DEFAULTS,
   CARD_HOLDER_SPECS,

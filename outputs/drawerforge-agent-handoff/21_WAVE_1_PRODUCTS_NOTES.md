@@ -630,7 +630,7 @@ Neither record is filled. A person prints and measures.
    small makes the lip wall thin and the recess narrow at the same time, so
    the two errors partly cancel. The size of what is left is a printed
    question, not a code question.
-3. **At the rule's limit the wall beside the recess is 0.4 mm.** That is one
+3. **Closed in S13.** The parts bin now reports the wall beside the recess to the thin-wall rule through `printedWalls`, and its defaults and stacking presets carry an outer wall that leaves 0.8 mm on each side; see 28_CONTRACT_FOLLOW_UPS_NOTES.md, D-1713. The original text follows. **At the rule's limit the wall beside the recess is 0.4 mm.** That is one
    width of a 0.4 mm nozzle. The thin-wall error of S04 reads parameters
    whose key names a wall, so it sees `wallThickness` and
    `lipWallThickness`, but not this derived value. It is the same gap as

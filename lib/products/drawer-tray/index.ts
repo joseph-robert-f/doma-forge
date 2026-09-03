@@ -5,14 +5,14 @@ import {
   shortHash,
   signatureFromSpecs,
 } from "../shared";
+import { loadGeometry } from "../geometry-registry";
 import type { ProductDefinition } from "../types";
 import { DRAWER_TRAY_COPY, DRAWER_TRAY_ID } from "./copy";
-import { FIT_TEST_COUPON_HEIGHT, generateFitTestCoupon } from "./coupon";
-import { generateDrawerTray } from "./geometry";
 import { DRAWER_TRAY_PRESETS } from "./presets";
 import {
   DRAWER_TRAY_DEFAULTS,
   DRAWER_TRAY_GROUPS,
+  FIT_TEST_COUPON_HEIGHT,
   DRAWER_TRAY_SPECS,
   deriveDimensions,
   type DrawerTrayParameters,
@@ -65,14 +65,24 @@ export const drawerTray: ProductDefinition<DrawerTraySpecs> = {
       },
     ];
   },
-  generate: generateDrawerTray,
-  coupon: generateFitTestCoupon,
+  generate: (parameters) =>
+    loadGeometry<DrawerTrayParameters>(DRAWER_TRAY_ID).then((geometry) =>
+      geometry.generate(parameters),
+    ),
+  coupon: (parameters) =>
+    loadGeometry<DrawerTrayParameters>(DRAWER_TRAY_ID).then((geometry) =>
+      geometry.coupon!(parameters),
+    ),
   // The coupon is a perimeter ring with the tray's footprint, FIT_TEST_COUPON_HEIGHT tall.
   couponBoundsContract: (parameters) => {
     const derived = deriveDimensions(parameters);
     return {
       min: [-derived.outsideWidth / 2, -derived.outsideDepth / 2, 0],
-      max: [derived.outsideWidth / 2, derived.outsideDepth / 2, FIT_TEST_COUPON_HEIGHT],
+      max: [
+        derived.outsideWidth / 2,
+        derived.outsideDepth / 2,
+        FIT_TEST_COUPON_HEIGHT,
+      ],
       tolerance: 1e-3,
     };
   },
@@ -110,18 +120,13 @@ export const drawerTray: ProductDefinition<DrawerTraySpecs> = {
 };
 
 export { DRAWER_TRAY_COPY, DRAWER_TRAY_ID } from "./copy";
-export { getFingerScoopRadius } from "./geometry";
-export {
-  FIT_TEST_COUPON_HEIGHT,
-  FIT_TEST_COUPON_MINIMUM_WALL,
-  buildFitTestCouponMesh,
-  generateFitTestCoupon,
-  getCouponWallThickness,
-} from "./coupon";
 export {
   DRAWER_TRAY_DEFAULTS,
   DRAWER_TRAY_SPECS,
+  FIT_TEST_COUPON_HEIGHT,
+  FIT_TEST_COUPON_MINIMUM_WALL,
   deriveDimensions,
+  getCouponWallThickness,
   type DerivedDimensions,
   type DrawerTrayParameters,
 } from "./schema";
