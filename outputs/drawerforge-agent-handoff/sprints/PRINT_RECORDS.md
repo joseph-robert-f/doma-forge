@@ -332,3 +332,109 @@ with the same parameters.
 | Photo | file name |
 | Notes | Put one card in an end slot and one card in a middle slot. A card must go in with one finger and stay in when the holder is tipped. Record the slot clearance that fits. The slots are not compensated by the printer profile. |
 
+## Wall hook rail
+
+The hook rail coupon is a single hook: the app's fit-test download for this
+product builds one hook on a 60 mm plate with two screws, at the rail's own
+root, projection, lip, and plate thickness. Print and load the coupon before
+the rail. Record 15 is the coupon. Print the whole rail only after the coupon
+holds its load.
+
+### Record 15: Wall hook rail coupon, single hook, defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Wall hook rail, geometry version 1, fit-test coupon |
+| Preset or parameters | Defaults (unmodified). railLength 240, railHeight 50, plateThickness 5, hookCount 4, hookWidth 12, hookRoot 8, hookProjection 20, hookLip 6, screwCount 2, screwSpacing 160, screwDiameter 4.5, keyShelf false, shelfDepth 40, cornerRadius 4, meshQuality standard. The coupon is one hook on a 60 mm plate with two screws. |
+| Design file name | drawerforge-fit-test-60x25-<hash>.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 60 x 25 x 50 |
+| Target hook root, mm | 8 |
+| Target hook projection, mm | 20 |
+| Target approximate load per hook | 3.3 kg at 3 perimeters in PLA (the app's estimate) |
+| Measured outside width x depth x height, mm | |
+| Measured hook root, mm | |
+| Measured hook projection, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | |
+| Load result | the mass the hook held for one day, and the mass at which it broke, if you loaded it to failure |
+| Photo | file name |
+| Notes | Print the coupon with the plate flat on the bed and the hook pointing up, no supports, three perimeters. Screw it to a board. Hang a known mass on the hook, starting at 1 kg, and add 0.5 kg at a time. Record the mass at which the hook bends visibly and the mass at which it breaks. Note whether it broke at the root across the layers. This record calibrates the 5 MPa constant in the load model; see 24_BRACKET_FAMILY_NOTES.md. |
+
+## Headphone and controller mount
+
+### Record 16: Headphone mount defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Headphone mount, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). plateWidth 90, plateHeight 150, plateThickness 5, hookWidth 40, hookRoot 12, hookProjection 30, hookLip 12, bandGauge 10, controllerPocket true, pocketWidth 70, pocketDepth 40, pocketLip 12, pocketFloor 5, screwDiameter 4.5, cornerRadius 4, meshQuality standard |
+| Design file name | drawerforge-headphone-mount-90x45x150-6e1376.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 90 x 45 x 150 |
+| Target hook opening, mm | 15 (the plate face to the lip, at the arm top) |
+| Target pocket inside width x depth, mm | 64 x 40 (between the side walls) |
+| Target screw spacing, mm | 125 |
+| Measured outside width x depth x height, mm | |
+| Measured hook opening, mm | |
+| Measured pocket inside width x depth, mm | |
+| Measured screw spacing, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | whether a 10 mm headband slips over the lip and rests on the arm |
+| Load result | the headset mass, and whether the hook deflected after one week |
+| Photo | file name |
+| Notes | Print with the plate flat on the bed and the hook and the pocket pointing up, no supports, three perimeters. The two lip ramps are the only faces that point down; look at them for sag. Measure the screw spacing on the print and compare it to 125 mm before you drill. |
+
+## Shelf riser
+
+### Record 17: Shelf riser defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Shelf riser, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). deckWidth 300, deckDepth 200, deckThickness 4, clearHeight 120, legSection 14, lightenDeck true, cornerRadius 6, meshQuality standard |
+| Design file name | drawerforge-shelf-riser-300x200x124-bdd8f7.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 300 x 200 x 124 |
+| Target clear height under the deck, mm | 120 |
+| Target leg section, mm | 14 |
+| Target pockets | 5 x 3, 2 mm deep, with two ribs |
+| Measured outside width x depth x height, mm | |
+| Measured clear height under the deck, mm | |
+| Measured leg section, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | |
+| Load result | the mass the deck carried, spread over it, and the sag at the deck center in mm after one day |
+| Photo | file name |
+| Notes | The file is already in its print pose: deck top on the bed, legs up. Do not turn it in the slicer. No supports. Four perimeters, at least 25 percent infill. After printing, turn it over and stand it on a flat surface; note whether all four feet touch. Load the deck and measure the sag at the center. A second print of the Boot riser preset (clearHeight 300, legSection 28) tests the press-fit pegs: record whether each peg pressed in by hand, needed sanding, or was loose. |
+
+## Entryway valet
+
+### Record 18: Entryway valet defaults
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Entryway valet, geometry version 1 |
+| Preset or parameters | Defaults (unmodified). valetWidth 240, valetDepth 150, valetHeight 40, wellWidths [80, 60, 92], wellDepth 70, slotWidth 12, restHeight 70, restAngle 15, wallThickness 2, baseThickness 2.4, dividerThickness 2, cornerRadius 6, meshQuality standard |
+| Design file name | drawerforge-entryway-valet-240x150x70-3wells-66f5a6.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 240 x 150 x 70 |
+| Target well widths, mm | 80, 60, 92 |
+| Target slot width, mm | 12 |
+| Target rest angle, degrees | 15 |
+| Measured outside width x depth x height, mm | |
+| Measured well widths, mm | |
+| Measured slot width, mm | |
+| Measured rest angle, degrees | |
+| Correction applied, X and Y, mm | |
+| Fit result | whether a phone stands in the slot and leans on the rest without tipping |
+| Photo | file name |
+| Notes | Print upright, base on the bed, no supports, three perimeters. The wedge is solid in the file; the slicer's infill fills it. Measure the rest angle with a protractor against the face. Stand the phone in the slot and note whether the 12 mm slot is loose or tight for its case. |

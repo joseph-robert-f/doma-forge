@@ -203,6 +203,56 @@ The presets cover pliers and cutters, files and screwdrivers, and wrenches. Meas
 
 Print the rack flat on the bed, fins up. Do not use supports. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
 
+## Wall hook rail
+
+The first bracket product is a rail that screws to a wall, with hooks along its bottom edge and an optional shelf along its top. Open it from the product switcher or at `/products/wall-hook-rail`.
+
+Set the rail length, the hook count, and the screw spacing that matches the wall. The app centers the screws on the rail and keeps 8 mm of plate between every countersink and any edge, any hook root, and any gusset. It names the largest spacing that fits when yours does not.
+
+Two load rules protect every hook, and they are validation errors, not warnings. The hook root, the thickness where the hook meets the plate, is at least 8 mm. The projection is at most 2.5 times the root and never over 60 mm. The app names the longest projection the root carries and the smallest root the projection needs. The root is filleted above and below, and the hook lip has a 45 degree ramp on its inside, so nothing under the lip needs support in the print pose. The calculated result shows an approximate load per hook. It is a bending estimate at 5 MPa, for three perimeters in PLA, and it is not a rating.
+
+The key shelf sits on a hull gusset at each end, and a rib gusset every 150 mm along a long rail.
+
+### Print notes for the rail
+
+Print the rail with the plate flat on the bed and the hooks pointing up. Select **Print pose** in the viewer to see this pose. Every hook arm stands vertical, and the only face that points down is the 45 degree ramp under each lip. Do not use supports.
+
+Print the fit-test coupon first: it is one hook on a short plate with two screws, at the same root, projection, and lip as the rail. Hang the load you expect on it before you print the whole rail. Use three perimeters and at least 20 percent infill. Use PLA or PETG. The load the app shows assumes three perimeters in PLA; more perimeters carry more, fewer carry less. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+
+## Headphone and controller mount
+
+The second bracket product is a wall plate with one wide hook for a headset and an optional pocket above it for a controller. Open it from the product switcher or at `/products/headphone-mount`.
+
+Measure the headband where it rests on the hook, and enter that as the headband thickness. The opening between the plate and the hook lip must be at least that plus 2 mm, and the app names the projection that clears it. The hook is at least 20 mm wide, and the same root rule as the hook rail applies: projection at most 2.5 times the root, never over 60 mm.
+
+The pocket is a wide J-profile with a floor, a lip, and a side wall at each end, so the side walls carry the floor and no root rule applies to it. It sits above the hook with room for the band to slip over the lip. Two screws sit on the center line, one near the bottom and one near the top; the calculated result shows their spacing.
+
+### Print notes for the mount
+
+Print the mount with the plate flat on the bed and the hook and the pocket pointing up. Select **Print pose** to see this pose. The hook arm, the pocket floor, and the pocket walls stand vertical, and the only faces that point down are the 45 degree ramps under the two lips. Do not use supports. Use three perimeters and at least 20 percent infill. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+
+## Shelf riser
+
+The third bracket product is a deck on four legs, for a second level on a shelf or a closet floor. Open it from the product switcher or at `/products/shelf-riser`.
+
+Set the deck size and the clear height under it. The leg rule from the drawer riser applies: the clear height is at most 12 times the leg section, the section is at least 8 mm, and every leg flares into the deck with a gusset. A rib stands under the deck wherever the span between two legs passes 150 mm. The deck underside is lightened with pockets inside the leg pads, each pocket ceiling at most 40 mm, and you can turn the pockets off.
+
+A riser over 240 mm tall does not print in one piece on a 250 mm bed. The app then splits each leg: the deck keeps as much leg as one piece allows, and four extensions with square pegs stand beside the deck in the same file. The joint needs a leg section of at least 12 mm; the peg is the section minus 6 mm, with 0.1 mm of clearance per side. The calculated result names the pieces.
+
+### Print notes for the riser
+
+The preview shows the riser as it prints: the deck top on the bed, the pockets open upward, the ribs and the legs standing up. There is no print pose toggle, because the modeled pose is the print pose. Turn the printed riser over to use it. Do not use supports; every gusset flares toward the bed. When the legs split, the four extensions print beside the deck, feet down. Press each peg into its socket; sand the peg if it is tight, and glue it if it is loose. Use four perimeters and at least 25 percent infill in the legs. Do not stand on the riser. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+
+## Entryway valet
+
+The fourth product in this group is a tray with wells for keys and a watch along the front, and an angled phone rest along the back. Open it from the product switcher or at `/products/entryway-valet`.
+
+Give every well its own width; the last well takes the width that is left, exactly as in the remote caddy. Set how deep the well row is from front to back. The rest is a solid wedge whose face leans back by the rest angle, 8 to 25 degrees from vertical. A lip in front of the wedge forms the slot for the phone's bottom edge, and the slot width is yours to set. The wedge thins toward its top, so the app keeps at least 4 mm of material there and names the deepest well row that allows it.
+
+### Print notes for the valet
+
+Print the valet upright, base on the bed. Do not use supports: the rest face leans back, so it points up and forward. Use three perimeters. The wedge is solid in the file; let the slicer fill it with its own infill. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
+
 ## Printer profile and calibration
 
 A printer profile holds what one machine needs: the bed size, the nozzle diameter, and the X and Y correction. The profile stays in this browser. It is not part of a design file, and it is not sent anywhere.
@@ -248,8 +298,7 @@ The app also shows an error when a correction takes a value past its limit. The 
 
 ## Code layout
 
-- `lib/kernel/` — shared geometry code: the Manifold loader, profile builders (`profiles.ts`), the shell pattern (`shell.ts`), cutter arrays, the pitch solver and dividers at explicit positions (`arrays.ts`), leg posts with hull gussets (`legs.ts`), underside lightening (`lightening.ts`), and the mesh copy.
-- `lib/kernel/` — shared geometry code: the Manifold loader, profile builders (`profiles.ts`), the shell pattern (`shell.ts`), cutter arrays and the pitch solver (`arrays.ts`), underside lightening (`lightening.ts`), revolved profiles and shells (`revolve.ts`), and the mesh copy.
+- `lib/kernel/` — shared geometry code: the Manifold loader, profile builders (`profiles.ts`), the shell pattern (`shell.ts`), cutter arrays, the pitch solver and dividers at explicit positions (`arrays.ts`), leg posts with hull gussets (`legs.ts`), underside lightening (`lightening.ts`), revolved profiles and shells (`revolve.ts`), the bracket family with the hook rule, the J-hook profile, screw cutters, hull gussets, ribs, the leg split, and the load model (`brackets.ts`), and the mesh copy.
 - `lib/products/types.ts` — the `ProductDefinition` contract every product satisfies.
 - `lib/products/shared.ts` — normalization, range validation, signature, slug, and hash helpers.
 - `lib/products/drawer-tray/` — the drawer organizer: schema, validation, geometry, presets.
@@ -263,6 +312,10 @@ The app also shows an error when a correction takes a value past its limit. The 
 - `lib/products/marker-cup-block/` — the marker and brush cup block: schema, the tilted-bore containment check, validation, geometry, presets.
 - `lib/products/battery-organizer/` — the battery organizer: schema, the round-bore and coin-cell-slot layout, validation, geometry, presets.
 - `lib/products/tool-fin-rack/` — the tool fin rack: schema, the fin pitch solver, validation, geometry, presets.
+- `lib/products/wall-hook-rail/` — the wall hook rail: schema with the hook, screw, and shelf layout, validation, geometry, the single-hook coupon, presets.
+- `lib/products/headphone-mount/` — the headphone and controller mount: schema with the bottom-to-top layout, validation, geometry, presets.
+- `lib/products/shelf-riser/` — the shelf riser: schema with the leg plan, the ribs, the pockets, and the leg split, validation, geometry, presets.
+- `lib/products/entryway-valet/` — the entryway valet: schema with the well-width layout and the rest wedge, validation, geometry, presets.
 - `lib/products/registry.ts` — the ordered list of products the app can build.
 - `lib/generation/` — the Web Worker that runs `product.generate()` off the main thread, its message protocol, and the page-side client.
 - `lib/design-file.ts` — the portable `.drawerforge.json` format, export, and non-destructive import.
@@ -283,6 +336,8 @@ Automated geometry checks cover representative 1×1, 1×3, 2×3, and 4×4 organi
 The socket tray starts as a rounded slab. One batched union of every bore cutter is subtracted in one Boolean, then the underside pockets. Its tests slice the mesh above the base and count one outer contour and one hole per bore, and slice through the pockets and count the pocket grid.
 
 The card holder starts as the same rounded slab and subtracts one batched union of tilted slot cutters. The plant pot and the plant pot saucer are revolved forms: a two-dimensional profile in the radius-height plane is revolved about the Z axis, and a second revolved profile is subtracted as the cavity. Mesh quality sets the segments in one revolution, 48, 96, or 192. Their tests slice the mesh at many heights and check that the part is one closed solid at every level, that the saucer floor has no hole in it, and that the pot's drainage holes never reach the wall.
+
+The bracket products model the wall as the plane Y = 0: the plate fills Y from minus its thickness to zero, and every hook, pocket, and shelf projects toward −Y, the side the viewer's camera faces, so the hooks show in the default view. A print pose test turns each product's mesh exactly as the viewer's **Print pose** toggle does and checks every face normal: no face may point down more steeply than 45 degrees unless it lies on the bed. The hook lip ramp is the one face at that limit.
 
 STL has no embedded unit metadata. DrawerForge models coordinates as millimeters, so import downloads into a millimeter-based slicer without scaling.
 

@@ -61,6 +61,15 @@ describe("product registry", () => {
         }
       });
 
+      it("states coupon bounds whenever it builds a coupon", () => {
+        expect(Boolean(product.couponBoundsContract)).toBe(Boolean(product.coupon));
+        if (!product.couponBoundsContract) return;
+        const contract = product.couponBoundsContract(product.defaults);
+        for (let axis = 0; axis < 3; axis += 1) {
+          expect(contract.max[axis]).toBeGreaterThan(contract.min[axis]);
+        }
+      });
+
       it("keeps a bounds contract with min below max on every axis", () => {
         const contract = product.boundsContract(product.defaults);
         for (let axis = 0; axis < 3; axis += 1) {

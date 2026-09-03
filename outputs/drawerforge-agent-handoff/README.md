@@ -64,11 +64,12 @@ The user has reported that a generated STL imports and slices successfully in Ba
 22. [`21_WAVE_1_PRODUCTS_NOTES.md`](21_WAVE_1_PRODUCTS_NOTES.md) — the marker cup block, the battery organizer, the tool fin rack, and the stackable parts bin, with their rules, timings, and decisions from sprint S06.
 23. [`22_FAMILY_A_EXTENSIONS_NOTES.md`](22_FAMILY_A_EXTENSIONS_NOTES.md) — the layout parameter kind, dividers by position, leg posts, the remote caddy, the drawer riser, and decisions from sprint S07.
 24. [`23_REVOLVED_FORMS_NOTES.md`](23_REVOLVED_FORMS_NOTES.md) — the revolve module and its profile builder, the plant pot and saucer, the card holder, segment counts, and decisions from sprint S08.
-25. [`25_BROWSER_QA_NOTES.md`](25_BROWSER_QA_NOTES.md) — the Playwright suite, the CI browser job, runtimes, flake count, and decisions from sprint S10.
-26. [`26_CLOUDFLARE_MIGRATION_NOTES.md`](26_CLOUDFLARE_MIGRATION_NOTES.md) — the direct Cloudflare deployment, the configured origin, the CI deploy job, the acceptance checklist, rollback, and decisions from sprint S11.
-27. [`27_PRINT_PROGRAM_NOTES.md`](27_PRINT_PROGRAM_NOTES.md) — the print record program and decisions from sprint S12; the records themselves are in `sprints/PRINT_RECORDS.md`.
-28. [`sprints/`](sprints/) — one spec per sprint, S01 to S12, plus the print records.
-29. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
+25. [`24_BRACKET_FAMILY_NOTES.md`](24_BRACKET_FAMILY_NOTES.md) — the bracket kernel module, the load rules as validation, the load model and its assumptions, the print-pose overhang test, the wall hook rail, the headphone mount, the shelf riser with press-fit leg extensions, the entryway valet, and decisions from sprint S09.
+26. [`25_BROWSER_QA_NOTES.md`](25_BROWSER_QA_NOTES.md) — the Playwright suite, the CI browser job, runtimes, flake count, and decisions from sprint S10.
+27. [`26_CLOUDFLARE_MIGRATION_NOTES.md`](26_CLOUDFLARE_MIGRATION_NOTES.md) — the direct Cloudflare deployment, the configured origin, the CI deploy job, the acceptance checklist, rollback, and decisions from sprint S11.
+28. [`27_PRINT_PROGRAM_NOTES.md`](27_PRINT_PROGRAM_NOTES.md) — the print record program and decisions from sprint S12; the records themselves are in `sprints/PRINT_RECORDS.md`.
+29. [`sprints/`](sprints/) — one spec per sprint, S01 to S12, plus the print records.
+30. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
 
 `CHECKSUMS.sha256` contains SHA-256 hashes for every document and the manifest so a copied or extracted package can be verified.
 

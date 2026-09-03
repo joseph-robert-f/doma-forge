@@ -17,12 +17,6 @@ import {
   createGenerationClient,
   type GenerationClient,
 } from "../../lib/generation/client";
-// FIT_TEST_COUPON_HEIGHT is drawer-tray specific. Every other import in this
-// file is product-agnostic; this one exists because S01 scopes the fit-test
-// coupon to the drawer tray only (see 16_FIT_TEST_COUPON_NOTES.md, followups).
-// A later product's coupon should replace this with a per-product coupon
-// bounds contract instead of a second constant import here.
-import { FIT_TEST_COUPON_HEIGHT } from "../../lib/products/drawer-tray";
 import {
   PRINTER_LIMITS,
   PRINTER_NAME_MAX_LENGTH,
@@ -779,20 +773,26 @@ export function ProductApp({ productId }: { productId: string }) {
   };
 
   const downloadFitTest = async () => {
-    if (downloadDisabled || !preview || !product.coupon || fitTestBusy) return;
+    if (
+      downloadDisabled ||
+      !preview ||
+      !product.coupon ||
+      !product.couponBoundsContract ||
+      fitTestBusy
+    ) {
+      return;
+    }
     setFitTestBusy(true);
     try {
       // The coupon carries the same correction the full part carries, so the
-      // ring a person measures is the ring the tray will print.
+      // ring a person measures is the ring the tray will print. Each product
+      // states its own coupon bounds (D-1617 in 24_BRACKET_FAMILY_NOTES.md).
       const model = await product.coupon(preview.compensatedParameters);
       const geometry = modelToBufferGeometry(model);
       const analysis = analyzeBufferGeometry(geometry);
-      const trayContract = product.boundsContract(preview.compensatedParameters);
-      const couponContract: BoundsContract = {
-        min: [trayContract.min[0], trayContract.min[1], 0],
-        max: [trayContract.max[0], trayContract.max[1], FIT_TEST_COUPON_HEIGHT],
-        tolerance: trayContract.tolerance,
-      };
+      const couponContract: BoundsContract = product.couponBoundsContract(
+        preview.compensatedParameters,
+      );
       if (
         !analysis.finite ||
         analysis.minimumTriangleArea <= 0 ||
