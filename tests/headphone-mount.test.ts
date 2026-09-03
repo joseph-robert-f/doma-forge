@@ -2,10 +2,18 @@ import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import {
   HEADPHONE_MOUNT_DEFAULTS,
+  HEADPHONE_MOUNT_SPECS,
+  LIP_THICKNESS_MM,
+  POCKET_WALL_MM,
   deriveLayout,
   headphoneMount,
   type HeadphoneMountParameters,
 } from "../lib/products/headphone-mount";
+import {
+  normalizePrinterProfile,
+  thinWallIssues,
+  wallLikeKeys,
+} from "../lib/printer-profile";
 import { analyzeBufferGeometry, modelToBufferGeometry } from "../lib/three-geometry";
 import {
   closedEdgeCounts,
@@ -260,5 +268,49 @@ describe("headphone mount geometry", () => {
       [-45, -45, 0],
       [45, 0, 150],
     ]);
+  });
+});
+
+describe("printed walls", () => {
+  it("adds the lip and the pocket wall, and never the hook root", () => {
+    expect(HEADPHONE_MOUNT_DEFAULTS.controllerPocket).toBe(true);
+    const walls = headphoneMount.printedWalls!(HEADPHONE_MOUNT_DEFAULTS);
+    const byKey = new Map(walls.map((wall) => [wall.key, wall.value]));
+    expect(byKey.get("lip")).toBeCloseTo(LIP_THICKNESS_MM);
+    expect(byKey.get("pocket-wall")).toBeCloseTo(POCKET_WALL_MM);
+    expect(byKey.has("hookRoot")).toBe(false);
+    for (const key of wallLikeKeys(HEADPHONE_MOUNT_SPECS)) {
+      expect(byKey.has(key), `${key} missing`).toBe(true);
+    }
+  });
+
+  it("omits the pocket wall without a pocket", () => {
+    const parameters = withChanges({ controllerPocket: false });
+    const walls = headphoneMount.printedWalls!(parameters);
+    expect(walls.some((wall) => wall.key === "pocket-wall")).toBe(false);
+    expect(walls.some((wall) => wall.key === "lip")).toBe(true);
+  });
+
+  it("flags the lip and the pocket wall as thin at a wide enough nozzle", () => {
+    // Both are fixed at 3 mm, exactly the floor a 1.5 mm nozzle sets (two
+    // nozzle widths), so neither is thin there. A slightly wider nozzle
+    // pushes the floor past both and demonstrates the same rule.
+    const profile = normalizePrinterProfile({ nozzleDiameter: 1.6 });
+    const issues = thinWallIssues(
+      headphoneMount.printedWalls!(HEADPHONE_MOUNT_DEFAULTS),
+      profile,
+    );
+    expect(issues.some((issue) => issue.text.includes("Lip thickness"))).toBe(
+      true,
+    );
+    expect(
+      issues.some((issue) => issue.text.includes("Pocket side wall")),
+    ).toBe(true);
+  });
+
+  it("does not throw for a cleared field, and reports only finite values", () => {
+    const cleared = { ...HEADPHONE_MOUNT_DEFAULTS, plateWidth: Number.NaN };
+    const walls = headphoneMount.printedWalls!(cleared);
+    expect(walls.every((wall) => Number.isFinite(wall.value))).toBe(true);
   });
 });

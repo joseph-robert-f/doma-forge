@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  PRINTER_LIMITS,
-  PRINTER_PROFILE_DEFAULTS,
   activeCorrections,
   bedWarnings,
   calibrationProposal,
@@ -9,14 +7,17 @@ import {
   compensationNotes,
   correctionFilenameTag,
   correctionRangeMessages,
+  diameterCorrection,
   extentsFromBounds,
   hasCorrection,
   normalizePrinterProfile,
+  PRINTER_LIMITS,
+  PRINTER_PROFILE_DEFAULTS,
   thinWallIssues,
+  type PrinterProfileV1,
   validatePrinterProfile,
   wallLikeKeys,
   withCorrectionTag,
-  type PrinterProfileV1,
 } from "../lib/printer-profile";
 import {
   DRAWER_TRAY_DEFAULTS,
@@ -28,8 +29,9 @@ function profile(overrides: Partial<PrinterProfileV1> = {}): PrinterProfileV1 {
   return { ...PRINTER_PROFILE_DEFAULTS, ...overrides };
 }
 
-const extentsOf = (parameters: Parameters<typeof drawerTray.boundsContract>[0]) =>
-  extentsFromBounds(drawerTray.boundsContract(parameters));
+const extentsOf = (
+  parameters: Parameters<typeof drawerTray.boundsContract>[0],
+) => extentsFromBounds(drawerTray.boundsContract(parameters));
 
 describe("printer profile normalization", () => {
   it("gives the documented defaults for empty input", () => {
@@ -70,13 +72,18 @@ describe("printer profile normalization", () => {
   });
 
   it("clamps a value outside its limit", () => {
-    const normalized = normalizePrinterProfile({ correctionX: 900, bedWidth: -4 });
+    const normalized = normalizePrinterProfile({
+      correctionX: 900,
+      bedWidth: -4,
+    });
     expect(normalized.correctionX).toBe(PRINTER_LIMITS.correctionX.max);
     expect(normalized.bedWidth).toBe(PRINTER_LIMITS.bedWidth.min);
   });
 
   it("trims the name and keeps an empty name from replacing the default", () => {
-    expect(normalizePrinterProfile({ name: "  Bench one  " }).name).toBe("Bench one");
+    expect(normalizePrinterProfile({ name: "  Bench one  " }).name).toBe(
+      "Bench one",
+    );
     expect(normalizePrinterProfile({ name: "   " }).name).toBe("My printer");
   });
 });
@@ -96,7 +103,9 @@ describe("printer profile validation", () => {
     const issues = validatePrinterProfile({ correctionY: 40 });
     expect(issues).toHaveLength(1);
     expect(issues[0].field).toBe("correctionY");
-    expect(issues[0].message).toBe("Y correction must be between -25 and 25 mm.");
+    expect(issues[0].message).toBe(
+      "Y correction must be between -25 and 25 mm.",
+    );
   });
 
   it("ignores a field that is not present", () => {
@@ -185,7 +194,7 @@ describe("compensation display", () => {
     const modeled = extentsOf(
       compensate(DRAWER_TRAY_DEFAULTS, printer, drawerTray.compensable),
     );
-    const notes = compensationNotes(target, modeled, printer);
+    const notes = compensationNotes(target, modeled);
     expect(notes).toHaveLength(1);
     expect(notes[0].axisLabel).toBe("X");
     expect(notes[0].text).toBe(
@@ -199,7 +208,7 @@ describe("compensation display", () => {
     const modeled = extentsOf(
       compensate(DRAWER_TRAY_DEFAULTS, printer, drawerTray.compensable),
     );
-    const notes = compensationNotes(target, modeled, printer);
+    const notes = compensationNotes(target, modeled);
     expect(notes[0].text).toBe(
       "Modeled 198.6 mm = target 199 mm − 0.4 mm correction",
     );
@@ -211,15 +220,14 @@ describe("compensation display", () => {
     const modeled = extentsOf(
       compensate(DRAWER_TRAY_DEFAULTS, printer, drawerTray.compensable),
     );
-    expect(compensationNotes(target, modeled, printer).map((note) => note.axis)).toEqual([
-      "x",
-      "y",
-    ]);
+    expect(compensationNotes(target, modeled).map((note) => note.axis)).toEqual(
+      ["x", "y"],
+    );
   });
 
   it("shows no line when no correction is set", () => {
     const target = extentsOf(DRAWER_TRAY_DEFAULTS);
-    expect(compensationNotes(target, target, profile())).toEqual([]);
+    expect(compensationNotes(target, target)).toEqual([]);
     expect(hasCorrection(profile())).toBe(false);
   });
 });
@@ -280,11 +288,15 @@ describe("printer warnings and wall errors", () => {
   });
 
   it("gives no warning for a part that fits the bed exactly", () => {
-    expect(bedWarnings({ x: 220, y: 220, z: 220 }, profile(), true)).toEqual([]);
+    expect(bedWarnings({ x: 220, y: 220, z: 220 }, profile(), true)).toEqual(
+      [],
+    );
   });
 
   it("gives no warning at all while the bed size is a placeholder", () => {
-    expect(bedWarnings({ x: 900, y: 900, z: 900 }, profile(), false)).toEqual([]);
+    expect(bedWarnings({ x: 900, y: 900, z: 900 }, profile(), false)).toEqual(
+      [],
+    );
   });
 
   it("warns for a part one millimeter larger than the bed", () => {
@@ -387,7 +399,8 @@ describe("a product with no compensable list", () => {
 
   it("treats an empty compensable list as no list", () => {
     expect(
-      activeCorrections(profile({ correctionX: 0.5 }), { x: [], y: [] }).correctionX,
+      activeCorrections(profile({ correctionX: 0.5 }), { x: [], y: [] })
+        .correctionX,
     ).toBe(0);
   });
 
@@ -398,7 +411,9 @@ describe("a product with no compensable list", () => {
     const proposal = calibrationProposal("x", active.correctionX, 299, 298.9);
     expect(proposal?.proposed).toBe(0.1);
     // The raw profile would have proposed 0.6 mm for the same measurement.
-    expect(calibrationProposal("x", printer.correctionX, 299, 298.9)?.proposed).toBe(0.6);
+    expect(
+      calibrationProposal("x", printer.correctionX, 299, 298.9)?.proposed,
+    ).toBe(0.6);
   });
 
   it("keeps the file-name marker off its files", () => {
@@ -418,19 +433,23 @@ describe("correction file-name marker", () => {
 
   it("names each corrected axis", () => {
     expect(correctionFilenameTag(profile({ correctionX: 0.5 }))).toBe("cx0p5");
-    expect(correctionFilenameTag(profile({ correctionY: -0.2 }))).toBe("cym0p2");
+    expect(correctionFilenameTag(profile({ correctionY: -0.2 }))).toBe(
+      "cym0p2",
+    );
     expect(
       correctionFilenameTag(profile({ correctionX: 0.5, correctionY: 0.25 })),
     ).toBe("cx0p5y0p25");
   });
 
   it("keeps the extension and separates two corrections", () => {
-    expect(withCorrectionTag("a-b-08d29d.stl", profile({ correctionX: 0.5 }))).toBe(
-      "a-b-08d29d-cx0p5.stl",
-    );
+    expect(
+      withCorrectionTag("a-b-08d29d.stl", profile({ correctionX: 0.5 })),
+    ).toBe("a-b-08d29d-cx0p5.stl");
     expect(
       withCorrectionTag("a-b-08d29d.stl", profile({ correctionX: 0.3 })),
-    ).not.toBe(withCorrectionTag("a-b-08d29d.stl", profile({ correctionX: 0.5 })));
+    ).not.toBe(
+      withCorrectionTag("a-b-08d29d.stl", profile({ correctionX: 0.5 })),
+    );
   });
 });
 
@@ -443,9 +462,12 @@ describe("compensated geometry", () => {
     const plain = await drawerTray.generate(target);
     const compensated = await drawerTray.generate(corrected);
 
-    const width = (model: typeof plain) => model.bounds[1][0] - model.bounds[0][0];
-    const depth = (model: typeof plain) => model.bounds[1][1] - model.bounds[0][1];
-    const height = (model: typeof plain) => model.bounds[1][2] - model.bounds[0][2];
+    const width = (model: typeof plain) =>
+      model.bounds[1][0] - model.bounds[0][0];
+    const depth = (model: typeof plain) =>
+      model.bounds[1][1] - model.bounds[0][1];
+    const height = (model: typeof plain) =>
+      model.bounds[1][2] - model.bounds[0][2];
 
     expect(width(compensated) - width(plain)).toBeCloseTo(0.5, 5);
     expect(depth(compensated) - depth(plain)).toBeCloseTo(-0.3, 5);
@@ -476,5 +498,106 @@ describe("compensated geometry", () => {
     const same = await drawerTray.generate(uncorrected);
     expect(same.mesh.triVerts).toEqual(plain.mesh.triVerts);
     expect(same.mesh.vertProperties).toEqual(plain.mesh.vertProperties);
+  });
+});
+
+describe("diameter compensation", () => {
+  const profile = (correctionX: number, correctionY: number) =>
+    normalizePrinterProfile({ correctionX, correctionY });
+  const round = { baseDiameter: 120, potHeight: 130 };
+  const compensable = { diameter: ["baseDiameter"] } as const;
+
+  it("takes the mean of the two axis corrections, once", () => {
+    expect(diameterCorrection(profile(0.4, 0.2))).toBe(0.3);
+    expect(compensate(round, profile(0.4, 0.2), compensable)).toEqual({
+      baseDiameter: 120.3,
+      potHeight: 130,
+    });
+  });
+
+  it("takes half of a one-axis correction and nothing from a zero correction", () => {
+    expect(compensate(round, profile(0.5, 0), compensable)).toEqual({
+      baseDiameter: 120.25,
+      potHeight: 130,
+    });
+    expect(compensate(round, profile(0, 0), compensable)).toEqual(round);
+  });
+
+  it("never adds both axis corrections to a diameter", () => {
+    const both = { x: ["baseDiameter"], y: ["baseDiameter"] } as const;
+    // The two-list form is the mistake D-1511 in 23_REVOLVED_FORMS_NOTES.md
+    // describes; the diameter list is the fix. The mean is at most one
+    // axis correction, never their sum.
+    expect(compensate(round, profile(0.4, 0.4), both).baseDiameter).toBe(120.8);
+    expect(compensate(round, profile(0.4, 0.4), compensable).baseDiameter).toBe(
+      120.4,
+    );
+  });
+
+  it("counts a diameter list as an active correction", () => {
+    const active = activeCorrections(profile(0.4, 0.2), compensable);
+    expect(active.correctionX).toBe(0.4);
+    expect(active.correctionY).toBe(0.2);
+    const inactive = activeCorrections(profile(0.4, 0.2), { diameter: [] });
+    expect(inactive.correctionX).toBe(0);
+    expect(inactive.correctionY).toBe(0);
+  });
+
+  it("names the mean correction when a diameter leaves its limit", () => {
+    const messages = correctionRangeMessages(
+      ["baseDiameter"],
+      compensable,
+      profile(0.4, 0.2),
+      () => "Base diameter",
+    );
+    expect(messages).toEqual([
+      "The mean X and Y correction takes the base diameter past its limit.",
+    ]);
+    expect(
+      correctionRangeMessages(
+        ["baseDiameter"],
+        compensable,
+        profile(0, 0),
+        () => "Base diameter",
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("diameter compensation in the notes and the file name", () => {
+  const profile = (correctionX: number, correctionY: number) =>
+    normalizePrinterProfile({ correctionX, correctionY });
+  const diameterOnly = { diameter: ["baseDiameter"] } as const;
+
+  it("notes both axes of a round part that took the mean, even with one axis at zero", () => {
+    // A pot 120 mm across with a Y-only correction of 0.6 mm grows 0.3 mm
+    // on both axes. The note reads the part, not the profile.
+    const target = { x: 120, y: 120, z: 130 };
+    const modeled = { x: 120.3, y: 120.3, z: 130 };
+    const notes = compensationNotes(target, modeled);
+    expect(notes.map((note) => note.axisLabel)).toEqual(["X", "Y"]);
+    expect(notes[0].text).toBe(
+      "Modeled 120.3 mm = target 120 mm + 0.3 mm correction",
+    );
+  });
+
+  it("marks a diameter-only product with the mean, and nothing when the mean is zero", () => {
+    expect(correctionFilenameTag(profile(0.4, 0.2), diameterOnly)).toBe(
+      "cd0p3",
+    );
+    expect(correctionFilenameTag(profile(0.5, -0.5), diameterOnly)).toBe("");
+    expect(withCorrectionTag("pot.stl", profile(0.5, -0.5), diameterOnly)).toBe(
+      "pot.stl",
+    );
+  });
+
+  it("marks only the axes that reach a product with axis lists, and every axis without a list", () => {
+    expect(correctionFilenameTag(profile(0.5, 0.2), { x: ["width"] })).toBe(
+      "cx0p5",
+    );
+    expect(
+      correctionFilenameTag(profile(0.5, 0.2), { x: ["width"], y: ["depth"] }),
+    ).toBe("cx0p5y0p2");
+    expect(correctionFilenameTag(profile(0.5, 0.2))).toBe("cx0p5y0p2");
   });
 });

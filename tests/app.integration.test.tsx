@@ -263,6 +263,22 @@ describe("DrawerForge app integration", () => {
     );
   });
 
+  it("labels the fit-test button busy while the coupon builds", async () => {
+    await renderReadyApp();
+    const downloads = mockDownloads();
+    const fitTestButton = screen.getByTestId("download-fit-test-button");
+
+    fireEvent.click(fitTestButton);
+
+    // The coupon builds through the generation client, so the button shows
+    // its busy state at once and stays disabled until the file is ready.
+    expect(fitTestButton).toHaveProperty("disabled", true);
+    expect(fitTestButton.textContent).toContain("Building fit test");
+    await waitFor(() => expect(downloads.createUrl).toHaveBeenCalledOnce());
+    await waitFor(() => expect(fitTestButton).toHaveProperty("disabled", false));
+    expect(fitTestButton.textContent).toContain("Download fit test");
+  });
+
   it("prefixes the fit-test download with the design name", async () => {
     await renderReadyApp();
     fireEvent.change(screen.getByTestId("design-name-input"), {

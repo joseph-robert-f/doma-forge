@@ -3,7 +3,7 @@ import {
   LEG_MINIMUM_SECTION_MM,
   planLegPosts,
   type LegPlan,
-} from "../../kernel/legs";
+} from "../../kernel/leg-plan";
 import type {
   EnumSpec,
   MeshQuality,
@@ -183,7 +183,12 @@ export const DRAWER_RISER_GROUPS: ParameterGroup<DrawerRiserKey>[] = [
     title: "Fit",
     description:
       "Measure the drawer inside. The usable height is the height you can use, from the drawer floor to the lowest point above it.",
-    keys: ["drawerWidth", "drawerDepth", "drawerUsableHeight", "clearancePerSide"],
+    keys: [
+      "drawerWidth",
+      "drawerDepth",
+      "drawerUsableHeight",
+      "clearancePerSide",
+    ],
   },
   {
     id: "levels",
@@ -250,13 +255,17 @@ export interface DrawerRiserLayout {
  * refused leg plan. Validation, the derived values, and generation read this
  * one function.
  */
-export function deriveLayout(parameters: DrawerRiserParameters): DrawerRiserLayout {
+export function deriveLayout(
+  parameters: DrawerRiserParameters,
+): DrawerRiserLayout {
   const outsideWidth = parameters.drawerWidth - parameters.clearancePerSide * 2;
   const outsideDepth = parameters.drawerDepth - parameters.clearancePerSide * 2;
   const columns = Number.isInteger(parameters.columns)
     ? Math.max(1, parameters.columns)
     : 1;
-  const rows = Number.isInteger(parameters.rows) ? Math.max(1, parameters.rows) : 1;
+  const rows = Number.isInteger(parameters.rows)
+    ? Math.max(1, parameters.rows)
+    : 1;
   const compartmentWidth =
     (outsideWidth -
       parameters.wallThickness * 2 -

@@ -1,4 +1,4 @@
-import { solvePitch, type PitchResult } from "../../kernel/arrays";
+import { solvePitch, type PitchResult } from "../../kernel/pitch";
 import type {
   EnumSpec,
   MeshQuality,
@@ -298,7 +298,13 @@ export function deriveCardHolderLayout(
     pitch,
     baseUnderSlots: parameters.holderHeight - parameters.slotDepth,
     maximumSlotDepth: parameters.holderHeight - parameters.baseThickness,
-    cornerConflict: findCornerConflict(parameters, pitch, slotLength, slotFootprint, count),
+    cornerConflict: findCornerConflict(
+      parameters,
+      pitch,
+      slotLength,
+      slotFootprint,
+      count,
+    ),
   };
 }
 
@@ -317,8 +323,12 @@ function findCornerConflict(
   count: number,
 ): CornerConflict | null {
   if (!pitch.ok || !Number.isFinite(parameters.cornerRadius)) return null;
-  if (!Number.isFinite(slotLength) || !Number.isFinite(slotFootprint)) return null;
-  const centers = [pitch.firstCenter, pitch.firstCenter + (count - 1) * pitch.pitch];
+  if (!Number.isFinite(slotLength) || !Number.isFinite(slotFootprint))
+    return null;
+  const centers = [
+    pitch.firstCenter,
+    pitch.firstCenter + (count - 1) * pitch.pitch,
+  ];
   const points: Array<[number, number]> = [];
   for (const center of centers) {
     for (const x of [center - slotFootprint / 2, center + slotFootprint / 2]) {

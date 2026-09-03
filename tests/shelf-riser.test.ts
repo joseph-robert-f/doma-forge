@@ -1,11 +1,20 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
+import { SOCKET_WALL_MM } from "../lib/kernel/bracket-rules";
 import {
+  LIGHTENING_WEB_MM,
+  RIB_THICKNESS_MM,
   SHELF_RISER_DEFAULTS,
+  SHELF_RISER_SPECS,
   deriveLayout,
   shelfRiser,
   type ShelfRiserParameters,
 } from "../lib/products/shelf-riser";
+import {
+  normalizePrinterProfile,
+  thinWallIssues,
+  wallLikeKeys,
+} from "../lib/printer-profile";
 import { analyzeBufferGeometry, modelToBufferGeometry } from "../lib/three-geometry";
 import {
   closedEdgeCounts,
@@ -274,5 +283,56 @@ describe("shelf riser geometry", () => {
       [-150, -100, 0],
       [150, 100, 124],
     ]);
+  });
+});
+
+describe("printed walls", () => {
+  it("adds the leg section, the rib, and the lightening web at the defaults", () => {
+    const layout = deriveLayout(SHELF_RISER_DEFAULTS);
+    expect(layout.ribsAcrossX.length + layout.ribsAcrossY.length).toBeGreaterThan(0);
+    expect(layout.lightening).not.toBeNull();
+    expect(layout.split.split).toBe(false);
+
+    const walls = shelfRiser.printedWalls!(SHELF_RISER_DEFAULTS);
+    const byKey = new Map(walls.map((wall) => [wall.key, wall.value]));
+    expect(byKey.get("leg-section")).toBeCloseTo(SHELF_RISER_DEFAULTS.legSection);
+    expect(byKey.get("rib-thickness")).toBeCloseTo(RIB_THICKNESS_MM);
+    expect(byKey.get("lightening-web")).toBeCloseTo(LIGHTENING_WEB_MM);
+    // No socket wall: the defaults print in one piece.
+    expect(byKey.has("socket-wall")).toBe(false);
+    for (const key of wallLikeKeys(SHELF_RISER_SPECS)) {
+      expect(byKey.has(key), `${key} missing`).toBe(true);
+    }
+  });
+
+  it("adds the socket wall once the riser splits", () => {
+    const parameters = withChanges({ clearHeight: 237, legSection: 20 });
+    expect(validate(parameters).valid).toBe(true);
+    expect(deriveLayout(parameters).split.split).toBe(true);
+    const walls = shelfRiser.printedWalls!(parameters);
+    const socketWall = walls.find((wall) => wall.key === "socket-wall");
+    expect(socketWall?.value).toBeCloseTo(SOCKET_WALL_MM);
+  });
+
+  it("flags a thin rib at a wide enough nozzle", () => {
+    // The rib thickness is fixed at 3 mm, exactly the floor a 1.5 mm
+    // nozzle sets (two nozzle widths), so it is not itself thin there.
+    // A slightly wider nozzle pushes the floor past the fixed rib and
+    // demonstrates the same rule.
+    const profile = normalizePrinterProfile({ nozzleDiameter: 1.6 });
+    const issues = thinWallIssues(
+      shelfRiser.printedWalls!(SHELF_RISER_DEFAULTS),
+      profile,
+    );
+    expect(issues.some((issue) => issue.text.includes("Rib thickness"))).toBe(
+      true,
+    );
+  });
+
+  it("does not throw for a cleared leg section, and reports only finite values", () => {
+    const cleared = { ...SHELF_RISER_DEFAULTS, legSection: Number.NaN };
+    const walls = shelfRiser.printedWalls!(cleared);
+    expect(walls.every((wall) => Number.isFinite(wall.value))).toBe(true);
+    expect(walls.some((wall) => wall.key === "leg-section")).toBe(false);
   });
 });

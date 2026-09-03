@@ -4,11 +4,13 @@ import { describe, expect, it } from "vitest";
 import {
   MINIMUM_WEB_MM,
   TOOL_FIN_RACK_DEFAULTS,
+  TOOL_FIN_RACK_SPECS,
   deriveLayout,
   toolFinRack,
   type ToolFinRackParameters,
 } from "../lib/products/tool-fin-rack";
 import { formatMillimeters } from "../lib/products/shared";
+import { wallLikeKeys, wallsFromSpecs } from "../lib/printer-profile";
 import { inspectBinaryStl, serializeBinaryStl } from "../lib/stl";
 import {
   analyzeBufferGeometry,
@@ -138,6 +140,32 @@ describe("tool fin rack parameters", () => {
     // side, so the gap at the foot is 4 mm less than the pitch solver's
     // own gap between the plain fin bodies.
     expect(foot?.value).toBe(`${formatMillimeters(layout.finLayout.web - 4)} mm`);
+  });
+});
+
+describe("printed walls", () => {
+  // The rim and the base are parameters, so the key-name rule already finds
+  // them (finThickness and baseThickness both hold "thickness"). Nothing
+  // else here is a thin printed wall: the fins are unioned onto the slab,
+  // not cut into it, so the gap between two fins is open air for a tool
+  // blade, a clearance, not material — the same gap the "Blade gap at the
+  // fillet foot" derived value above already calls a gap. The fillet strip
+  // at each fin's foot only adds material, and the task rules that a fin
+  // fillet is not a wall. So the product reports nothing beyond the
+  // key-name rule (D-1703): no `printedWalls` member is defined, and
+  // `wallsFromSpecs` is what the printer profile falls back to.
+  it("has no printedWalls member; the key-name rule already covers every printed wall", () => {
+    expect(toolFinRack.printedWalls).toBeUndefined();
+    expect(wallLikeKeys(TOOL_FIN_RACK_SPECS).sort()).toEqual([
+      "baseThickness",
+      "finThickness",
+      "wallThickness",
+    ]);
+  });
+
+  it("does not throw and reports only finite values for a cleared field", () => {
+    const cleared = { ...TOOL_FIN_RACK_DEFAULTS, rackWidth: Number.NaN };
+    expect(() => wallsFromSpecs(TOOL_FIN_RACK_SPECS, cleared)).not.toThrow();
   });
 });
 

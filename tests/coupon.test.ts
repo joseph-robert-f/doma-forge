@@ -4,12 +4,14 @@ import {
   DRAWER_TRAY_DEFAULTS as DEFAULT_PARAMETERS,
   FIT_TEST_COUPON_HEIGHT,
   FIT_TEST_COUPON_MINIMUM_WALL,
-  buildFitTestCouponMesh,
   deriveDimensions,
   drawerTray,
-  generateFitTestCoupon,
   getCouponWallThickness,
 } from "../lib/products/drawer-tray";
+import {
+  buildFitTestCouponMesh,
+  generateFitTestCoupon,
+} from "../lib/products/drawer-tray/coupon";
 import { inspectBinaryStl, serializeBinaryStl } from "../lib/stl";
 import {
   analyzeBufferGeometry,

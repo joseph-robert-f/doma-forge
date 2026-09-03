@@ -1,5 +1,8 @@
-import { planLightening, type LighteningPlan } from "../../kernel/lightening";
-import { solvePitch, type PitchResult } from "../../kernel/arrays";
+import {
+  planLightening,
+  type LighteningPlan,
+} from "../../kernel/lightening-plan";
+import { solvePitch, type PitchResult } from "../../kernel/pitch";
 import type {
   BooleanSpec,
   EnumSpec,
@@ -177,8 +180,16 @@ export const MARKER_CUP_BLOCK_GROUPS: ParameterGroup<MarkerCupBlockKey>[] = [
     id: "cups",
     index: "02",
     title: "Cups",
-    description: "Rows run front to back. Row 1 is at the front. Every cup shares one bore diameter.",
-    keys: ["rows", "cupsPerRow", "boreDiameter", "boreDepth", "tiltDegrees", "chamfer"],
+    description:
+      "Rows run front to back. Row 1 is at the front. Every cup shares one bore diameter.",
+    keys: [
+      "rows",
+      "cupsPerRow",
+      "boreDiameter",
+      "boreDepth",
+      "tiltDegrees",
+      "chamfer",
+    ],
   },
   {
     id: "construction",
@@ -279,7 +290,11 @@ export function boreMouthSemiAxes(radius: number, tiltRadians: number) {
  * further. See `boreFloorSemiAxes` for the floor's footprint around this
  * center.
  */
-export function boreFloorY(nominalY: number, depth: number, tiltRadians: number): number {
+export function boreFloorY(
+  nominalY: number,
+  depth: number,
+  tiltRadians: number,
+): number {
   return nominalY - depth * Math.sin(tiltRadians);
 }
 
@@ -305,7 +320,10 @@ export function boreVerticalReach(
   boreRadius: number,
   chamferExtra: number,
 ): number {
-  return boreDepth * Math.cos(tiltRadians) + (boreRadius + chamferExtra) * Math.sin(tiltRadians);
+  return (
+    boreDepth * Math.cos(tiltRadians) +
+    (boreRadius + chamferExtra) * Math.sin(tiltRadians)
+  );
 }
 
 export interface MarkerCupBlockLayout {
@@ -332,7 +350,10 @@ export function chamferExtraFor(parameters: MarkerCupBlockParameters): number {
   return parameters.chamfer ? CHAMFER_MM : 0;
 }
 
-export function lighteningOptions(parameters: MarkerCupBlockParameters, segments: number) {
+export function lighteningOptions(
+  parameters: MarkerCupBlockParameters,
+  segments: number,
+) {
   const tiltRadians = Number.isFinite(parameters.tiltDegrees)
     ? parameters.tiltDegrees * DEGREES_TO_RADIANS
     : 0;
@@ -341,7 +362,12 @@ export function lighteningOptions(parameters: MarkerCupBlockParameters, segments
       ? parameters.boreDiameter
       : 1;
   const reach = Number.isFinite(parameters.boreDepth)
-    ? boreVerticalReach(parameters.boreDepth, tiltRadians, diameter / 2, chamferExtraFor(parameters))
+    ? boreVerticalReach(
+        parameters.boreDepth,
+        tiltRadians,
+        diameter / 2,
+        chamferExtraFor(parameters),
+      )
     : 0;
   return {
     width: parameters.blockWidth,
@@ -364,10 +390,14 @@ export function lighteningOptions(parameters: MarkerCupBlockParameters, segments
  * in the result as `ok: false` so validation can name the field, and
  * generation refuses it.
  */
-export function deriveLayout(parameters: MarkerCupBlockParameters): MarkerCupBlockLayout {
+export function deriveLayout(
+  parameters: MarkerCupBlockParameters,
+): MarkerCupBlockLayout {
   const innerWidth = parameters.blockWidth - parameters.wallThickness * 2;
   const innerDepth = parameters.blockDepth - parameters.wallThickness * 2;
-  const rows = Number.isInteger(parameters.rows) ? Math.max(1, parameters.rows) : 1;
+  const rows = Number.isInteger(parameters.rows)
+    ? Math.max(1, parameters.rows)
+    : 1;
   const count = Number.isInteger(parameters.cupsPerRow)
     ? Math.max(1, parameters.cupsPerRow)
     : 1;
@@ -376,7 +406,7 @@ export function deriveLayout(parameters: MarkerCupBlockParameters): MarkerCupBlo
       ? parameters.boreDiameter
       : 1;
   const tiltRadians = Number.isFinite(parameters.tiltDegrees)
-    ? (parameters.tiltDegrees * DEGREES_TO_RADIANS)
+    ? parameters.tiltDegrees * DEGREES_TO_RADIANS
     : 0;
   const solvable = Number.isFinite(innerWidth) && Number.isFinite(innerDepth);
   const unsolved = (): PitchResult => ({
@@ -402,7 +432,9 @@ export function deriveLayout(parameters: MarkerCupBlockParameters): MarkerCupBlo
   // Rows are spaced along Y using the tilted mouth's elongated Y extent, so
   // adjacent rows keep the minimum web even though a tilted mouth is wider
   // than the bore diameter.
-  const mouthDiameterY = solvable ? 2 * boreMouthSemiAxes(diameter / 2, tiltRadians).semiY : diameter;
+  const mouthDiameterY = solvable
+    ? 2 * boreMouthSemiAxes(diameter / 2, tiltRadians).semiY
+    : diameter;
   const rowSpacing = solvable
     ? solvePitch({
         span: innerDepth,
@@ -436,7 +468,12 @@ export function deriveLayout(parameters: MarkerCupBlockParameters): MarkerCupBlo
     baseUnderBores: lightening
       ? parameters.baseThickness
       : parameters.blockHeight -
-        boreVerticalReach(parameters.boreDepth, tiltRadians, diameter / 2, chamferExtraFor(parameters)),
+        boreVerticalReach(
+          parameters.boreDepth,
+          tiltRadians,
+          diameter / 2,
+          chamferExtraFor(parameters),
+        ),
     lightening,
     cornerConflicts,
   };
@@ -528,7 +565,10 @@ function findCornerConflicts(
 
   rowLayouts.forEach((rowLayout, index) => {
     if (!rowLayout.ok) return;
-    const xEnds = [rowLayout.firstCenter, rowLayout.firstCenter + (count - 1) * rowLayout.pitch];
+    const xEnds = [
+      rowLayout.firstCenter,
+      rowLayout.firstCenter + (count - 1) * rowLayout.pitch,
+    ];
     const clears = (cornerRadius: number) =>
       clearsOuterWallAt(
         parameters,
@@ -548,7 +588,10 @@ function findCornerConflicts(
       while (maximumCornerRadius > 0 && !clears(maximumCornerRadius)) {
         maximumCornerRadius -= 0.5;
       }
-      conflicts.push({ row: index + 1, maximumCornerRadius: Math.max(0, maximumCornerRadius) });
+      conflicts.push({
+        row: index + 1,
+        maximumCornerRadius: Math.max(0, maximumCornerRadius),
+      });
       return;
     }
 
@@ -557,7 +600,11 @@ function findCornerConflicts(
     // re-solving the row spacing at each candidate, since the row-to-row
     // web depends on the tilted mouth's own width.
     let maximumTiltDegrees: number | null = null;
-    for (let candidate = Math.ceil(parameters.tiltDegrees) - 1; candidate >= 0; candidate -= 1) {
+    for (
+      let candidate = Math.ceil(parameters.tiltDegrees) - 1;
+      candidate >= 0;
+      candidate -= 1
+    ) {
       const candidateTiltRadians = candidate * DEGREES_TO_RADIANS;
       const candidateSpacing = solvePitch({
         span: parameters.blockDepth - parameters.wallThickness * 2,
@@ -584,7 +631,11 @@ function findCornerConflicts(
       }
     }
     if (maximumTiltDegrees !== null) {
-      conflicts.push({ row: index + 1, maximumCornerRadius: 0, maximumTiltDegrees });
+      conflicts.push({
+        row: index + 1,
+        maximumCornerRadius: 0,
+        maximumTiltDegrees,
+      });
       return;
     }
 

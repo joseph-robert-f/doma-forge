@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   DRAIN_WEB_MM,
   PLANT_POT_DEFAULTS,
+  PLANT_POT_SPECS,
   SAUCER_GAP_MM,
   derivePotLayout,
   drainHoleCenters,
@@ -12,6 +13,11 @@ import {
 } from "../lib/products/plant-pot";
 import { SAUCER_DERIVED_ID } from "../lib/products/plant-pot/index";
 import { deriveSaucerLayout, plantSaucer } from "../lib/products/plant-saucer";
+import {
+  normalizePrinterProfile,
+  thinWallIssues,
+  wallLikeKeys,
+} from "../lib/printer-profile";
 import { inspectBinaryStl, serializeBinaryStl } from "../lib/stl";
 import {
   analyzeBufferGeometry,
@@ -348,5 +354,54 @@ describe("plant pot geometry", () => {
     expect(model.bounds[1][0]).toBeCloseTo(GOLDEN_RADIUS, 3);
     expect(model.bounds[1][1]).toBeCloseTo(GOLDEN_RADIUS, 3);
     expect(model.bounds[1][2]).toBeCloseTo(130, 5);
+  });
+});
+
+describe("printed walls", () => {
+  it("adds the drain-hole webs to the key-name walls", () => {
+    const layout = derivePotLayout(PLANT_POT_DEFAULTS);
+    const walls = plantPot.printedWalls!(PLANT_POT_DEFAULTS);
+    const byKey = new Map(walls.map((wall) => [wall.key, wall.value]));
+    expect(byKey.get("wall-web")).toBeCloseTo(layout.wallWeb);
+    expect(byKey.get("neighbour-web")).toBeCloseTo(layout.neighbourWeb);
+    for (const key of wallLikeKeys(PLANT_POT_SPECS)) {
+      expect(byKey.has(key), `${key} missing`).toBe(true);
+    }
+  });
+
+  it("omits the neighbour web for a single center hole", () => {
+    const parameters = withChanges({ drainHoles: 1 });
+    const walls = plantPot.printedWalls!(parameters);
+    expect(walls.some((wall) => wall.key === "wall-web")).toBe(true);
+    expect(walls.some((wall) => wall.key === "neighbour-web")).toBe(false);
+  });
+
+  it("flags a thin neighbour web at a 1.5 mm nozzle", () => {
+    // Six 8 mm holes on the smallest, thickest-walled pot the schema
+    // allows leave neighbours 2.5 mm apart, DRAIN_WEB_MM's own floor and
+    // under a 1.5 mm nozzle's 3 mm minimum.
+    const parameters = withChanges({
+      baseDiameter: 50,
+      wallThickness: 4,
+      wallAngleDegrees: 0,
+      rimRadius: 0,
+      drainHoles: 6,
+      drainHoleDiameter: 8,
+      potHeight: 50,
+    });
+    expect(plantPot.validate(parameters).valid).toBe(true);
+    const layout = derivePotLayout(parameters);
+    expect(layout.neighbourWeb).toBeCloseTo(DRAIN_WEB_MM);
+    const profile = normalizePrinterProfile({ nozzleDiameter: 1.5 });
+    const issues = thinWallIssues(plantPot.printedWalls!(parameters), profile);
+    expect(
+      issues.some((issue) => issue.text.includes("Web between drain holes")),
+    ).toBe(true);
+  });
+
+  it("does not throw for a cleared field, and reports only finite values", () => {
+    const cleared = { ...PLANT_POT_DEFAULTS, baseDiameter: Number.NaN };
+    const walls = plantPot.printedWalls!(cleared);
+    expect(walls.every((wall) => Number.isFinite(wall.value))).toBe(true);
   });
 });

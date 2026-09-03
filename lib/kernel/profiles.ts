@@ -60,10 +60,5 @@ export function chamferedCircle(
 ): Solid {
   const overshoot = 0.2;
   const height = chamfer + overshoot;
-  return kernel.Manifold.cylinder(
-    height,
-    radius,
-    radius + height,
-    segments,
-  );
+  return kernel.Manifold.cylinder(height, radius, radius + height, segments);
 }

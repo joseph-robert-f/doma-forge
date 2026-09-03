@@ -1,4 +1,4 @@
-import { beamLoadNewtons, loadNote } from "../../kernel/brackets";
+import { SOCKET_WALL_MM, beamLoadNewtons, loadNote } from "../../kernel/bracket-rules";
 import {
   filenameNumber,
   formatMillimeters,
@@ -6,11 +6,14 @@ import {
   shortHash,
   signatureFromSpecs,
 } from "../shared";
+import { wallsFromSpecs } from "../../printer-profile";
 import type { DerivedValue, ProductDefinition } from "../types";
+import { loadGeometry } from "../geometry-registry";
 import { SHELF_RISER_COPY, SHELF_RISER_ID } from "./copy";
-import { generateShelfRiser } from "./geometry";
 import { SHELF_RISER_PRESETS } from "./presets";
 import {
+  LIGHTENING_WEB_MM,
+  RIB_THICKNESS_MM,
   SHELF_RISER_DEFAULTS,
   SHELF_RISER_GROUPS,
   SHELF_RISER_SPECS,
@@ -85,7 +88,9 @@ function derive(parameters: ShelfRiserParameters): DerivedValue[] {
     {
       id: "deck-load",
       label: "Load on the deck",
-      value: loadNote(beamLoadNewtons(shortSide, parameters.deckThickness, longSpan)),
+      value: loadNote(
+        beamLoadNewtons(shortSide, parameters.deckThickness, longSpan),
+      ),
     },
   ];
 }
@@ -100,11 +105,60 @@ export const shelfRiser: ProductDefinition<ShelfRiserSpecs> = {
   groups: SHELF_RISER_GROUPS,
   defaults: SHELF_RISER_DEFAULTS,
   presets: SHELF_RISER_PRESETS,
-  normalize: (input) => normalizeFromSpecs(SHELF_RISER_SPECS, SHELF_RISER_DEFAULTS, input),
+  normalize: (input) =>
+    normalizeFromSpecs(SHELF_RISER_SPECS, SHELF_RISER_DEFAULTS, input),
   validate: validateShelfRiser,
   signature,
   derive,
-  generate: generateShelfRiser,
+  generate: (parameters) =>
+    loadGeometry<ShelfRiserParameters>(SHELF_RISER_ID).then((geometry) =>
+      geometry.generate(parameters),
+    ),
+  // The deck thickness is the only wall-like parameter the key rule finds.
+  // Everything else here is solved or fixed, and the key rule misses all of
+  // it, so the product reports it (D-1703): the leg section, a load-bearing
+  // column; the rib thickness, fixed whenever a span over 150 mm gets a
+  // rib; the lightening web between deck pockets; and the press-fit
+  // socket wall, fixed whenever the riser is tall enough to split. The
+  // gusset only widens the post toward the deck and the shelf thickness and
+  // the gusset thickness both equal the deck thickness exactly, so none of
+  // those adds a value the deck thickness has not already reported.
+  printedWalls: (parameters) => {
+    const walls = wallsFromSpecs(SHELF_RISER_SPECS, parameters);
+    const layout = deriveLayout(parameters);
+    if (
+      Number.isFinite(parameters.legSection) &&
+      parameters.legSection > 0
+    ) {
+      walls.push({
+        key: "leg-section",
+        label: "Leg section",
+        value: parameters.legSection,
+      });
+    }
+    if (layout.ribsAcrossX.length > 0 || layout.ribsAcrossY.length > 0) {
+      walls.push({
+        key: "rib-thickness",
+        label: "Rib thickness",
+        value: RIB_THICKNESS_MM,
+      });
+    }
+    if (layout.lightening) {
+      walls.push({
+        key: "lightening-web",
+        label: "Web between deck pockets",
+        value: LIGHTENING_WEB_MM,
+      });
+    }
+    if (layout.split.split) {
+      walls.push({
+        key: "socket-wall",
+        label: "Press-fit socket wall",
+        value: SOCKET_WALL_MM,
+      });
+    }
+    return walls;
+  },
   // No print-orientation hint: the riser is modeled in its print pose, deck
   // top on the bed and legs up, so the leg extensions beside it stand on
   // the bed in the same file. See D-1606.
@@ -118,7 +172,11 @@ export const shelfRiser: ProductDefinition<ShelfRiserSpecs> = {
   },
   filename: (parameters) => {
     const layout = deriveLayout(parameters);
-    const size = [layout.outsideWidth, layout.outsideDepth, layout.outsideHeight]
+    const size = [
+      layout.outsideWidth,
+      layout.outsideDepth,
+      layout.outsideHeight,
+    ]
       .map(filenameNumber)
       .join("x");
     return `drawerforge-${SHELF_RISER_ID}-${size}-${shortHash(signature(parameters))}.stl`;
@@ -130,9 +188,9 @@ export const shelfRiser: ProductDefinition<ShelfRiserSpecs> = {
 };
 
 export { SHELF_RISER_COPY, SHELF_RISER_ID } from "./copy";
-export { generateShelfRiser } from "./geometry";
 export {
   EXTENSION_GAP_MM,
+  LIGHTENING_WEB_MM,
   RIB_DEPTH_MM,
   RIB_THICKNESS_MM,
   SHELF_RISER_DEFAULTS,

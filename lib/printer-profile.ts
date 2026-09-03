@@ -162,12 +162,26 @@ export function hasCorrection(profile: PrinterProfileV1): boolean {
 
 /**
  * The parameters a product exposes to dimensional correction. `x` names the
- * parameters that set an outside dimension along X, `y` the same along Y.
- * A parameter that is not in either list is never changed by a correction.
+ * parameters that set an outside dimension along X, `y` the same along Y,
+ * and `diameter` the parameters that set a round outside dimension, which
+ * spans both. A parameter that is in no list is never changed by a
+ * correction.
  */
 export interface CompensableParameters {
   x?: readonly string[];
   y?: readonly string[];
+  /**
+   * A diameter takes the mean of the X and Y corrections, once. A machine
+   * that prints small by different amounts on the two axes prints a circle
+   * as a slight oval, and one number cannot correct that; the mean keeps
+   * the average size right. See 28_CONTRACT_FOLLOW_UPS_NOTES.md, D-1704.
+   */
+  diameter?: readonly string[];
+}
+
+/** The correction a diameter takes: the mean of the two axis corrections. */
+export function diameterCorrection(profile: PrinterProfileV1): number {
+  return roundMillimeters((profile.correctionX + profile.correctionY) / 2);
 }
 
 /**
@@ -187,6 +201,7 @@ export function compensate<P extends Record<string, unknown>>(
   const axes: Array<[readonly string[] | undefined, number]> = [
     [compensable?.x, profile.correctionX],
     [compensable?.y, profile.correctionY],
+    [compensable?.diameter, diameterCorrection(profile)],
   ];
   for (const [keys, correction] of axes) {
     if (!keys || !Number.isFinite(correction) || correction === 0) continue;
@@ -241,18 +256,20 @@ function formatMm(value: number): string {
 export function compensationNotes(
   target: Extents,
   modeled: Extents,
-  profile: PrinterProfileV1,
 ): CompensationNote[] {
   const notes: CompensationNote[] = [];
-  const axes: Array<["x" | "y", "X" | "Y", number]> = [
-    ["x", "X", profile.correctionX],
-    ["y", "Y", profile.correctionY],
+  // The note reads the part itself, before and after compensation, so a
+  // diameter that took the mean of the two corrections shows on both axes
+  // even when one axis correction is zero (D-1714).
+  const axes: Array<["x" | "y", "X" | "Y"]> = [
+    ["x", "X"],
+    ["y", "Y"],
   ];
-  for (const [axis, axisLabel, correction] of axes) {
-    if (correction === 0) continue;
+  for (const [axis, axisLabel] of axes) {
     const targetValue = target[axis];
     const modeledValue = modeled[axis];
-    if (!Number.isFinite(targetValue) || !Number.isFinite(modeledValue)) continue;
+    if (!Number.isFinite(targetValue) || !Number.isFinite(modeledValue))
+      continue;
     const difference = roundMillimeters(modeledValue - targetValue);
     if (Math.abs(difference) <= AXIS_EPSILON) continue;
     const sign = difference < 0 ? "−" : "+";
@@ -302,7 +319,8 @@ export function calibrationProposal(
     return null;
   }
   const axisLabel = axis === "x" ? "X" : "Y";
-  const limit = axis === "x" ? PRINTER_LIMITS.correctionX : PRINTER_LIMITS.correctionY;
+  const limit =
+    axis === "x" ? PRINTER_LIMITS.correctionX : PRINTER_LIMITS.correctionY;
   const proposed = roundMillimeters(
     clamp(existing + expected - measured, limit),
   );
@@ -339,8 +357,27 @@ const WALL_LIKE_KEY = /wall|thickness/i;
 export function wallLikeKeys(specs: Record<string, ParameterSpec>): string[] {
   return Object.keys(specs).filter((key) => {
     const spec = specs[key];
-    return spec.kind === "number" && spec.unit === "mm" && WALL_LIKE_KEY.test(key);
+    return (
+      spec.kind === "number" && spec.unit === "mm" && WALL_LIKE_KEY.test(key)
+    );
   });
+}
+
+/**
+ * The wall-like parameters with their values, for a product that does not
+ * report its own printed walls. A product with solved webs, legs, ribs, or
+ * fixed lips reports those itself through `printedWalls` and may start from
+ * this list. See 28_CONTRACT_FOLLOW_UPS_NOTES.md, decision D-1703.
+ */
+export function wallsFromSpecs(
+  specs: Record<string, ParameterSpec>,
+  parameters: Record<string, unknown>,
+): WallValue[] {
+  return wallLikeKeys(specs).map((key) => ({
+    key,
+    label: specs[key].label,
+    value: parameters[key] as number,
+  }));
 }
 
 const AXIS_NAMES: Array<["x" | "y" | "z", "X" | "Y" | "Z"]> = [
@@ -419,7 +456,11 @@ export function activeCorrections(
   profile: PrinterProfileV1,
   compensable: CompensableParameters | undefined,
 ): PrinterProfileV1 {
-  const compensates = Boolean(compensable?.x?.length || compensable?.y?.length);
+  const compensates = Boolean(
+    compensable?.x?.length ||
+    compensable?.y?.length ||
+    compensable?.diameter?.length,
+  );
   return compensates ? profile : { ...profile, correctionX: 0, correctionY: 0 };
 }
 
@@ -435,9 +476,10 @@ export function correctionRangeMessages(
   label: (field: string) => string,
 ): string[] {
   const messages: string[] = [];
-  const axes: Array<["X" | "Y", readonly string[] | undefined, number]> = [
+  const axes: Array<[string, readonly string[] | undefined, number]> = [
     ["X", compensable?.x, profile.correctionX],
     ["Y", compensable?.y, profile.correctionY],
+    ["mean X and Y", compensable?.diameter, diameterCorrection(profile)],
   ];
   for (const [axisLabel, keys, correction] of axes) {
     if (!keys || correction === 0) continue;
@@ -462,21 +504,34 @@ function correctionTagNumber(value: number): string {
  * The file-name marker for an active correction, or an empty string. Two
  * files built from one design under different corrections therefore get
  * different names, while the design hash itself stays the target's hash.
+ * With a compensable list, only the corrections that reach the product are
+ * marked: `x` and `y` for the axis lists, `d` with the mean for the diameter
+ * list (D-1714). Without a list every nonzero axis is marked, as before.
  */
-export function correctionFilenameTag(profile: PrinterProfileV1): string {
-  if (!hasCorrection(profile)) return "";
+export function correctionFilenameTag(
+  profile: PrinterProfileV1,
+  compensable?: CompensableParameters,
+): string {
   const parts: string[] = [];
-  if (profile.correctionX !== 0) parts.push(`x${correctionTagNumber(profile.correctionX)}`);
-  if (profile.correctionY !== 0) parts.push(`y${correctionTagNumber(profile.correctionY)}`);
-  return `c${parts.join("")}`;
+  const marksX = compensable ? Boolean(compensable.x?.length) : true;
+  const marksY = compensable ? Boolean(compensable.y?.length) : true;
+  const marksDiameter = Boolean(compensable?.diameter?.length);
+  if (marksX && profile.correctionX !== 0)
+    parts.push(`x${correctionTagNumber(profile.correctionX)}`);
+  if (marksY && profile.correctionY !== 0)
+    parts.push(`y${correctionTagNumber(profile.correctionY)}`);
+  const mean = diameterCorrection(profile);
+  if (marksDiameter && mean !== 0) parts.push(`d${correctionTagNumber(mean)}`);
+  return parts.length === 0 ? "" : `c${parts.join("")}`;
 }
 
 /** Inserts the correction marker before the file extension. */
 export function withCorrectionTag(
   filename: string,
   profile: PrinterProfileV1,
+  compensable?: CompensableParameters,
 ): string {
-  const tag = correctionFilenameTag(profile);
+  const tag = correctionFilenameTag(profile, compensable);
   if (!tag) return filename;
   const dot = filename.lastIndexOf(".");
   if (dot <= 0) return `${filename}-${tag}`;

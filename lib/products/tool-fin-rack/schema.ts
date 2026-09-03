@@ -1,4 +1,4 @@
-import { solvePitch, type PitchResult } from "../../kernel/arrays";
+import { solvePitch, type PitchResult } from "../../kernel/pitch";
 import type {
   EnumSpec,
   MeshQuality,
@@ -129,7 +129,8 @@ export const TOOL_FIN_RACK_GROUPS: ParameterGroup<ToolFinRackKey>[] = [
     id: "size",
     index: "01",
     title: "Size",
-    description: "The outside of the base slab. Measure the shelf or drawer width.",
+    description:
+      "The outside of the base slab. Measure the shelf or drawer width.",
     keys: ["rackWidth", "rackDepth"],
   },
   {
@@ -211,10 +212,14 @@ export interface ToolFinRackLayout {
  * in the result as `ok: false` so validation can name the field, and
  * generation refuses it.
  */
-export function deriveLayout(parameters: ToolFinRackParameters): ToolFinRackLayout {
+export function deriveLayout(
+  parameters: ToolFinRackParameters,
+): ToolFinRackLayout {
   const innerWidth = parameters.rackWidth - parameters.wallThickness * 2;
   const finLength = parameters.rackDepth - parameters.wallThickness * 2;
-  const count = Number.isInteger(parameters.finCount) ? Math.max(1, parameters.finCount) : 1;
+  const count = Number.isInteger(parameters.finCount)
+    ? Math.max(1, parameters.finCount)
+    : 1;
   const thickness =
     Number.isFinite(parameters.finThickness) && parameters.finThickness > 0
       ? parameters.finThickness
@@ -230,7 +235,11 @@ export function deriveLayout(parameters: ToolFinRackParameters): ToolFinRackLayo
     : { ok: false, web: Number.NaN, minimumWeb: MINIMUM_WEB_MM };
 
   let cornerConflict: CornerConflict | null = null;
-  if (finLayout.ok && Number.isFinite(parameters.cornerRadius) && Number.isFinite(finLength)) {
+  if (
+    finLayout.ok &&
+    Number.isFinite(parameters.cornerRadius) &&
+    Number.isFinite(finLength)
+  ) {
     const semiX = thickness / 2 + FIN_FILLET_WIDTH_MM;
     const semiY = finLength / 2;
     const xEnds = [
@@ -254,7 +263,9 @@ export function deriveLayout(parameters: ToolFinRackParameters): ToolFinRackLayo
       while (maximumCornerRadius > 0 && !clears(maximumCornerRadius)) {
         maximumCornerRadius -= 0.5;
       }
-      cornerConflict = { maximumCornerRadius: Math.max(0, maximumCornerRadius) };
+      cornerConflict = {
+        maximumCornerRadius: Math.max(0, maximumCornerRadius),
+      };
     }
   }
 

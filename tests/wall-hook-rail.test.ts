@@ -2,11 +2,18 @@ import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { describe, expect, it } from "vitest";
 import {
+  LIP_THICKNESS_MM,
   WALL_HOOK_RAIL_DEFAULTS,
+  WALL_HOOK_RAIL_SPECS,
   deriveLayout,
   wallHookRail,
   type WallHookRailParameters,
 } from "../lib/products/wall-hook-rail";
+import {
+  normalizePrinterProfile,
+  thinWallIssues,
+  wallLikeKeys,
+} from "../lib/printer-profile";
 import { inspectBinaryStl, serializeBinaryStl } from "../lib/stl";
 import { analyzeBufferGeometry, modelToBufferGeometry } from "../lib/three-geometry";
 import {
@@ -334,5 +341,47 @@ describe("wall hook rail geometry", () => {
       [-120, -25, 0],
       [120, 0, 50],
     ]);
+  });
+});
+
+describe("printed walls", () => {
+  it("adds the lip to the key-name walls", () => {
+    const walls = wallHookRail.printedWalls!(WALL_HOOK_RAIL_DEFAULTS);
+    const byKey = new Map(walls.map((wall) => [wall.key, wall.value]));
+    expect(byKey.get("lip")).toBeCloseTo(LIP_THICKNESS_MM);
+    for (const key of wallLikeKeys(WALL_HOOK_RAIL_SPECS)) {
+      expect(byKey.has(key), `${key} missing`).toBe(true);
+    }
+  });
+
+  it("keeps the lip whether or not the shelf is on", () => {
+    const withShelf = withChanges({ keyShelf: true });
+    const walls = wallHookRail.printedWalls!(withShelf);
+    expect(walls.some((wall) => wall.key === "lip")).toBe(true);
+    // The gusset and the shelf both build at the plate thickness, already
+    // reported by the key rule, so neither gets a separate entry.
+    expect(walls.some((wall) => wall.key.includes("gusset"))).toBe(false);
+    expect(walls.some((wall) => wall.key.includes("shelf"))).toBe(false);
+  });
+
+  it("flags the lip as thin at a wide enough nozzle", () => {
+    // The lip is fixed at 3 mm, exactly the floor a 1.5 mm nozzle sets
+    // (two nozzle widths), so it is not itself thin there. A slightly
+    // wider nozzle pushes the floor past the fixed lip and demonstrates
+    // the same rule.
+    const profile = normalizePrinterProfile({ nozzleDiameter: 1.6 });
+    const issues = thinWallIssues(
+      wallHookRail.printedWalls!(WALL_HOOK_RAIL_DEFAULTS),
+      profile,
+    );
+    expect(issues.some((issue) => issue.text.includes("Lip thickness"))).toBe(
+      true,
+    );
+  });
+
+  it("does not throw for a cleared field, and reports only finite values", () => {
+    const cleared = { ...WALL_HOOK_RAIL_DEFAULTS, railLength: Number.NaN };
+    const walls = wallHookRail.printedWalls!(cleared);
+    expect(walls.every((wall) => Number.isFinite(wall.value))).toBe(true);
   });
 });

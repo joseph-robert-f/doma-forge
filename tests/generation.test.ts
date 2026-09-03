@@ -12,6 +12,7 @@ import {
   type GenerationResponse,
 } from "../lib/generation/protocol";
 import { drawerTray } from "../lib/products/drawer-tray";
+import { PRODUCTS } from "../lib/products/registry";
 
 const defaults = drawerTray.normalize(drawerTray.defaults);
 
@@ -67,6 +68,7 @@ describe("generation protocol", () => {
       type: "generate",
       id: 7,
       productId: drawerTray.id,
+      kind: "model",
       parameters: defaults,
     });
     expect(response.type).toBe("result");
@@ -84,18 +86,59 @@ describe("generation protocol", () => {
       type: "generate",
       id: 1,
       productId: "missing",
+      kind: "model",
       parameters: defaults,
     });
-    expect(unknown).toEqual({ type: "error", id: 1, message: "Unknown product: missing" });
+    expect(unknown).toEqual({
+      type: "error",
+      id: 1,
+      message: "Unknown product: missing",
+    });
 
     const invalid = await handleGenerationRequest({
       type: "generate",
       id: 2,
       productId: drawerTray.id,
+      kind: "model",
       parameters: { ...defaults, drawerWidth: 10 },
     });
     expect(invalid.type).toBe("error");
     expect(transferablesOf(invalid)).toEqual([]);
+  });
+
+  it("builds the fit-test coupon for a coupon request, in the same worker", async () => {
+    const response = await handleGenerationRequest({
+      type: "generate",
+      id: 3,
+      productId: drawerTray.id,
+      kind: "coupon",
+      parameters: defaults,
+    });
+    expect(response.type).toBe("result");
+    if (response.type !== "result") throw new Error("unreachable");
+    // The coupon is the 5 mm ring, not the 50 mm tray.
+    const zs = Array.from(response.model.mesh.vertProperties).filter(
+      (_, index) => index % 3 === 2,
+    );
+    expect(Math.max(...zs)).toBeCloseTo(5, 6);
+    expect(response.model.mesh.triVerts.length / 3).toBeLessThan(362);
+  });
+
+  it("refuses a coupon request for a product that has no coupon", async () => {
+    const product = PRODUCTS.find((candidate) => !candidate.coupon);
+    if (!product) throw new Error("every product has a coupon");
+    const response = await handleGenerationRequest({
+      type: "generate",
+      id: 4,
+      productId: product.id,
+      kind: "coupon",
+      parameters: product.defaults,
+    });
+    expect(response).toEqual({
+      type: "error",
+      id: 4,
+      message: `${product.id} has no fit-test coupon.`,
+    });
   });
 });
 

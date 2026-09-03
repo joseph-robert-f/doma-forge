@@ -13,32 +13,42 @@ import { gotoReady } from "./support";
  *    not from network transfer (which would count compression and vary by
  *    connection).
  */
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const REPO_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
 const CLIENT_ASSETS_DIR = path.join(REPO_ROOT, "dist/client/assets");
 
 const READY_BUDGET_MS = 5_000;
 const PAGE_CHUNK_BUDGET_BYTES = 650 * 1024;
-// The worker chunk holds the registry, so it grows with every product: its
-// schema, its validation, and its geometry. S10 set 80 KB with two products.
-// Eight products measure 122 KB, eleven 154 KB, and fifteen 197 KB, about
-// 10 KB per product over a 46 KB fixed part, so the budget is 224 KB: the
-// full catalog of the sprint plan fits with room for two more products, and
-// a doubling still fails. The lasting fix is a dynamic import per product in
-// the generation worker so the chunk stops growing with the catalog; see
-// 24_BRACKET_FAMILY_NOTES.md open issue 1, 22_FAMILY_A_EXTENSIONS_NOTES.md
-// open issue 1, and the S06 review in 21_WAVE_1_PRODUCTS_NOTES.md.
-const WORKER_CHUNK_BUDGET_BYTES = 224 * 1024;
+// The worker chunk holds only the protocol and one lazy loader per product;
+// each product's geometry, schema, and the kernel load on demand in their
+// own chunks. Fifteen products measure 2.8 KB here, so the budget is 16 KB:
+// a product added later costs the worker one loader line, and a static
+// import of any product or kernel module fails this at once. Before S13
+// the same chunk held every product's geometry and measured 197 KB; see
+// 28_CONTRACT_FOLLOW_UPS_NOTES.md, decision D-1701.
+const WORKER_CHUNK_BUDGET_BYTES = 16 * 1024;
+// The registry chunk holds every product's schema, validation, copy, and
+// presets, which the page needs for its form. Fifteen products measure
+// 126 KB, about 8.5 KB per product, so the budget is 176 KB: room for five
+// more products, and a builder module leaking in fails it.
+const REGISTRY_CHUNK_BUDGET_BYTES = 176 * 1024;
 
 /** Finds the one built asset file whose name matches the given pattern. */
 function findBuiltAsset(pattern: RegExp): { name: string; bytes: number } {
-  const entries = readdirSync(CLIENT_ASSETS_DIR).filter((name) => pattern.test(name));
+  const entries = readdirSync(CLIENT_ASSETS_DIR).filter((name) =>
+    pattern.test(name),
+  );
   if (entries.length === 0) {
     throw new Error(
       `No file matching ${pattern} found in ${CLIENT_ASSETS_DIR}. Run "npm run build" first.`,
     );
   }
   if (entries.length > 1) {
-    throw new Error(`Expected exactly one file matching ${pattern}, found: ${entries.join(", ")}`);
+    throw new Error(
+      `Expected exactly one file matching ${pattern}, found: ${entries.join(", ")}`,
+    );
   }
   const name = entries[0];
   const bytes = statSync(path.join(CLIENT_ASSETS_DIR, name)).size;
@@ -46,7 +56,9 @@ function findBuiltAsset(pattern: RegExp): { name: string; bytes: number } {
 }
 
 test.describe("performance budget", () => {
-  test(`the first Ready preview appears within ${READY_BUDGET_MS} ms`, async ({ page }) => {
+  test(`the first Ready preview appears within ${READY_BUDGET_MS} ms`, async ({
+    page,
+  }) => {
     const start = Date.now();
     await gotoReady(page, "/", READY_BUDGET_MS + 5_000);
     const elapsedMs = Date.now() - start;
@@ -61,5 +73,10 @@ test.describe("performance budget", () => {
   test(`the built worker chunk stays under ${WORKER_CHUNK_BUDGET_BYTES / 1024} KB`, () => {
     const asset = findBuiltAsset(/^generation\.worker-.*\.js$/);
     expect(asset.bytes).toBeLessThan(WORKER_CHUNK_BUDGET_BYTES);
+  });
+
+  test(`the built registry chunk stays under ${REGISTRY_CHUNK_BUDGET_BYTES / 1024} KB`, () => {
+    const asset = findBuiltAsset(/^registry-.*\.js$/);
+    expect(asset.bytes).toBeLessThan(REGISTRY_CHUNK_BUDGET_BYTES);
   });
 });

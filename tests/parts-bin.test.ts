@@ -4,12 +4,18 @@ import { describe, expect, it } from "vitest";
 import { getKernel } from "../lib/kernel/manifold";
 import { roundedRectangle } from "../lib/kernel/profiles";
 import {
+  normalizePrinterProfile,
+  thinWallIssues,
+  wallLikeKeys,
+} from "../lib/printer-profile";
+import {
   LABEL_LEDGE_HEIGHT_MM,
   LABEL_LEDGE_PROJECTION_MM,
+  LABEL_LEDGE_SHELF_MM,
   LABEL_LEDGE_SLOT_MM,
+  LABEL_LEDGE_UPSTAND_MM,
   PARTS_BIN_DEFAULTS,
   PARTS_BIN_SPECS,
-  buildPartsBinSolid,
   deriveLayout,
   partsBin,
   stackFitClearances,
@@ -17,6 +23,7 @@ import {
   type PartsBinParameters,
   type RingFrame,
 } from "../lib/products/parts-bin";
+import { buildPartsBinSolid } from "../lib/products/parts-bin/geometry";
 import { inspectBinaryStl, serializeBinaryStl } from "../lib/stl";
 import {
   analyzeBufferGeometry,
@@ -33,7 +40,7 @@ const { normalize, validate, generate } = partsBin;
 // Recorded at geometryVersion 1 for the defaults. A change here is a geometry
 // change: bump PARTS_BIN_GEOMETRY_VERSION and re-record on purpose.
 const GOLDEN_TRIANGLES = 688;
-const GOLDEN_VOLUME = 141805.64;
+const GOLDEN_VOLUME = 154444.59;
 
 function withChanges(changes: Partial<PartsBinParameters>): PartsBinParameters {
   return normalize({ ...PARTS_BIN_DEFAULTS, ...changes });
@@ -41,20 +48,37 @@ function withChanges(changes: Partial<PartsBinParameters>): PartsBinParameters {
 
 /** Every value at, or as near as the stacking rules allow to, its minimum. */
 const MINIMUM_CASE: Partial<PartsBinParameters> = {
-  binWidth: 60, binDepth: 60, binHeight: 25, lipHeight: 2, lipWallThickness: 0.8,
-  stackClearance: 0.1, wallThickness: 1.8, baseThickness: 1.2, cornerRadius: 0,
+  binWidth: 60,
+  binDepth: 60,
+  binHeight: 25,
+  lipHeight: 2,
+  lipWallThickness: 0.8,
+  stackClearance: 0.1,
+  wallThickness: 1.8,
+  baseThickness: 1.2,
+  cornerRadius: 0,
 };
 /**
  * Every size at its maximum. The lip values are inside the rule with 0.2 mm
  * to spare; LIMIT_CASE covers the rule's boundary.
  */
 const MAXIMUM_CASE: Partial<PartsBinParameters> = {
-  binWidth: 400, binDepth: 300, binHeight: 200, lipHeight: 10, lipWallThickness: 2.4,
-  stackClearance: 0.3, wallThickness: 4, baseThickness: 6, cornerRadius: 20,
+  binWidth: 400,
+  binDepth: 300,
+  binHeight: 200,
+  lipHeight: 10,
+  lipWallThickness: 2.4,
+  stackClearance: 0.3,
+  wallThickness: 4,
+  baseThickness: 6,
+  cornerRadius: 20,
 };
 /** Exactly on the rule: 3 + 2 x 0.1 = 4 − 0.8. The wall keeps 0.4 mm per side. */
 const LIMIT_CASE: Partial<PartsBinParameters> = {
-  wallThickness: 4, lipWallThickness: 3, stackClearance: 0.1, lipHeight: 10,
+  wallThickness: 4,
+  lipWallThickness: 3,
+  stackClearance: 0.1,
+  lipHeight: 10,
 };
 /** The wall is too thin for this lip wall and this clearance. */
 const CONFLICT_CASE: Partial<PartsBinParameters> = { wallThickness: 2 };
@@ -81,20 +105,26 @@ describe("parts bin parameters", () => {
   });
 
   it("offers all three fixes when the three fields can each accept one", () => {
-    const result = validate(withChanges({ lipWallThickness: 2 }));
+    const result = validate(withChanges({ lipWallThickness: 2.4 }));
     expect(result.byField.lipWallThickness?.[0]).toBe(
-      "A lip wall of 2 mm with two 0.3 mm clearances takes 2.6 mm of the 3 mm outer wall. " +
-        "The recess must leave 0.8 mm of wall. Use a lip wall of at most 1.6 mm, or an outer wall of at least 3.4 mm, " +
+      "A lip wall of 2.4 mm with two 0.3 mm clearances takes 3 mm of the 3.4 mm outer wall. " +
+        "The recess must leave 0.8 mm of wall. Use a lip wall of at most 2 mm, or an outer wall of at least 3.8 mm, " +
         "or a stacking clearance of at most 0.1 mm.",
     );
     expect(validate(withChanges({ lipWallThickness: 1.6 })).valid).toBe(true);
-    expect(validate(withChanges({ lipWallThickness: 2, stackClearance: 0.1 })).valid).toBe(true);
+    expect(
+      validate(withChanges({ lipWallThickness: 2, stackClearance: 0.1 })).valid,
+    ).toBe(true);
   });
 
   it("leaves out an outer wall the field cannot hold", () => {
     // 3 + 2 x 0.5 + 0.8 = 4.8 mm, above the 4 mm maximum of the field.
     const result = validate(
-      withChanges({ wallThickness: 4, lipWallThickness: 3, stackClearance: 0.5 }),
+      withChanges({
+        wallThickness: 4,
+        lipWallThickness: 3,
+        stackClearance: 0.5,
+      }),
     );
     expect(result.byField.lipWallThickness?.[0]).toBe(
       "A lip wall of 3 mm with two 0.5 mm clearances takes 4 mm of the 4 mm outer wall. " +
@@ -105,7 +135,12 @@ describe("parts bin parameters", () => {
 
   it("names two changes when no single field can fix the lip", () => {
     const result = validate(
-      withChanges({ wallThickness: 1.2, lipWallThickness: 3, stackClearance: 0.2, stacking: true }),
+      withChanges({
+        wallThickness: 1.2,
+        lipWallThickness: 3,
+        stackClearance: 0.2,
+        stacking: true,
+      }),
     );
     expect(result.byField.lipWallThickness?.[0]).toMatch(
       /No single value fixes this\. Use a thinner lip wall and a thicker outer wall\.$/,
@@ -126,7 +161,9 @@ describe("parts bin parameters", () => {
     ]);
     // The lip rule reports the same wall as well; both name their own field.
     expect(result.byField.lipWallThickness).toHaveLength(1);
-    expect(validate(withChanges({ wallThickness: 1.5, stacking: false })).valid).toBe(true);
+    expect(
+      validate(withChanges({ wallThickness: 1.5, stacking: false })).valid,
+    ).toBe(true);
   });
 
   it("keeps the plain bin free of every stacking rule", () => {
@@ -140,8 +177,15 @@ describe("parts bin parameters", () => {
 
   it("derives and validates a cleared field without throwing", () => {
     for (const key of [
-      "binWidth", "binDepth", "binHeight", "wallThickness", "baseThickness",
-      "lipHeight", "lipWallThickness", "stackClearance", "cornerRadius",
+      "binWidth",
+      "binDepth",
+      "binHeight",
+      "wallThickness",
+      "baseThickness",
+      "lipHeight",
+      "lipWallThickness",
+      "stackClearance",
+      "cornerRadius",
     ] as const) {
       const cleared = { ...PARTS_BIN_DEFAULTS, [key]: Number.NaN };
       expect(() => partsBin.derive(cleared)).not.toThrow();
@@ -150,17 +194,24 @@ describe("parts bin parameters", () => {
       expect(result.valid).toBe(false);
       expect(result.byField[key]?.[0]).toMatch(/must be a number/);
     }
-    const cleared = partsBin.derive({ ...PARTS_BIN_DEFAULTS, wallThickness: Number.NaN });
-    expect(cleared.find((value) => value.id === "stacking-lip")?.value).toBe("does not fit");
+    const cleared = partsBin.derive({
+      ...PARTS_BIN_DEFAULTS,
+      wallThickness: Number.NaN,
+    });
+    expect(cleared.find((value) => value.id === "stacking-lip")?.value).toBe(
+      "does not fit",
+    );
   });
 
   it("reports the outside size, the stack pitch, and every feature", () => {
-    expect(partsBin.derive(PARTS_BIN_DEFAULTS).map((value) => value.value)).toEqual([
+    expect(
+      partsBin.derive(PARTS_BIN_DEFAULTS).map((value) => value.value),
+    ).toEqual([
       "150 × 102.8 × 74 mm",
       "150 × 100 × 70 mm",
       "70 mm per bin",
-      "144 × 94 × 67 mm",
-      "1.2 mm wide, 4 mm high, 0.3 mm clearance, 0.6 mm of wall on each side",
+      "143.2 × 93.2 × 67 mm",
+      "1.2 mm wide, 4 mm high, 0.3 mm clearance, 0.8 mm of wall on each side",
       "11.25 mm radius",
       "144 mm wide, 2.8 mm in front of the bin",
     ]);
@@ -171,7 +222,7 @@ describe("parts bin parameters", () => {
       "150 × 100 × 70 mm",
       "150 × 100 × 70 mm",
       "does not stack",
-      "144 × 94 × 67 mm",
+      "143.2 × 93.2 × 67 mm",
       "none",
       "none",
       "none",
@@ -199,6 +250,107 @@ describe("parts bin parameters", () => {
     const plain = withChanges({ stacking: false, labelLedge: false });
     expect(partsBin.boundsContract(plain).max[2]).toBe(plain.binHeight);
     expect(partsBin.boundsContract(plain).min[1]).toBe(-plain.binDepth / 2);
+  });
+});
+
+describe("printed walls", () => {
+  it("reports the wall beside the recess and the label ledge's shelf and upstand, alongside the wall-like parameters", () => {
+    const layout = deriveLayout(PARTS_BIN_DEFAULTS);
+    const walls = partsBin.printedWalls!(PARTS_BIN_DEFAULTS);
+    const byKey = new Map(walls.map((wall) => [wall.key, wall]));
+
+    expect(layout.recess).not.toBeNull();
+    expect(byKey.get("stacking-wall")?.label).toBe("Wall beside the recess");
+    expect(byKey.get("stacking-wall")?.value).toBeCloseTo(
+      layout.wallBesideRecess,
+      9,
+    );
+    expect(byKey.get("ledge-shelf")?.label).toBe("Label ledge shelf");
+    expect(byKey.get("ledge-shelf")?.value).toBeCloseTo(
+      LABEL_LEDGE_SHELF_MM,
+      9,
+    );
+    expect(byKey.get("ledge-upstand")?.label).toBe("Label ledge upstand");
+    expect(byKey.get("ledge-upstand")?.value).toBeCloseTo(
+      LABEL_LEDGE_UPSTAND_MM,
+      9,
+    );
+
+    for (const key of wallLikeKeys(PARTS_BIN_SPECS)) {
+      expect(byKey.has(key), `${key} missing`).toBe(true);
+    }
+  });
+
+  it("ships defaults and stacking presets whose recess skin passes rule 9 at a 0.4 mm nozzle", () => {
+    // The skin beside the recess is (wall − lip wall − 2 × clearance) / 2.
+    // Rule 9 needs two nozzle widths, 0.8 mm at the default nozzle, so the
+    // defaults and both stacking presets carry an outer wall that leaves
+    // at least that (D-1713).
+    const profile = normalizePrinterProfile({ nozzleDiameter: 0.4 });
+    const sets = [
+      PARTS_BIN_DEFAULTS,
+      ...partsBin.presets.map((preset) => preset.parameters),
+    ];
+    for (const parameters of sets) {
+      const layout = deriveLayout(parameters);
+      if (layout.recess)
+        expect(layout.wallBesideRecess).toBeGreaterThanOrEqual(0.8 - 1e-9);
+      expect(
+        thinWallIssues(partsBin.printedWalls!(parameters), profile),
+      ).toEqual([]);
+    }
+    expect(deriveLayout(PARTS_BIN_DEFAULTS).wallBesideRecess).toBeCloseTo(
+      0.8,
+      9,
+    );
+    // One step thinner on the outer wall and the same nozzle refuses it,
+    // naming the skin.
+    const thinner = withChanges({ wallThickness: 3.2 });
+    expect(partsBin.validate(thinner).valid).toBe(true);
+    const issues = thinWallIssues(partsBin.printedWalls!(thinner), profile);
+    expect(
+      issues.some((issue) =>
+        issue.text.includes("Wall beside the recess is 0.7 mm"),
+      ),
+    ).toBe(true);
+  });
+
+  it("omits the stacking wall without the lip, and the ledge walls without the ledge", () => {
+    const plain = withChanges({ stacking: false, labelLedge: false });
+    const walls = partsBin.printedWalls!(plain);
+    const keys = walls.map((wall) => wall.key);
+    expect(keys).not.toContain("stacking-wall");
+    expect(keys).not.toContain("ledge-shelf");
+    expect(keys).not.toContain("ledge-upstand");
+  });
+
+  it("flags the default ledge walls against a 1.5 mm nozzle, on defaults the product validates", () => {
+    // The label ledge is fixed by constants, not by any field, so the
+    // defaults already leave both walls under 3 mm; no custom parameter
+    // set is needed.
+    expect(partsBin.validate(PARTS_BIN_DEFAULTS).valid).toBe(true);
+    expect(LABEL_LEDGE_SHELF_MM).toBeLessThan(3);
+    expect(LABEL_LEDGE_UPSTAND_MM).toBeLessThan(3);
+
+    const profile = normalizePrinterProfile({ nozzleDiameter: 1.5 });
+    const issues = thinWallIssues(
+      partsBin.printedWalls!(PARTS_BIN_DEFAULTS),
+      profile,
+    );
+    expect(
+      issues.some((issue) => issue.text.includes("Label ledge shelf")),
+    ).toBe(true);
+    expect(
+      issues.some((issue) => issue.text.includes("Label ledge upstand")),
+    ).toBe(true);
+  });
+
+  it("does not throw and reports only finite values for a cleared field", () => {
+    const cleared = { ...PARTS_BIN_DEFAULTS, binWidth: Number.NaN };
+    const walls = partsBin.printedWalls!(cleared);
+    for (const wall of walls) {
+      expect(Number.isFinite(wall.value), wall.key).toBe(true);
+    }
   });
 });
 
@@ -252,7 +404,8 @@ describe("parts bin stacking fit", () => {
       const recess = layout.recess!;
       const outerSkin = parameters.binWidth / 2 - recess.outerHalfWidth;
       const innerSkin =
-        recess.innerHalfWidth - (parameters.binWidth / 2 - parameters.wallThickness);
+        recess.innerHalfWidth -
+        (parameters.binWidth / 2 - parameters.wallThickness);
       expect(outerSkin).toBeCloseTo(layout.wallBesideRecess, 9);
       expect(innerSkin).toBeCloseTo(layout.wallBesideRecess, 9);
       expect(layout.wallBesideRecess * 2).toBeGreaterThanOrEqual(0.8 - 1e-9);
@@ -327,7 +480,10 @@ describe("parts bin stacking fit", () => {
     const clearance = PARTS_BIN_DEFAULTS.stackClearance;
     // A square corner keeps the whole clearance. A round corner loses the
     // chord of the arc, and a finer mesh loses less of it.
-    expect(smallestGap(withChanges({ cornerRadius: 0 }), 24)).toBeCloseTo(clearance, 3);
+    expect(smallestGap(withChanges({ cornerRadius: 0 }), 24)).toBeCloseTo(
+      clearance,
+      3,
+    );
     const standard = smallestGap(withChanges({}), 24);
     const fine = smallestGap(withChanges({ meshQuality: "fine" }), 48);
     expect(standard).toBeGreaterThan(clearance - 0.01);
@@ -363,49 +519,55 @@ describe("parts bin geometry", () => {
     ["maximum", MAXIMUM_CASE],
     ["lip at the wall limit", LIMIT_CASE],
     ["plain bin without a lip", { stacking: false, wallThickness: 2 }],
-    ["bin without a scoop or a ledge", { frontScoop: false, labelLedge: false }],
+    [
+      "bin without a scoop or a ledge",
+      { frontScoop: false, labelLedge: false },
+    ],
     ["square corners", { cornerRadius: 0 }],
   ];
 
-  it.each(fixtures)("creates a finite, outward, closed %s bin", async (_name, changes) => {
-    const parameters = withChanges(changes);
-    expect(validate(parameters).valid).toBe(true);
-    const model = await generate(parameters);
-    const geometry = modelToBufferGeometry(model);
-    const analysis = analyzeBufferGeometry(geometry);
-    const size = analysis.bounds.getSize(new THREE.Vector3());
-    const layout = deriveLayout(parameters);
+  it.each(fixtures)(
+    "creates a finite, outward, closed %s bin",
+    async (_name, changes) => {
+      const parameters = withChanges(changes);
+      expect(validate(parameters).valid).toBe(true);
+      const model = await generate(parameters);
+      const geometry = modelToBufferGeometry(model);
+      const analysis = analyzeBufferGeometry(geometry);
+      const size = analysis.bounds.getSize(new THREE.Vector3());
+      const layout = deriveLayout(parameters);
 
-    expect(model.status).toBe("NoError");
-    expect(model.volume).toBeGreaterThan(0);
-    expect(analysis.finite).toBe(true);
-    expect(analysis.triangleCount).toBeGreaterThan(0);
-    expect(analysis.minimumTriangleArea).toBeGreaterThan(1e-8);
-    expect(analysis.minimumNormalLength).toBeCloseTo(1, 5);
-    expect(analysis.signedVolume).toBeGreaterThan(0);
-    expect(connectedComponentCount(model.mesh.triVerts)).toBe(1);
-    expect(size.x).toBeCloseTo(layout.outsideWidth, 4);
-    expect(size.y).toBeCloseTo(layout.outsideDepth, 4);
-    expect(size.z).toBeCloseTo(layout.outsideHeight, 4);
-    expect(analysis.bounds.min.z).toBeCloseTo(0, 5);
-    // The contract carries its own tolerance. Compare against that, not by
-    // equality: a size such as 152.8 mm is not exact in binary.
-    const contract = partsBin.boundsContract(parameters);
-    for (let axis = 0; axis < 3; axis += 1) {
-      expect(Math.abs(model.bounds[0][axis] - contract.min[axis])).toBeLessThan(
-        contract.tolerance,
-      );
-      expect(Math.abs(model.bounds[1][axis] - contract.max[axis])).toBeLessThan(
-        contract.tolerance,
-      );
-    }
+      expect(model.status).toBe("NoError");
+      expect(model.volume).toBeGreaterThan(0);
+      expect(analysis.finite).toBe(true);
+      expect(analysis.triangleCount).toBeGreaterThan(0);
+      expect(analysis.minimumTriangleArea).toBeGreaterThan(1e-8);
+      expect(analysis.minimumNormalLength).toBeCloseTo(1, 5);
+      expect(analysis.signedVolume).toBeGreaterThan(0);
+      expect(connectedComponentCount(model.mesh.triVerts)).toBe(1);
+      expect(size.x).toBeCloseTo(layout.outsideWidth, 4);
+      expect(size.y).toBeCloseTo(layout.outsideDepth, 4);
+      expect(size.z).toBeCloseTo(layout.outsideHeight, 4);
+      expect(analysis.bounds.min.z).toBeCloseTo(0, 5);
+      // The contract carries its own tolerance. Compare against that, not by
+      // equality: a size such as 152.8 mm is not exact in binary.
+      const contract = partsBin.boundsContract(parameters);
+      for (let axis = 0; axis < 3; axis += 1) {
+        expect(
+          Math.abs(model.bounds[0][axis] - contract.min[axis]),
+        ).toBeLessThan(contract.tolerance);
+        expect(
+          Math.abs(model.bounds[1][axis] - contract.max[axis]),
+        ).toBeLessThan(contract.tolerance);
+      }
 
-    for (const edge of closedEdgeCounts(geometry)) {
-      expect(edge.count).toBe(2);
-      expect(edge.balance).toBe(0);
-    }
-    geometry.dispose();
-  });
+      for (const edge of closedEdgeCounts(geometry)) {
+        expect(edge.count).toBe(2);
+        expect(edge.balance).toBe(0);
+      }
+      geometry.dispose();
+    },
+  );
 
   it("refuses the conflict case instead of building it", async () => {
     await expect(generate(withChanges(CONFLICT_CASE))).rejects.toThrow(
@@ -450,7 +612,9 @@ describe("parts bin geometry", () => {
     }).toEqual({ contours: 2, solidComponents: 1, holes: 1 });
     // The ring is the lip, so a point in the middle of the bin is not solid.
     expect(topology.containsSolid([0, 0])).toBe(false);
-    expect(topology.containsSolid([layout.lip!.outerHalfWidth - 0.6, 0])).toBe(true);
+    expect(topology.containsSolid([layout.lip!.outerHalfWidth - 0.6, 0])).toBe(
+      true,
+    );
   });
 
   it("opens the lip at the front when the scoop is on", async () => {
@@ -466,7 +630,9 @@ describe("parts bin geometry", () => {
       contours: 1,
       holes: 0,
     });
-    expect(topology.containsSolid([0, -layout.bodyDepth / 2 + 0.5])).toBe(false);
+    expect(topology.containsSolid([0, -layout.bodyDepth / 2 + 0.5])).toBe(
+      false,
+    );
   });
 
   it("shows the recess as a ring of removed material under the wall", async () => {
@@ -475,7 +641,10 @@ describe("parts bin geometry", () => {
     const parameters = withChanges({ labelLedge: false });
     const model = await generate(parameters);
     const layout = deriveLayout(parameters);
-    const topology = horizontalSliceTopology(model.mesh, layout.recess!.topZ / 2);
+    const topology = horizontalSliceTopology(
+      model.mesh,
+      layout.recess!.topZ / 2,
+    );
     // The outer contour, the recess, and the base inside the recess.
     expect({
       contours: topology.contours,
@@ -501,7 +670,9 @@ describe("parts bin geometry", () => {
     );
     expect(topology.solidComponents).toBe(2);
     expect(topology.holes).toBe(1);
-    expect(topology.containsSolid([0, frontY - LABEL_LEDGE_SLOT_MM / 2])).toBe(false);
+    expect(topology.containsSolid([0, frontY - LABEL_LEDGE_SLOT_MM / 2])).toBe(
+      false,
+    );
     expect(
       topology.containsSolid([0, frontY - LABEL_LEDGE_PROJECTION_MM + 0.6]),
     ).toBe(true);
@@ -539,11 +710,17 @@ describe("parts bin geometry", () => {
     const data = serializeBinaryStl(geometry);
     const inspected = inspectBinaryStl(data);
     geometry.computeBoundingBox();
-    expect(inspected.triangleCount).toBe(geometry.getAttribute("position").count / 3);
+    expect(inspected.triangleCount).toBe(
+      geometry.getAttribute("position").count / 3,
+    );
     expect(inspected.finite).toBe(true);
     expect(inspected.minimumNormalAlignment).toBeGreaterThan(0.99999);
-    expect(inspected.bounds.min.distanceTo(geometry.boundingBox!.min)).toBeLessThan(1e-5);
-    expect(inspected.bounds.max.distanceTo(geometry.boundingBox!.max)).toBeLessThan(1e-5);
+    expect(
+      inspected.bounds.min.distanceTo(geometry.boundingBox!.min),
+    ).toBeLessThan(1e-5);
+    expect(
+      inspected.bounds.max.distanceTo(geometry.boundingBox!.max),
+    ).toBeLessThan(1e-5);
     const parsed = new STLLoader().parse(data);
     expect(parsed.getAttribute("position").count).toBe(
       geometry.getAttribute("position").count,
@@ -556,7 +733,9 @@ describe("parts bin geometry", () => {
     const model = await generate(normalize(PARTS_BIN_DEFAULTS));
     expect(partsBin.geometryVersion).toBe(1);
     expect(model.mesh.triVerts.length / 3).toBe(GOLDEN_TRIANGLES);
-    expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(0.001);
+    expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(
+      0.001,
+    );
     expect(model.bounds).toEqual([
       [-75, -52.8, 0],
       [75, 50, 74],

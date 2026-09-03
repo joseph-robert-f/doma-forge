@@ -1,7 +1,7 @@
 # 15. Sprint Plan and Model Routing
 
 Date: 2026-09-02
-Status: Active. Sprint specs are in `sprints/`. S01 to S11 are done; see documents 16 to 26. S12 is ongoing; see document 27 and `sprints/PRINT_RECORDS.md`.
+Status: Active. Sprint specs are in `sprints/`. S01 to S11 are done; see documents 16 to 26. S12 is ongoing; see document 27 and `sprints/PRINT_RECORDS.md`. S13, the contract follow-ups that the sprint notes accumulated, is done; see document 28.
 Reads with: 10_MULTI_PRODUCT_EXPANSION_PLAN.md, documents 11 to 14
 
 This document lists the remaining major sprints, the order to run them, and the
@@ -52,6 +52,7 @@ Effort levels: low, medium, high, max. They map to the effort setting of the age
 | S10 | Real-browser QA in CI | Sonnet 5, Haiku 4.5 for porting | medium | none | M |
 | S11 | Cloudflare direct migration | Sonnet 5 | high | S10 | M |
 | S12 | Physical print program | Haiku 4.5 for templates | low | S01, S04 | ongoing |
+| S13 | Contract follow-ups | Fable 5.1, Sonnet 5 for per-product work | high | S01, S04, S05, S09 | M |
 
 S01, S02, S03, and S10 have no dependencies and can run in parallel. S06, S07,
 and S08 can run in parallel after S05. S09 is last among the product sprints.
@@ -74,6 +75,7 @@ Size: S is one to two days for one agent. M is three to five. L is one to two we
 - **S10** Playwright tests in CI with real WebGL, a11y checks, and a performance budget.
 - **S11** A source-controlled Cloudflare deployment with a trusted origin, and removal of the Sites coupling.
 - **S12** A print record per product and the calibration protocol, filled by a person.
+- **S13** Geometry loaded per product so the worker's fixed chunk stops growing, the fit-test coupon in the worker, printed walls the product reports to the thin-wall rule, and a diameter axis for the printer correction.
 
 ---
 

@@ -160,7 +160,7 @@ export const PARTS_BIN_DEFAULTS: PartsBinParameters = {
   stackClearance: 0.3,
   frontScoop: true,
   labelLedge: true,
-  wallThickness: 3,
+  wallThickness: 3.4,
   baseThickness: 3,
   cornerRadius: 3,
   meshQuality: "standard",
@@ -291,7 +291,10 @@ function ringFrame(
 export function scoopRadius(parameters: PartsBinParameters): number {
   if (!parameters.frontScoop) return 0;
   const wallAboveBase = parameters.binHeight - parameters.baseThickness;
-  if (!Number.isFinite(parameters.binWidth) || !Number.isFinite(wallAboveBase)) {
+  if (
+    !Number.isFinite(parameters.binWidth) ||
+    !Number.isFinite(wallAboveBase)
+  ) {
     return Number.NaN;
   }
   return Math.max(
@@ -325,13 +328,14 @@ export function deriveLayout(parameters: PartsBinParameters): PartsBinLayout {
   const sizesOk = [width, depth, height, wall, base, corner].every((value) =>
     Number.isFinite(value),
   );
-  const lipValuesOk = [clearance, lipWall, parameters.lipHeight].every((value) =>
-    Number.isFinite(value),
+  const lipValuesOk = [clearance, lipWall, parameters.lipHeight].every(
+    (value) => Number.isFinite(value),
   );
   const buildsLip = stacking && sizesOk && lipValuesOk;
 
   const lipOffset = buildsLip ? (wall - lipWall) / 2 : Number.NaN;
-  const wallRemainder = stacking && lipValuesOk ? wall - lipWall - clearance * 2 : Number.NaN;
+  const wallRemainder =
+    stacking && lipValuesOk ? wall - lipWall - clearance * 2 : Number.NaN;
   const maximumLipWall =
     stacking && lipValuesOk
       ? wall - RECESS_WALL_RESERVE_MM - clearance * 2
@@ -346,7 +350,15 @@ export function deriveLayout(parameters: PartsBinParameters): PartsBinLayout {
       : Number.NaN;
 
   const lip = buildsLip
-    ? ringFrame(width / 2, depth / 2, corner, lipOffset, lipWall, height, height + lipHeight)
+    ? ringFrame(
+        width / 2,
+        depth / 2,
+        corner,
+        lipOffset,
+        lipWall,
+        height,
+        height + lipHeight,
+      )
     : null;
   const recess = buildsLip
     ? ringFrame(

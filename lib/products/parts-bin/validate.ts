@@ -1,4 +1,8 @@
-import { IssueCollector, formatMillimeters, validateAgainstSpecs } from "../shared";
+import {
+  IssueCollector,
+  formatMillimeters,
+  validateAgainstSpecs,
+} from "../shared";
 import type { ValidationResult } from "../types";
 import {
   MINIMUM_STACKING_WALL_MM,
@@ -59,21 +63,30 @@ export function validatePartsBin(
       );
     }
     if (layout.wallRemainder + 1e-9 < RECESS_WALL_RESERVE_MM) {
-      const needed = parameters.lipWallThickness + parameters.stackClearance * 2;
+      const needed =
+        parameters.lipWallThickness + parameters.stackClearance * 2;
       const start =
         `A lip wall of ${mm(parameters.lipWallThickness)} mm with two ${mm(parameters.stackClearance)} mm clearances takes ${mm(needed)} mm of the ${mm(parameters.wallThickness)} mm outer wall. ` +
         `The recess must leave ${mm(RECESS_WALL_RESERVE_MM)} mm of wall.`;
       // Each fix must be a value the field can hold. A fix outside a field's
       // own range is not a fix, so it stays out of the message.
       const fixes: string[] = [];
-      if (layout.maximumLipWall + 1e-9 >= PARTS_BIN_SPECS.lipWallThickness.min) {
+      if (
+        layout.maximumLipWall + 1e-9 >=
+        PARTS_BIN_SPECS.lipWallThickness.min
+      ) {
         fixes.push(`a lip wall of at most ${mm(layout.maximumLipWall)} mm`);
       }
       if (layout.minimumWall <= PARTS_BIN_SPECS.wallThickness.max + 1e-9) {
         fixes.push(`an outer wall of at least ${mm(layout.minimumWall)} mm`);
       }
-      if (layout.maximumClearance + 1e-9 >= PARTS_BIN_SPECS.stackClearance.min) {
-        fixes.push(`a stacking clearance of at most ${mm(layout.maximumClearance)} mm`);
+      if (
+        layout.maximumClearance + 1e-9 >=
+        PARTS_BIN_SPECS.stackClearance.min
+      ) {
+        fixes.push(
+          `a stacking clearance of at most ${mm(layout.maximumClearance)} mm`,
+        );
       }
       const fix =
         fixes.length > 0

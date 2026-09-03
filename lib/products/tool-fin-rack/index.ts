@@ -6,8 +6,8 @@ import {
   signatureFromSpecs,
 } from "../shared";
 import type { DerivedValue, ProductDefinition } from "../types";
+import { loadGeometry } from "../geometry-registry";
 import { TOOL_FIN_RACK_COPY, TOOL_FIN_RACK_ID } from "./copy";
-import { generateToolFinRack } from "./geometry";
 import { TOOL_FIN_RACK_PRESETS } from "./presets";
 import {
   FIN_FILLET_WIDTH_MM,
@@ -85,7 +85,10 @@ export const toolFinRack: ProductDefinition<ToolFinRackSpecs> = {
   validate: validateToolFinRack,
   signature,
   derive,
-  generate: generateToolFinRack,
+  generate: (parameters) =>
+    loadGeometry<ToolFinRackParameters>(TOOL_FIN_RACK_ID).then((geometry) =>
+      geometry.generate(parameters),
+    ),
   // The outside width is rackWidth and the outside depth is rackDepth, one
   // to one. The fin gap is not compensated.
   compensable: { x: ["rackWidth"], y: ["rackDepth"] },
@@ -93,13 +96,21 @@ export const toolFinRack: ProductDefinition<ToolFinRackSpecs> = {
     const layout = deriveLayout(parameters);
     return {
       min: [-parameters.rackWidth / 2, -parameters.rackDepth / 2, 0],
-      max: [parameters.rackWidth / 2, parameters.rackDepth / 2, layout.outsideHeight],
+      max: [
+        parameters.rackWidth / 2,
+        parameters.rackDepth / 2,
+        layout.outsideHeight,
+      ],
       tolerance: 1e-3,
     };
   },
   filename: (parameters) => {
     const layout = deriveLayout(parameters);
-    const size = [parameters.rackWidth, parameters.rackDepth, layout.outsideHeight]
+    const size = [
+      parameters.rackWidth,
+      parameters.rackDepth,
+      layout.outsideHeight,
+    ]
       .map(filenameNumber)
       .join("x");
     return `drawerforge-${TOOL_FIN_RACK_ID}-${size}-${parameters.finCount}fins-${shortHash(signature(parameters))}.stl`;
@@ -111,7 +122,6 @@ export const toolFinRack: ProductDefinition<ToolFinRackSpecs> = {
 };
 
 export { TOOL_FIN_RACK_COPY, TOOL_FIN_RACK_ID } from "./copy";
-export { generateToolFinRack } from "./geometry";
 export {
   FIN_FILLET_HEIGHT_MM,
   FIN_FILLET_WIDTH_MM,

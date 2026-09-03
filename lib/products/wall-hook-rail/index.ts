@@ -1,4 +1,4 @@
-import { cantileverLoadNewtons, loadNote } from "../../kernel/brackets";
+import { cantileverLoadNewtons, loadNote } from "../../kernel/bracket-rules";
 import {
   filenameNumber,
   formatMillimeters,
@@ -6,15 +6,18 @@ import {
   shortHash,
   signatureFromSpecs,
 } from "../shared";
+import { wallsFromSpecs } from "../../printer-profile";
 import type { DerivedValue, ProductDefinition } from "../types";
+import { loadGeometry } from "../geometry-registry";
 import { WALL_HOOK_RAIL_COPY, WALL_HOOK_RAIL_ID } from "./copy";
-import { buildWallHookRail, generateWallHookRail } from "./geometry";
 import { WALL_HOOK_RAIL_PRESETS } from "./presets";
 import {
   HOOK_GAP_MM,
+  LIP_THICKNESS_MM,
   WALL_HOOK_RAIL_DEFAULTS,
   WALL_HOOK_RAIL_GROUPS,
   WALL_HOOK_RAIL_SPECS,
+  couponParameters,
   deriveLayout,
   type WallHookRailParameters,
   type WallHookRailSpecs,
@@ -89,32 +92,6 @@ function derive(parameters: WallHookRailParameters): DerivedValue[] {
   return values;
 }
 
-/**
- * The fit-test coupon: one hook on a short plate with two screws, at the
- * same root, projection, lip, and plate thickness as the rail. Print it
- * first and hang the load on it. The hook rail coupon is a single hook.
- */
-function couponParameters(parameters: WallHookRailParameters): WallHookRailParameters {
-  const railLength = Math.max(60, parameters.hookWidth + 2 * HOOK_GAP_MM);
-  const headDiameter = deriveLayout(parameters).headDiameter;
-  return {
-    ...parameters,
-    railLength,
-    hookCount: 1,
-    keyShelf: false,
-    screwCount: 2,
-    screwSpacing: Math.floor(railLength - headDiameter - 16),
-  };
-}
-
-async function generateCoupon(parameters: WallHookRailParameters) {
-  const validation = validateWallHookRail(parameters);
-  if (!validation.valid) {
-    throw new Error(validation.issues.map((issue) => issue.message).join(" "));
-  }
-  return buildWallHookRail(couponParameters(parameters));
-}
-
 export const wallHookRail: ProductDefinition<WallHookRailSpecs> = {
   id: WALL_HOOK_RAIL_ID,
   geometryVersion: WALL_HOOK_RAIL_GEOMETRY_VERSION,
@@ -130,8 +107,14 @@ export const wallHookRail: ProductDefinition<WallHookRailSpecs> = {
   validate: validateWallHookRail,
   signature,
   derive,
-  generate: generateWallHookRail,
-  coupon: generateCoupon,
+  generate: (parameters) =>
+    loadGeometry<WallHookRailParameters>(WALL_HOOK_RAIL_ID).then((geometry) =>
+      geometry.generate(parameters),
+    ),
+  coupon: (parameters) =>
+    loadGeometry<WallHookRailParameters>(WALL_HOOK_RAIL_ID).then((geometry) =>
+      geometry.coupon!(parameters),
+    ),
   couponBoundsContract: (parameters) => {
     const layout = deriveLayout(couponParameters(parameters));
     return {
@@ -149,6 +132,21 @@ export const wallHookRail: ProductDefinition<WallHookRailSpecs> = {
     rotationDegrees: { x: -90, y: 0, z: 0 },
     note: "Print the rail with the plate flat on the bed and the hooks pointing up. Every hook arm stands vertical, and the only face that points down is the 45 degree ramp under each lip.",
   },
+  // The plate is a parameter, so the key rule finds it. The lip at the top
+  // of every hook is always LIP_THICKNESS_MM, and its key holds neither
+  // "wall" nor "thickness", so the product reports it (D-1703). The shelf
+  // gusset and the shelf itself both build at the plate thickness exactly
+  // (`thickness: T` in the gusset, `shelfThickness = T`), so neither adds a
+  // value the plate thickness has not already reported.
+  printedWalls: (parameters) => {
+    const walls = wallsFromSpecs(WALL_HOOK_RAIL_SPECS, parameters);
+    walls.push({
+      key: "lip",
+      label: "Lip thickness",
+      value: LIP_THICKNESS_MM,
+    });
+    return walls;
+  },
   boundsContract: (parameters) => {
     const layout = deriveLayout(parameters);
     return {
@@ -159,7 +157,11 @@ export const wallHookRail: ProductDefinition<WallHookRailSpecs> = {
   },
   filename: (parameters) => {
     const layout = deriveLayout(parameters);
-    const size = [layout.outsideWidth, layout.outsideDepth, layout.outsideHeight]
+    const size = [
+      layout.outsideWidth,
+      layout.outsideDepth,
+      layout.outsideHeight,
+    ]
       .map(filenameNumber)
       .join("x");
     return `drawerforge-${WALL_HOOK_RAIL_ID}-${size}-${parameters.hookCount}hooks-${shortHash(signature(parameters))}.stl`;
@@ -171,7 +173,6 @@ export const wallHookRail: ProductDefinition<WallHookRailSpecs> = {
 };
 
 export { WALL_HOOK_RAIL_COPY, WALL_HOOK_RAIL_ID } from "./copy";
-export { generateWallHookRail } from "./geometry";
 export {
   HOOK_BOTTOM_MARGIN_MM,
   HOOK_FILLET_MM,

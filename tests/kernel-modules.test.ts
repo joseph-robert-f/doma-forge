@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest";
-import {
-  boreCutter,
-  cutterArray,
-  solvePitch,
-  unionSolids,
-} from "../lib/kernel/arrays";
+import { solvePitch } from "../lib/kernel/pitch";
+import { boreCutter, cutterArray, unionSolids } from "../lib/kernel/arrays";
 import {
   MINIMUM_POCKET_DEPTH,
   MINIMUM_POCKET_SPAN,
-  lightenUnderside,
   planLightening,
   type LighteningOptions,
-} from "../lib/kernel/lightening";
+} from "../lib/kernel/lightening-plan";
+import { lightenUnderside } from "../lib/kernel/lightening";
 import { getKernel } from "../lib/kernel/manifold";
-import { chamferedCircle, polygon, roundedRectangle } from "../lib/kernel/profiles";
+import {
+  chamferedCircle,
+  polygon,
+  roundedRectangle,
+} from "../lib/kernel/profiles";
 import {
   BOOLEAN_OVERLAP,
   roundedShell,
@@ -30,7 +30,12 @@ function polygonCircleArea(radius: number, segments: number): number {
 
 describe("pitch solver", () => {
   it("spaces cutters with the same web between and around them", () => {
-    const result = solvePitch({ span: 100, count: 4, cutterSize: 10, minimumWeb: 2.5 });
+    const result = solvePitch({
+      span: 100,
+      count: 4,
+      cutterSize: 10,
+      minimumWeb: 2.5,
+    });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.web).toBeCloseTo(12, 10);
@@ -41,14 +46,26 @@ describe("pitch solver", () => {
   });
 
   it("centers a single cutter", () => {
-    const result = solvePitch({ span: 60, count: 1, cutterSize: 13, minimumWeb: 2.5 });
+    const result = solvePitch({
+      span: 60,
+      count: 1,
+      cutterSize: 13,
+      minimumWeb: 2.5,
+    });
     expect(result).toMatchObject({ ok: true, firstCenter: 0, web: 23.5 });
   });
 
   it("accepts a web exactly at the minimum and rejects one just under it", () => {
     // span = count * size + (count + 1) * web  ->  5 * 10 + 6 * 2.5 = 65
-    expect(solvePitch({ span: 65, count: 5, cutterSize: 10, minimumWeb: 2.5 }).ok).toBe(true);
-    const rejected = solvePitch({ span: 64.9, count: 5, cutterSize: 10, minimumWeb: 2.5 });
+    expect(
+      solvePitch({ span: 65, count: 5, cutterSize: 10, minimumWeb: 2.5 }).ok,
+    ).toBe(true);
+    const rejected = solvePitch({
+      span: 64.9,
+      count: 5,
+      cutterSize: 10,
+      minimumWeb: 2.5,
+    });
     expect(rejected.ok).toBe(false);
     if (rejected.ok) return;
     expect(rejected.web).toBeLessThan(2.5);
@@ -56,16 +73,27 @@ describe("pitch solver", () => {
   });
 
   it("reports a negative web when the cutters overlap", () => {
-    const result = solvePitch({ span: 50, count: 6, cutterSize: 10, minimumWeb: 2.5 });
+    const result = solvePitch({
+      span: 50,
+      count: 6,
+      cutterSize: 10,
+      minimumWeb: 2.5,
+    });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.web).toBeLessThan(0);
   });
 
   it("rejects a non-integer count or a zero cutter", () => {
-    expect(() => solvePitch({ span: 50, count: 1.5, cutterSize: 10, minimumWeb: 2 })).toThrow();
-    expect(() => solvePitch({ span: 50, count: 0, cutterSize: 10, minimumWeb: 2 })).toThrow();
-    expect(() => solvePitch({ span: 50, count: 2, cutterSize: 0, minimumWeb: 2 })).toThrow();
+    expect(() =>
+      solvePitch({ span: 50, count: 1.5, cutterSize: 10, minimumWeb: 2 }),
+    ).toThrow();
+    expect(() =>
+      solvePitch({ span: 50, count: 0, cutterSize: 10, minimumWeb: 2 }),
+    ).toThrow();
+    expect(() =>
+      solvePitch({ span: 50, count: 2, cutterSize: 0, minimumWeb: 2 }),
+    ).toThrow();
   });
 });
 
@@ -74,24 +102,28 @@ describe("cutter array", () => {
     [1, 1],
     [2, 1],
     [6, 4],
-  ])("unions %s by %s separate cylinders into one solid of the summed volume", async (countX, countY) => {
-    const kernel = await getKernel();
-    const radius = 3;
-    const height = 10;
-    const array = cutterArray(
-      kernel,
-      () => kernel.Manifold.cylinder(height, radius, radius, CYLINDER_SEGMENTS),
-      { pitchX: 10, pitchY: 10, countX, countY, origin: [0, 0, 0] },
-    );
-    const single = polygonCircleArea(radius, CYLINDER_SEGMENTS) * height;
-    expect(array.status()).toBe("NoError");
-    expect(array.volume()).toBeCloseTo(single * countX * countY, 6);
-    const box = array.boundingBox();
-    expect(box.min[0]).toBeCloseTo(-radius, 6);
-    expect(box.max[0]).toBeCloseTo((countX - 1) * 10 + radius, 6);
-    expect(box.max[1]).toBeCloseTo((countY - 1) * 10 + radius, 6);
-    array.delete();
-  });
+  ])(
+    "unions %s by %s separate cylinders into one solid of the summed volume",
+    async (countX, countY) => {
+      const kernel = await getKernel();
+      const radius = 3;
+      const height = 10;
+      const array = cutterArray(
+        kernel,
+        () =>
+          kernel.Manifold.cylinder(height, radius, radius, CYLINDER_SEGMENTS),
+        { pitchX: 10, pitchY: 10, countX, countY, origin: [0, 0, 0] },
+      );
+      const single = polygonCircleArea(radius, CYLINDER_SEGMENTS) * height;
+      expect(array.status()).toBe("NoError");
+      expect(array.volume()).toBeCloseTo(single * countX * countY, 6);
+      const box = array.boundingBox();
+      expect(box.min[0]).toBeCloseTo(-radius, 6);
+      expect(box.max[0]).toBeCloseTo((countX - 1) * 10 + radius, 6);
+      expect(box.max[1]).toBeCloseTo((countY - 1) * 10 + radius, 6);
+      array.delete();
+    },
+  );
 
   it("merges overlapping cutters into one body", async () => {
     const kernel = await getKernel();
@@ -109,7 +141,11 @@ describe("cutter array", () => {
     const kernel = await getKernel();
     expect(() =>
       cutterArray(kernel, () => kernel.Manifold.cube(1), {
-        pitchX: 1, pitchY: 1, countX: 0, countY: 1, origin: [0, 0, 0],
+        pitchX: 1,
+        pitchY: 1,
+        countX: 0,
+        countY: 1,
+        origin: [0, 0, 0],
       }),
     ).toThrow(/whole counts/);
     expect(() => unionSolids(kernel, [])).toThrow(/at least one/);
@@ -119,8 +155,20 @@ describe("cutter array", () => {
 describe("bore cutter", () => {
   it("enters the top face and overshoots it, with the chamfer widening the mouth", async () => {
     const kernel = await getKernel();
-    const plain = boreCutter(kernel, { diameter: 10, depth: 8, chamfer: 0, segments: CYLINDER_SEGMENTS, topZ: 20 });
-    const chamfered = boreCutter(kernel, { diameter: 10, depth: 8, chamfer: 1, segments: CYLINDER_SEGMENTS, topZ: 20 });
+    const plain = boreCutter(kernel, {
+      diameter: 10,
+      depth: 8,
+      chamfer: 0,
+      segments: CYLINDER_SEGMENTS,
+      topZ: 20,
+    });
+    const chamfered = boreCutter(kernel, {
+      diameter: 10,
+      depth: 8,
+      chamfer: 1,
+      segments: CYLINDER_SEGMENTS,
+      topZ: 20,
+    });
     const plainBox = plain.boundingBox();
     expect(plainBox.min[2]).toBeCloseTo(12, 6);
     expect(plainBox.max[2]).toBeCloseTo(20 + BOOLEAN_OVERLAP, 6);
@@ -130,7 +178,11 @@ describe("bore cutter", () => {
     // The chamfer is exactly one millimeter deep at the face: the mouth is
     // wider just above z = 19 and the plain bore radius just below it.
     const radiusAt = (z: number) => {
-      const slice = kernel.Manifold.cube([40, 40, 0.001], true).translate([0, 0, z]);
+      const slice = kernel.Manifold.cube([40, 40, 0.001], true).translate([
+        0,
+        0,
+        z,
+      ]);
       const cut = chamfered.intersect(slice);
       const radius = cut.boundingBox().max[0];
       cut.delete();
@@ -159,7 +211,12 @@ describe("profiles", () => {
     expect(prism.volume()).toBeCloseTo(50 * 4, 6);
     prism.delete();
     triangle.delete();
-    expect(() => polygon(kernel, [[0, 0], [1, 1]])).toThrow(/three points/);
+    expect(() =>
+      polygon(kernel, [
+        [0, 0],
+        [1, 1],
+      ]),
+    ).toThrow(/three points/);
   });
 
   it("builds a 45 degree chamfer cone that widens by its height", async () => {
@@ -176,7 +233,13 @@ describe("profiles", () => {
 describe("shell", () => {
   it("makes a slab of the profile area times the height", async () => {
     const kernel = await getKernel();
-    const slab = roundedSlab(kernel, { width: 40, depth: 20, height: 5, cornerRadius: 0, segments: 24 });
+    const slab = roundedSlab(kernel, {
+      width: 40,
+      depth: 20,
+      height: 5,
+      cornerRadius: 0,
+      segments: 24,
+    });
     expect(slab.volume()).toBeCloseTo(40 * 20 * 5, 6);
     slab.delete();
   });
@@ -184,7 +247,13 @@ describe("shell", () => {
   it("subtracts the cavity above the base and keeps the outer body", async () => {
     const kernel = await getKernel();
     const { outer, shell } = roundedShell(kernel, {
-      width: 40, depth: 30, height: 20, cornerRadius: 0, wallThickness: 2, baseThickness: 3, segments: 24,
+      width: 40,
+      depth: 30,
+      height: 20,
+      cornerRadius: 0,
+      wallThickness: 2,
+      baseThickness: 3,
+      segments: 24,
     });
     expect(outer.volume()).toBeCloseTo(40 * 30 * 20, 6);
     const cavity = 36 * 26 * (20 - 3);
@@ -199,8 +268,17 @@ describe("shell", () => {
   it("accepts arbitrary profiles", async () => {
     const kernel = await getKernel();
     const outerProfile = roundedRectangle(kernel, 30, 30, 5, 24);
-    const innerProfile = polygon(kernel, [[-10, -10], [10, -10], [0, 10]]);
-    const { outer, shell } = shellFromProfiles(outerProfile, innerProfile, 10, 2);
+    const innerProfile = polygon(kernel, [
+      [-10, -10],
+      [10, -10],
+      [0, 10],
+    ]);
+    const { outer, shell } = shellFromProfiles(
+      outerProfile,
+      innerProfile,
+      10,
+      2,
+    );
     expect(outer.volume() - shell.volume()).toBeCloseTo(200 * 8, 4);
     outer.delete();
     shell.delete();
@@ -211,7 +289,15 @@ describe("shell", () => {
 
 describe("underside lightening", () => {
   const base: LighteningOptions = {
-    width: 200, depth: 110, cornerRadius: 3, rim: 2, pocketDepth: 4, maximumSpan: 40, web: 2.5, pocketRadius: 2, segments: 24,
+    width: 200,
+    depth: 110,
+    cornerRadius: 3,
+    rim: 2,
+    pocketDepth: 4,
+    maximumSpan: 40,
+    web: 2.5,
+    pocketRadius: 2,
+    segments: 24,
   };
 
   it("splits the inside into pockets no wider than the maximum span", () => {
@@ -219,13 +305,23 @@ describe("underside lightening", () => {
     expect(plan).not.toBeNull();
     expect(plan!.spanX).toBeLessThanOrEqual(40);
     expect(plan!.spanY).toBeLessThanOrEqual(40);
-    expect(plan!.countX * plan!.spanX + (plan!.countX - 1) * 2.5).toBeCloseTo(196, 10);
-    expect(plan!.countY * plan!.spanY + (plan!.countY - 1) * 2.5).toBeCloseTo(106, 10);
+    expect(plan!.countX * plan!.spanX + (plan!.countX - 1) * 2.5).toBeCloseTo(
+      196,
+      10,
+    );
+    expect(plan!.countY * plan!.spanY + (plan!.countY - 1) * 2.5).toBeCloseTo(
+      106,
+      10,
+    );
   });
 
   it("returns no plan for a shallow pocket, a tiny slab, or a cleared value", () => {
-    expect(planLightening({ ...base, pocketDepth: MINIMUM_POCKET_DEPTH - 0.01 })).toBeNull();
-    expect(planLightening({ ...base, width: MINIMUM_POCKET_SPAN + 2 * 2 - 0.1 })).toBeNull();
+    expect(
+      planLightening({ ...base, pocketDepth: MINIMUM_POCKET_DEPTH - 0.01 }),
+    ).toBeNull();
+    expect(
+      planLightening({ ...base, width: MINIMUM_POCKET_SPAN + 2 * 2 - 0.1 }),
+    ).toBeNull();
     expect(planLightening({ ...base, width: Number.NaN })).toBeNull();
   });
 
@@ -235,9 +331,20 @@ describe("underside lightening", () => {
     // grid would cut through the rounded corner and open the pocket to
     // the outside. The clip keeps at least the rim everywhere.
     const options: LighteningOptions = {
-      ...base, width: 60, depth: 40, rim: 1.2, cornerRadius: 20, pocketDepth: 3,
+      ...base,
+      width: 60,
+      depth: 40,
+      rim: 1.2,
+      cornerRadius: 20,
+      pocketDepth: 3,
     };
-    const slab = roundedSlab(kernel, { width: 60, depth: 40, height: 8, cornerRadius: 20, segments: 24 });
+    const slab = roundedSlab(kernel, {
+      width: 60,
+      depth: 40,
+      height: 8,
+      cornerRadius: 20,
+      segments: 24,
+    });
     const { solid, plan } = lightenUnderside(kernel, slab, options);
     expect(plan).not.toBeNull();
     // Probe the corner: a point on the 45 degree diagonal, half a rim in
@@ -258,14 +365,23 @@ describe("underside lightening", () => {
 
   it("removes the pocket volume and leaves the slab alone when there is no plan", async () => {
     const kernel = await getKernel();
-    const slab = roundedSlab(kernel, { width: 200, depth: 110, height: 10, cornerRadius: 0, segments: 24 });
+    const slab = roundedSlab(kernel, {
+      width: 200,
+      depth: 110,
+      height: 10,
+      cornerRadius: 0,
+      segments: 24,
+    });
     const before = slab.volume();
     const { solid, plan } = lightenUnderside(kernel, slab, base);
     expect(plan).not.toBeNull();
     expect(solid.volume()).toBeLessThan(before);
     expect(solid.boundingBox().min[2]).toBeCloseTo(0, 6);
     expect(solid.status()).toBe("NoError");
-    const untouched = lightenUnderside(kernel, solid, { ...base, pocketDepth: 0 });
+    const untouched = lightenUnderside(kernel, solid, {
+      ...base,
+      pocketDepth: 0,
+    });
     expect(untouched.plan).toBeNull();
     expect(untouched.solid).toBe(solid);
     solid.delete();

@@ -1,5 +1,9 @@
-import { HOOK_MAXIMUM_PROJECTION_RATIO } from "../../kernel/brackets";
-import { IssueCollector, formatMillimeters, validateAgainstSpecs } from "../shared";
+import { HOOK_MAXIMUM_PROJECTION_RATIO } from "../../kernel/bracket-rules";
+import {
+  IssueCollector,
+  formatMillimeters,
+  validateAgainstSpecs,
+} from "../shared";
 import type { ValidationResult } from "../types";
 import {
   BAND_CLEARANCE_MM,
@@ -42,7 +46,8 @@ export function validateHeadphoneMount(
     // The projection that clears the band may lie past the field's own
     // maximum. The message then offers only the fixes that can work.
     const fix =
-      layout.minimumProjection <= HEADPHONE_MOUNT_SPECS.hookProjection.max + 1e-9
+      layout.minimumProjection <=
+      HEADPHONE_MOUNT_SPECS.hookProjection.max + 1e-9
         ? `Use a projection of at least ${mm(layout.minimumProjection)} mm, a shorter lip, or a thinner band.`
         : `No projection clears it. Use a shorter lip, or a thinner band.`;
     add(
@@ -57,7 +62,10 @@ export function validateHeadphoneMount(
       `Hook width must be at most ${mm(layout.maximumFeatureWidth)} mm, so ${SIDE_MARGIN_MM} mm of plate stays on each side. Use a narrower hook, or a wider plate.`,
     );
   }
-  if (parameters.controllerPocket && parameters.pocketWidth > layout.maximumFeatureWidth + 1e-9) {
+  if (
+    parameters.controllerPocket &&
+    parameters.pocketWidth > layout.maximumFeatureWidth + 1e-9
+  ) {
     add(
       "pocketWidth",
       `Pocket width must be at most ${mm(layout.maximumFeatureWidth)} mm, so ${SIDE_MARGIN_MM} mm of plate stays on each side. Use a narrower pocket, or a wider plate.`,

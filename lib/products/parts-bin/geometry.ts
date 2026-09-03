@@ -62,10 +62,7 @@ function ringPrism(
  * card slot. The ledge never rises above the front rim, so it cannot touch
  * the bin above it in a stack.
  */
-function labelLedge(
-  kernel: ManifoldToplevel,
-  layout: PartsBinLayout,
-): Solid {
+function labelLedge(kernel: ManifoldToplevel, layout: PartsBinLayout): Solid {
   const frontY = -layout.bodyDepth / 2;
   const shelfAtOrigin = kernel.Manifold.cube(
     [
@@ -174,7 +171,9 @@ export function buildPartsBinSolid(
 
   const cutters: Solid[] = [];
   if (layout.recess) {
-    cutters.push(ringPrism(kernel, layout.recess, segments, BOOLEAN_OVERLAP, 0));
+    cutters.push(
+      ringPrism(kernel, layout.recess, segments, BOOLEAN_OVERLAP, 0),
+    );
   }
   if (parameters.frontScoop) {
     cutters.push(scoopCutter(kernel, parameters, layout, segments));

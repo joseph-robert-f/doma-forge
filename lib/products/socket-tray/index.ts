@@ -5,11 +5,13 @@ import {
   shortHash,
   signatureFromSpecs,
 } from "../shared";
+import { wallsFromSpecs } from "../../printer-profile";
 import type { DerivedValue, ProductDefinition } from "../types";
+import { loadGeometry } from "../geometry-registry";
 import { SOCKET_TRAY_COPY, SOCKET_TRAY_ID } from "./copy";
-import { generateSocketTray } from "./geometry";
 import { SOCKET_TRAY_PRESETS } from "./presets";
 import {
+  LIGHTENING_WEB_MM,
   SOCKET_TRAY_DEFAULTS,
   SOCKET_TRAY_GROUPS,
   SOCKET_TRAY_SPECS,
@@ -83,17 +85,60 @@ export const socketTray: ProductDefinition<SocketTraySpecs> = {
   validate: validateSocketTray,
   signature,
   derive,
-  generate: generateSocketTray,
+  generate: (parameters) =>
+    loadGeometry<SocketTrayParameters>(SOCKET_TRAY_ID).then((geometry) =>
+      geometry.generate(parameters),
+    ),
   // The outside width is trayWidth and the outside depth is trayDepth, one
   // to one. The bores are not compensated; see 20_KERNEL_MODULES_NOTES.md.
   compensable: { x: ["trayWidth"], y: ["trayDepth"] },
+  // The rim and the base are parameters, so the key-name rule finds them.
+  // The webs between bores and between rows are solved, and the web between
+  // underside pockets is a constant, so the product reports them (D-1703).
+  printedWalls: (parameters) => {
+    const walls = wallsFromSpecs(SOCKET_TRAY_SPECS, parameters);
+    const layout = deriveLayout(parameters);
+    const rowWebs = layout.rowLayouts
+      .filter((row) => row.ok)
+      .map((row) => row.web);
+    if (parameters.holesPerRow > 1 && rowWebs.length > 0) {
+      walls.push({
+        key: "bore-web",
+        label: "Web between bores",
+        value: Math.min(...rowWebs),
+      });
+    }
+    if (layout.rowDiameters.length > 1 && layout.rowSpacing.ok) {
+      walls.push({
+        key: "row-web",
+        label: "Web between rows",
+        value: layout.rowSpacing.web,
+      });
+    }
+    if (layout.lightening) {
+      walls.push({
+        key: "pocket-web",
+        label: "Web between underside pockets",
+        value: LIGHTENING_WEB_MM,
+      });
+    }
+    return walls;
+  },
   boundsContract: (parameters) => ({
     min: [-parameters.trayWidth / 2, -parameters.trayDepth / 2, 0],
-    max: [parameters.trayWidth / 2, parameters.trayDepth / 2, parameters.trayHeight],
+    max: [
+      parameters.trayWidth / 2,
+      parameters.trayDepth / 2,
+      parameters.trayHeight,
+    ],
     tolerance: 1e-3,
   }),
   filename: (parameters) => {
-    const size = [parameters.trayWidth, parameters.trayDepth, parameters.trayHeight]
+    const size = [
+      parameters.trayWidth,
+      parameters.trayDepth,
+      parameters.trayHeight,
+    ]
       .map(filenameNumber)
       .join("x");
     return `drawerforge-${SOCKET_TRAY_ID}-${size}-${parameters.rows}x${parameters.holesPerRow}-${shortHash(signature(parameters))}.stl`;
@@ -103,7 +148,6 @@ export const socketTray: ProductDefinition<SocketTraySpecs> = {
 };
 
 export { SOCKET_TRAY_COPY, SOCKET_TRAY_ID } from "./copy";
-export { generateSocketTray } from "./geometry";
 export {
   CHAMFER_MM,
   MINIMUM_WEB_MM,

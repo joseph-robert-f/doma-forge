@@ -204,3 +204,19 @@ export function deriveDimensions(
     compartmentDepth,
   };
 }
+
+/** The coupon ring height, in millimeters. Independent of organizer height. */
+export const FIT_TEST_COUPON_HEIGHT = 5;
+
+/** No ring wall is ever thinner than this, whatever the tray wall setting is. */
+export const FIT_TEST_COUPON_MINIMUM_WALL = 2;
+
+/**
+ * The coupon's ring wall thickness: the tray's own outer wall thickness, or
+ * the print-safe minimum, whichever is larger.
+ */
+export function getCouponWallThickness(
+  parameters: DrawerTrayParameters,
+): number {
+  return Math.max(FIT_TEST_COUPON_MINIMUM_WALL, parameters.wallThickness);
+}

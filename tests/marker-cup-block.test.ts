@@ -4,11 +4,17 @@ import { describe, expect, it } from "vitest";
 import {
   CHAMFER_MM,
   MARKER_CUP_BLOCK_DEFAULTS,
+  MARKER_CUP_BLOCK_SPECS,
   boreMouthSemiAxes,
   deriveLayout,
   markerCupBlock,
   type MarkerCupBlockParameters,
 } from "../lib/products/marker-cup-block";
+import {
+  normalizePrinterProfile,
+  thinWallIssues,
+  wallLikeKeys,
+} from "../lib/printer-profile";
 import { inspectBinaryStl, serializeBinaryStl } from "../lib/stl";
 import {
   analyzeBufferGeometry,
@@ -184,6 +190,58 @@ describe("marker cup block parameters", () => {
     expect(values.at(-1)?.value).toMatch(/^\d+ × \d+, [\d.]+ mm deep$/);
     const noPockets = markerCupBlock.derive(withChanges({ lightenUnderside: false }));
     expect(noPockets.at(-1)?.value).toBe("none");
+  });
+});
+
+describe("printed walls", () => {
+  it("reports the solved bore, row, and pocket webs alongside the wall-like parameters", () => {
+    const layout = deriveLayout(MARKER_CUP_BLOCK_DEFAULTS);
+    const walls = markerCupBlock.printedWalls!(MARKER_CUP_BLOCK_DEFAULTS);
+    const byKey = new Map(walls.map((wall) => [wall.key, wall]));
+
+    expect(byKey.get("bore-web")?.label).toBe("Web between cups");
+    expect(byKey.get("bore-web")?.value).toBeCloseTo(
+      Math.min(...layout.rowLayouts.map((row) => (row.ok ? row.web : Infinity))),
+      9,
+    );
+    expect(byKey.get("row-web")?.label).toBe("Web between rows");
+    expect(layout.rowSpacing.ok).toBe(true);
+    if (layout.rowSpacing.ok) {
+      expect(byKey.get("row-web")?.value).toBeCloseTo(layout.rowSpacing.web, 9);
+    }
+    expect(byKey.get("pocket-web")?.label).toBe("Web between underside pockets");
+    expect(byKey.get("pocket-web")?.value).toBeCloseTo(2.5, 9);
+
+    for (const key of wallLikeKeys(MARKER_CUP_BLOCK_SPECS)) {
+      expect(byKey.has(key), `${key} missing`).toBe(true);
+    }
+  });
+
+  it("flags a thin bore web against a 1.5 mm nozzle, on a design the product still validates", () => {
+    const parameters = withChanges({ cupsPerRow: 5 });
+    expect(markerCupBlock.validate(parameters).valid).toBe(true);
+    const layout = deriveLayout(parameters);
+    const boreWeb = Math.min(
+      ...layout.rowLayouts.map((row) => (row.ok ? row.web : Infinity)),
+    );
+    expect(boreWeb).toBeLessThan(3);
+
+    const profile = normalizePrinterProfile({ nozzleDiameter: 1.5 });
+    const issues = thinWallIssues(
+      markerCupBlock.printedWalls!(parameters),
+      profile,
+    );
+    expect(
+      issues.some((issue) => issue.text.includes("Web between cups")),
+    ).toBe(true);
+  });
+
+  it("does not throw and reports only finite values for a cleared field", () => {
+    const cleared = { ...MARKER_CUP_BLOCK_DEFAULTS, blockWidth: Number.NaN };
+    const walls = markerCupBlock.printedWalls!(cleared);
+    for (const wall of walls) {
+      expect(Number.isFinite(wall.value), wall.key).toBe(true);
+    }
   });
 });
 

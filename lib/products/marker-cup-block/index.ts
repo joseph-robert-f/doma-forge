@@ -5,11 +5,13 @@ import {
   shortHash,
   signatureFromSpecs,
 } from "../shared";
+import { wallsFromSpecs } from "../../printer-profile";
 import type { DerivedValue, ProductDefinition } from "../types";
+import { loadGeometry } from "../geometry-registry";
 import { MARKER_CUP_BLOCK_COPY, MARKER_CUP_BLOCK_ID } from "./copy";
-import { generateMarkerCupBlock } from "./geometry";
 import { MARKER_CUP_BLOCK_PRESETS } from "./presets";
 import {
+  LIGHTENING_WEB_MM,
   MARKER_CUP_BLOCK_DEFAULTS,
   MARKER_CUP_BLOCK_GROUPS,
   MARKER_CUP_BLOCK_SPECS,
@@ -79,22 +81,71 @@ export const markerCupBlock: ProductDefinition<MarkerCupBlockSpecs> = {
   defaults: MARKER_CUP_BLOCK_DEFAULTS,
   presets: MARKER_CUP_BLOCK_PRESETS,
   normalize: (input) =>
-    normalizeFromSpecs(MARKER_CUP_BLOCK_SPECS, MARKER_CUP_BLOCK_DEFAULTS, input),
+    normalizeFromSpecs(
+      MARKER_CUP_BLOCK_SPECS,
+      MARKER_CUP_BLOCK_DEFAULTS,
+      input,
+    ),
   validate: validateMarkerCupBlock,
   signature,
   derive,
-  generate: generateMarkerCupBlock,
+  generate: (parameters) =>
+    loadGeometry<MarkerCupBlockParameters>(MARKER_CUP_BLOCK_ID).then(
+      (geometry) => geometry.generate(parameters),
+    ),
   // The outside width is blockWidth and the outside depth is blockDepth,
   // one to one. The bores are not compensated; see 20_KERNEL_MODULES_NOTES.md
   // open issue 1, which applies here too.
   compensable: { x: ["blockWidth"], y: ["blockDepth"] },
+  // The rim and the base are parameters, so the key-name rule finds them.
+  // The webs between cups in a row and between rows are solved by the pitch
+  // solver, and the web between underside pockets is a fixed constant, so
+  // none of the three is named by any parameter; the product reports them
+  // itself (D-1703).
+  printedWalls: (parameters) => {
+    const walls = wallsFromSpecs(MARKER_CUP_BLOCK_SPECS, parameters);
+    const layout = deriveLayout(parameters);
+    const rowWebs = layout.rowLayouts
+      .filter((row) => row.ok)
+      .map((row) => row.web);
+    if (parameters.cupsPerRow > 1 && rowWebs.length > 0) {
+      walls.push({
+        key: "bore-web",
+        label: "Web between cups",
+        value: Math.min(...rowWebs),
+      });
+    }
+    if (layout.rowLayouts.length > 1 && layout.rowSpacing.ok) {
+      walls.push({
+        key: "row-web",
+        label: "Web between rows",
+        value: layout.rowSpacing.web,
+      });
+    }
+    if (layout.lightening) {
+      walls.push({
+        key: "pocket-web",
+        label: "Web between underside pockets",
+        value: LIGHTENING_WEB_MM,
+      });
+    }
+    return walls;
+  },
   boundsContract: (parameters) => ({
     min: [-parameters.blockWidth / 2, -parameters.blockDepth / 2, 0],
-    max: [parameters.blockWidth / 2, parameters.blockDepth / 2, parameters.blockHeight],
+    max: [
+      parameters.blockWidth / 2,
+      parameters.blockDepth / 2,
+      parameters.blockHeight,
+    ],
     tolerance: 1e-3,
   }),
   filename: (parameters) => {
-    const size = [parameters.blockWidth, parameters.blockDepth, parameters.blockHeight]
+    const size = [
+      parameters.blockWidth,
+      parameters.blockDepth,
+      parameters.blockHeight,
+    ]
       .map(filenameNumber)
       .join("x");
     return `drawerforge-${MARKER_CUP_BLOCK_ID}-${size}-${parameters.rows}x${parameters.cupsPerRow}-${shortHash(signature(parameters))}.stl`;
@@ -104,7 +155,6 @@ export const markerCupBlock: ProductDefinition<MarkerCupBlockSpecs> = {
 };
 
 export { MARKER_CUP_BLOCK_COPY, MARKER_CUP_BLOCK_ID } from "./copy";
-export { generateMarkerCupBlock } from "./geometry";
 export {
   CHAMFER_MM,
   MARKER_CUP_BLOCK_DEFAULTS,

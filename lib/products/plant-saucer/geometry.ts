@@ -1,11 +1,8 @@
 import { unionSolids } from "../../kernel/arrays";
 import { getKernel, type Solid } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
-import {
-  revolveProfile,
-  revolveShell,
-  type ProfilePoint,
-} from "../../kernel/revolve";
+import { type ProfilePoint } from "../../kernel/vessel-profile";
+import { revolveProfile, revolveShell } from "../../kernel/revolve";
 import { BOOLEAN_OVERLAP } from "../../kernel/shell";
 import {
   NOTCH_WIDTH_MM,
@@ -49,7 +46,9 @@ export async function generatePlantSaucer(
       [0, 0],
       [profile.innerRadiusAtBase + BOOLEAN_OVERLAP, 0],
       [
-        profile.innerRadiusAtBase + clipTopZ * profile.taperTangent + BOOLEAN_OVERLAP,
+        profile.innerRadiusAtBase +
+          clipTopZ * profile.taperTangent +
+          BOOLEAN_OVERLAP,
         clipTopZ,
       ],
       [0, clipTopZ],

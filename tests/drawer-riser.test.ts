@@ -3,12 +3,18 @@ import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { describe, expect, it } from "vitest";
 import {
   DRAWER_RISER_DEFAULTS,
+  DRAWER_RISER_SPECS,
   HEADROOM_MM,
   deriveLayout,
   drawerRiser,
   type DrawerRiserParameters,
 } from "../lib/products/drawer-riser";
-import { LEG_MAXIMUM_SLENDERNESS } from "../lib/kernel/legs";
+import { LEG_MAXIMUM_SLENDERNESS } from "../lib/kernel/leg-plan";
+import {
+  normalizePrinterProfile,
+  thinWallIssues,
+  wallLikeKeys,
+} from "../lib/printer-profile";
 import { inspectBinaryStl, serializeBinaryStl } from "../lib/stl";
 import {
   analyzeBufferGeometry,
@@ -27,19 +33,41 @@ const { normalize, validate, generate } = drawerRiser;
 const GOLDEN_TRIANGLES = 1184;
 const GOLDEN_VOLUME = 280931.83;
 
-function withChanges(changes: Partial<DrawerRiserParameters>): DrawerRiserParameters {
+function withChanges(
+  changes: Partial<DrawerRiserParameters>,
+): DrawerRiserParameters {
   return normalize({ ...DRAWER_RISER_DEFAULTS, ...changes });
 }
 
 const MINIMUM_CASE: Partial<DrawerRiserParameters> = {
-  drawerWidth: 80, drawerDepth: 80, drawerUsableHeight: 40, clearancePerSide: 0,
-  clearHeight: 10, trayHeight: 10, legSection: 8, rows: 1, columns: 1,
-  wallThickness: 1.6, baseThickness: 1.6, dividerThickness: 1.2, cornerRadius: 0,
+  drawerWidth: 80,
+  drawerDepth: 80,
+  drawerUsableHeight: 40,
+  clearancePerSide: 0,
+  clearHeight: 10,
+  trayHeight: 10,
+  legSection: 8,
+  rows: 1,
+  columns: 1,
+  wallThickness: 1.6,
+  baseThickness: 1.6,
+  dividerThickness: 1.2,
+  cornerRadius: 0,
 };
 const MAXIMUM_CASE: Partial<DrawerRiserParameters> = {
-  drawerWidth: 600, drawerDepth: 600, drawerUsableHeight: 300, clearancePerSide: 3,
-  clearHeight: 150, trayHeight: 120, legSection: 40, rows: 6, columns: 8,
-  wallThickness: 4, baseThickness: 6, dividerThickness: 4, cornerRadius: 20,
+  drawerWidth: 600,
+  drawerDepth: 600,
+  drawerUsableHeight: 300,
+  clearancePerSide: 3,
+  clearHeight: 150,
+  trayHeight: 120,
+  legSection: 40,
+  rows: 6,
+  columns: 8,
+  wallThickness: 4,
+  baseThickness: 6,
+  dividerThickness: 4,
+  cornerRadius: 20,
 };
 
 describe("drawer riser parameters", () => {
@@ -91,7 +119,10 @@ describe("drawer riser parameters", () => {
       drawerUsableHeight: 200,
     });
     expect(validate(atLimit).valid).toBe(true);
-    const overLimit = { ...atLimit, clearHeight: 12 * LEG_MAXIMUM_SLENDERNESS + 1 };
+    const overLimit = {
+      ...atLimit,
+      clearHeight: 12 * LEG_MAXIMUM_SLENDERNESS + 1,
+    };
     const result = validate(overLimit);
     expect(result.valid).toBe(false);
     expect(result.byField.legSection?.[0]).toBe(
@@ -101,19 +132,26 @@ describe("drawer riser parameters", () => {
 
   it("accepts the smallest leg section and refuses a smaller one", () => {
     expect(validate(withChanges({ legSection: 8 })).valid).toBe(true);
-    expect(validate(withChanges({ legSection: 7 })).byField.legSection?.[0]).toBe(
-      "Leg section must be between 8 and 40 mm.",
-    );
+    expect(
+      validate(withChanges({ legSection: 7 })).byField.legSection?.[0],
+    ).toBe("Leg section must be between 8 and 40 mm.");
   });
 
   it("refuses legs that leave no gap on the short side", () => {
     // 101 mm inside, 10 mm gusset inset and a 40 mm post on each side: 1 mm.
-    const tight = { drawerWidth: 200, drawerDepth: 102, legSection: 40, clearHeight: 20 };
+    const tight = {
+      drawerWidth: 200,
+      drawerDepth: 102,
+      legSection: 40,
+      clearHeight: 20,
+    };
     const result = validate(withChanges(tight));
     expect(result.byField.legSection?.[0]).toBe(
       "Legs of 40 mm leave 1 mm between the two posts on the short side. Use a smaller leg section, or a larger drawer.",
     );
-    expect(validate(withChanges({ ...tight, drawerDepth: 111 })).valid).toBe(true);
+    expect(validate(withChanges({ ...tight, drawerDepth: 111 })).valid).toBe(
+      true,
+    );
   });
 
   it("keeps the riser under the usable height, naming the field and the fix", () => {
@@ -128,10 +166,20 @@ describe("drawer riser parameters", () => {
 
   it("rejects a compartment grid under the minimum size", () => {
     const result = validate(
-      withChanges({ columns: 8, rows: 6, drawerWidth: 90, drawerDepth: 80, dividerThickness: 4 }),
+      withChanges({
+        columns: 8,
+        rows: 6,
+        drawerWidth: 90,
+        drawerDepth: 80,
+        dividerThickness: 4,
+      }),
     );
-    expect(result.byField.columns?.[0]).toMatch(/^Each compartment must be at least 10 mm wide\./);
-    expect(result.byField.rows?.[0]).toMatch(/^Each compartment must be at least 10 mm deep\./);
+    expect(result.byField.columns?.[0]).toMatch(
+      /^Each compartment must be at least 10 mm wide\./,
+    );
+    expect(result.byField.rows?.[0]).toMatch(
+      /^Each compartment must be at least 10 mm deep\./,
+    );
   });
 
   it("derives and validates a cleared field without throwing", () => {
@@ -153,7 +201,10 @@ describe("drawer riser parameters", () => {
       expect(result.byField[key]?.[0]).toMatch(/must be a number/);
     }
     expect(
-      drawerRiser.derive({ ...DRAWER_RISER_DEFAULTS, legSection: Number.NaN })[2].value,
+      drawerRiser.derive({
+        ...DRAWER_RISER_DEFAULTS,
+        legSection: Number.NaN,
+      })[2].value,
     ).toBe("do not fit");
     expect(
       drawerRiser
@@ -172,7 +223,9 @@ describe("drawer riser parameters", () => {
   });
 
   it("derives the outside size, the compartments, the legs, and the height used", () => {
-    expect(drawerRiser.derive(DRAWER_RISER_DEFAULTS).map((value) => value.value)).toEqual([
+    expect(
+      drawerRiser.derive(DRAWER_RISER_DEFAULTS).map((value) => value.value),
+    ).toEqual([
       "299 × 199 × 82.4 mm",
       "≈ 146.5 × 96.5 mm",
       "4 posts, 12 mm section, 45 mm clear",
@@ -185,7 +238,11 @@ describe("drawer riser parameters", () => {
   });
 
   it("carries the print pose, and says what the pose bridges", () => {
-    expect(drawerRiser.printOrientation?.rotationDegrees).toEqual({ x: 180, y: 0, z: 0 });
+    expect(drawerRiser.printOrientation?.rotationDegrees).toEqual({
+      x: 180,
+      y: 0,
+      z: 0,
+    });
     const note = drawerRiser.printOrientation?.note ?? "";
     expect(note).toMatch(/rim goes on the bed/);
     expect(note).toMatch(/legs point up/);
@@ -198,15 +255,22 @@ describe("drawer riser parameters", () => {
   it("reports the longest bridge as the shorter compartment side", () => {
     expect(deriveLayout(DRAWER_RISER_DEFAULTS).longestBridge).toBe(96.5);
     // More rows shorten the compartment, and with it the bridge.
-    expect(deriveLayout(withChanges({ rows: 4 })).longestBridge).toBeCloseTo(47.25, 10);
+    expect(deriveLayout(withChanges({ rows: 4 })).longestBridge).toBeCloseTo(
+      47.25,
+      10,
+    );
     expect(
-      drawerRiser.derive(withChanges({ rows: 4 })).find((value) => value.id === "longest-bridge")
-        ?.value,
+      drawerRiser
+        .derive(withChanges({ rows: 4 }))
+        .find((value) => value.id === "longest-bridge")?.value,
     ).toBe("47.3 mm, the compartment ceiling");
   });
 
   it("compensates the drawer width and the drawer depth", () => {
-    expect(drawerRiser.compensable).toEqual({ x: ["drawerWidth"], y: ["drawerDepth"] });
+    expect(drawerRiser.compensable).toEqual({
+      x: ["drawerWidth"],
+      y: ["drawerDepth"],
+    });
   });
 });
 
@@ -216,45 +280,56 @@ describe("drawer riser geometry", () => {
     ["default", {}],
     ["maximum", MAXIMUM_CASE],
     ["single compartment", { rows: 1, columns: 1 }],
-    ["tall legs", { clearHeight: 100, trayHeight: 30, legSection: 14, drawerUsableHeight: 150 }],
+    [
+      "tall legs",
+      {
+        clearHeight: 100,
+        trayHeight: 30,
+        legSection: 14,
+        drawerUsableHeight: 150,
+      },
+    ],
     ["square corners", { cornerRadius: 0 }],
   ];
 
-  it.each(fixtures)("creates a finite, outward, closed %s riser", async (_name, changes) => {
-    const parameters = withChanges(changes);
-    expect(validate(parameters).valid).toBe(true);
-    const layout = deriveLayout(parameters);
-    const model = await generate(parameters);
-    const geometry = modelToBufferGeometry(model);
-    const analysis = analyzeBufferGeometry(geometry);
-    const size = analysis.bounds.getSize(new THREE.Vector3());
+  it.each(fixtures)(
+    "creates a finite, outward, closed %s riser",
+    async (_name, changes) => {
+      const parameters = withChanges(changes);
+      expect(validate(parameters).valid).toBe(true);
+      const layout = deriveLayout(parameters);
+      const model = await generate(parameters);
+      const geometry = modelToBufferGeometry(model);
+      const analysis = analyzeBufferGeometry(geometry);
+      const size = analysis.bounds.getSize(new THREE.Vector3());
 
-    expect(model.status).toBe("NoError");
-    expect(model.volume).toBeGreaterThan(0);
-    expect(analysis.finite).toBe(true);
-    expect(analysis.minimumTriangleArea).toBeGreaterThan(1e-8);
-    expect(analysis.minimumNormalLength).toBeCloseTo(1, 5);
-    expect(analysis.signedVolume).toBeGreaterThan(0);
-    expect(connectedComponentCount(model.mesh.triVerts)).toBe(1);
-    expect(size.x).toBeCloseTo(layout.outsideWidth, 4);
-    expect(size.y).toBeCloseTo(layout.outsideDepth, 4);
-    expect(size.z).toBeCloseTo(layout.outsideHeight, 4);
-    expect(analysis.bounds.min.z).toBeCloseTo(0, 5);
-    const contract = drawerRiser.boundsContract(parameters);
-    expect(model.bounds[0]).toEqual(contract.min);
-    expect(model.bounds[1]).toEqual(contract.max);
+      expect(model.status).toBe("NoError");
+      expect(model.volume).toBeGreaterThan(0);
+      expect(analysis.finite).toBe(true);
+      expect(analysis.minimumTriangleArea).toBeGreaterThan(1e-8);
+      expect(analysis.minimumNormalLength).toBeCloseTo(1, 5);
+      expect(analysis.signedVolume).toBeGreaterThan(0);
+      expect(connectedComponentCount(model.mesh.triVerts)).toBe(1);
+      expect(size.x).toBeCloseTo(layout.outsideWidth, 4);
+      expect(size.y).toBeCloseTo(layout.outsideDepth, 4);
+      expect(size.z).toBeCloseTo(layout.outsideHeight, 4);
+      expect(analysis.bounds.min.z).toBeCloseTo(0, 5);
+      const contract = drawerRiser.boundsContract(parameters);
+      expect(model.bounds[0]).toEqual(contract.min);
+      expect(model.bounds[1]).toEqual(contract.max);
 
-    for (const edge of closedEdgeCounts(geometry)) {
-      expect(edge.count).toBe(2);
-      expect(edge.balance).toBe(0);
-    }
-    geometry.dispose();
-  });
+      for (const edge of closedEdgeCounts(geometry)) {
+        expect(edge.count).toBe(2);
+        expect(edge.balance).toBe(0);
+      }
+      geometry.dispose();
+    },
+  );
 
   it("refuses the conflict case instead of building it", async () => {
-    await expect(generate(withChanges({ drawerUsableHeight: 87 }))).rejects.toThrow(
-      /The riser is 82.4 mm tall/,
-    );
+    await expect(
+      generate(withChanges({ drawerUsableHeight: 87 })),
+    ).rejects.toThrow(/The riser is 82.4 mm tall/);
   });
 
   it("shows four posts in a slice through the clear height and none above the deck", async () => {
@@ -334,13 +409,21 @@ describe("drawer riser geometry", () => {
     const data = serializeBinaryStl(geometry);
     const inspected = inspectBinaryStl(data);
     geometry.computeBoundingBox();
-    expect(inspected.triangleCount).toBe(geometry.getAttribute("position").count / 3);
+    expect(inspected.triangleCount).toBe(
+      geometry.getAttribute("position").count / 3,
+    );
     expect(inspected.finite).toBe(true);
     expect(inspected.minimumNormalAlignment).toBeGreaterThan(0.99999);
-    expect(inspected.bounds.min.distanceTo(geometry.boundingBox!.min)).toBeLessThan(1e-5);
-    expect(inspected.bounds.max.distanceTo(geometry.boundingBox!.max)).toBeLessThan(1e-5);
+    expect(
+      inspected.bounds.min.distanceTo(geometry.boundingBox!.min),
+    ).toBeLessThan(1e-5);
+    expect(
+      inspected.bounds.max.distanceTo(geometry.boundingBox!.max),
+    ).toBeLessThan(1e-5);
     const parsed = new STLLoader().parse(data);
-    expect(parsed.getAttribute("position").count).toBe(geometry.getAttribute("position").count);
+    expect(parsed.getAttribute("position").count).toBe(
+      geometry.getAttribute("position").count,
+    );
     parsed.dispose();
     geometry.dispose();
   });
@@ -349,10 +432,49 @@ describe("drawer riser geometry", () => {
     const model = await generate(normalize(DRAWER_RISER_DEFAULTS));
     expect(drawerRiser.geometryVersion).toBe(1);
     expect(model.mesh.triVerts.length / 3).toBe(GOLDEN_TRIANGLES);
-    expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(0.001);
+    expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(
+      0.001,
+    );
     expect(model.bounds).toEqual([
       [-149.5, -99.5, 0],
       [149.5, 99.5, 82.4],
     ]);
+  });
+});
+
+describe("printed walls", () => {
+  it("adds the leg section to the key-name walls", () => {
+    const walls = drawerRiser.printedWalls!(DRAWER_RISER_DEFAULTS);
+    const byKey = new Map(walls.map((wall) => [wall.key, wall.value]));
+    expect(byKey.get("leg-section")).toBeCloseTo(
+      DRAWER_RISER_DEFAULTS.legSection,
+    );
+    for (const key of wallLikeKeys(DRAWER_RISER_SPECS)) {
+      expect(byKey.has(key), `${key} missing`).toBe(true);
+    }
+  });
+
+  it("flags a thin leg section", () => {
+    // The leg section's own spec range never goes under 8 mm (leg-plan's
+    // minimum section), so a 1.5 mm nozzle's 3 mm floor never catches it.
+    // A wider nozzle demonstrates the same rule against the schema's own
+    // floor, with the leg section at that floor.
+    const parameters = { ...DRAWER_RISER_DEFAULTS, legSection: 8 };
+    expect(drawerRiser.validate(parameters).valid).toBe(true);
+    const profile = normalizePrinterProfile({ nozzleDiameter: 4.5 });
+    const issues = thinWallIssues(
+      drawerRiser.printedWalls!(parameters),
+      profile,
+    );
+    expect(issues.some((issue) => issue.text.includes("Leg section"))).toBe(
+      true,
+    );
+  });
+
+  it("does not throw for a cleared leg section, and reports only finite values", () => {
+    const cleared = { ...DRAWER_RISER_DEFAULTS, legSection: Number.NaN };
+    const walls = drawerRiser.printedWalls!(cleared);
+    expect(walls.every((wall) => Number.isFinite(wall.value))).toBe(true);
+    expect(walls.some((wall) => wall.key === "leg-section")).toBe(false);
   });
 });

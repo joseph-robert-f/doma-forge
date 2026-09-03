@@ -8,6 +8,7 @@ import {
   HOOK_FILLET_MM,
   LIP_THICKNESS_MM,
   QUALITY_SEGMENTS,
+  couponParameters,
   deriveLayout,
   type WallHookRailParameters,
 } from "./schema";
@@ -53,7 +54,13 @@ export async function buildWallHookRail(
   // The plate outline in the X-Z plane, extruded along Y. The same outline,
   // extruded deep, clips every front feature so the shelf and the gussets
   // follow the rounded plate corners.
-  const outline = roundedRectangle(kernel, L, H, parameters.cornerRadius, segments);
+  const outline = roundedRectangle(
+    kernel,
+    L,
+    H,
+    parameters.cornerRadius,
+    segments,
+  );
   const plateFlat = outline.extrude(T);
   const plateTurned = plateFlat.rotate([90, 0, 0]);
   plateFlat.delete();
@@ -133,4 +140,20 @@ export async function buildWallHookRail(
   const solid = assembled.rotate([0, 0, 180]);
   assembled.delete();
   return finishSolid(solid, parameters, "rail");
+}
+
+/**
+ * The fit-test coupon: the single hook on a short plate that
+ * `couponParameters` describes, at the rail's own root, projection, lip,
+ * and plate thickness. The rail's parameters are validated first, because
+ * the coupon exists to test them.
+ */
+export async function generateWallHookRailCoupon(
+  parameters: WallHookRailParameters,
+): Promise<GeneratedModel<WallHookRailParameters>> {
+  const validation = validateWallHookRail(parameters);
+  if (!validation.valid) {
+    throw new Error(validation.issues.map((issue) => issue.message).join(" "));
+  }
+  return buildWallHookRail(couponParameters(parameters));
 }
