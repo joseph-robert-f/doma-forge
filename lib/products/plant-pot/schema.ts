@@ -1,3 +1,4 @@
+import type { BedLimit, PrintContext } from "../../printer-profile";
 import {
   REVOLVE_SEGMENTS,
   buildVesselProfile,
@@ -15,12 +16,23 @@ import type {
 /**
  * The widest the pot may be. The plan's rule for the saucer is "the bed less
  * 12 mm", and the pot and the saucer are a pair, so the pot takes the same
- * limit. A product cannot read the printer profile, so the number comes from
- * the profile default bed of 220 mm. See 23_REVOLVED_FORMS_NOTES.md, D-1503.
+ * limit. The field limit is static, so the number comes from the profile
+ * default bed of 220 mm; validation reads the saved bed (S14, D-1802). See
+ * 23_REVOLVED_FORMS_NOTES.md, D-1503.
  */
 export const POT_BED_WIDTH_MM = 220;
 export const POT_BED_MARGIN_MM = 12;
-export const POT_MAXIMUM_DIAMETER_MM = POT_BED_WIDTH_MM - POT_BED_MARGIN_MM;
+
+/**
+ * The widest a pot may be across the rim. With a known bed it is the smaller
+ * bed axis less the margin; otherwise the 220 mm reference bed (D-1802).
+ */
+export function maximumPotDiameter(context?: PrintContext): BedLimit {
+  const bed = context?.bed;
+  const usable = Boolean(bed && Number.isFinite(bed.x) && Number.isFinite(bed.y));
+  const bedWidth = usable && bed ? Math.min(bed.x, bed.y) : POT_BED_WIDTH_MM;
+  return { limit: bedWidth - POT_BED_MARGIN_MM, bedWidth, known: usable };
+}
 
 /** The plan's print-risk rule for this product: the wall stays under 45 degrees. */
 export const POT_MAXIMUM_WALL_ANGLE_DEGREES = 45;

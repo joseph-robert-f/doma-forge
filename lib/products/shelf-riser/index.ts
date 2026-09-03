@@ -26,7 +26,8 @@ import { validateShelfRiser } from "./validate";
 /**
  * Geometry version 1 is the first shelf riser algorithm: a lightened deck
  * in its print pose, ribs over 150 mm spans, four gusseted posts, and
- * press-fit extensions when the riser is over 240 mm. Increase it whenever
+ * press-fit extensions when the riser is over the one-piece height, 240 mm
+ * by default. Increase it whenever
  * equal parameters would produce a different mesh, and re-record the golden
  * test.
  */

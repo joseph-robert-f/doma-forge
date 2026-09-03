@@ -247,6 +247,45 @@ describe("printed walls", () => {
   });
 });
 
+describe("print context in validation", () => {
+  const small = { bed: { x: 150, y: 150, z: 150 }, nozzleDiameter: 0.4 };
+  const unsaved = { bed: null, nozzleDiameter: 0.4 };
+
+  it.each(PRODUCTS.map((product) => [product.id, product] as const))(
+    "%s validates the same with an unsaved profile as with none",
+    (_id, product) => {
+      for (const parameters of [product.defaults, ...product.presets.map((p) => p.parameters)]) {
+        expect(product.validate(parameters, unsaved)).toEqual(product.validate(parameters));
+      }
+    },
+  );
+
+  it("refuses exactly the pots and the tall riser on a 150 mm bed, and nothing else", () => {
+    const refused: string[] = [];
+    for (const product of PRODUCTS) {
+      const sets = [["defaults", product.defaults] as const, ...product.presets.map((p) => [p.id, p.parameters] as const)];
+      for (const [name, parameters] of sets) {
+        const before = product.validate(parameters).valid;
+        const after = product.validate(parameters, small);
+        if (before && !after.valid) {
+          refused.push(`${product.id}/${name}`);
+          for (const issue of after.issues) expect(issue.message).toMatch(/150 mm/);
+        }
+        if (!before) expect(after.valid).toBe(false);
+      }
+    }
+    expect(refused).toEqual([
+      "plant-saucer/defaults",
+      "plant-saucer/medium-pot",
+      "plant-saucer/large-pot",
+      "plant-pot/defaults",
+      "plant-pot/desk-pot",
+      "plant-pot/deep-pot",
+      "shelf-riser/boot-riser",
+    ]);
+  });
+});
+
 describe("geometry loaders", () => {
   it("lists one lazy loader per registered product, in catalog order", () => {
     expect(Object.keys(GEOMETRY_LOADERS)).toEqual(

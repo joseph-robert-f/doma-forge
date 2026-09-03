@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DRAWER_TRAY_ID, drawerTray } from "../lib/products/drawer-tray";
+import { PLANT_POT_ID } from "../lib/products/plant-pot";
 import { REMOTE_CADDY_ID } from "../lib/products/remote-caddy";
 import { readFileText } from "../lib/design-file";
 import { LEGACY_DESIGN_KEY, WORKSPACE_KEY } from "../lib/workspace";
@@ -806,6 +807,19 @@ describe("DrawerForge app integration", () => {
         }),
       );
     }
+
+    it("lets the pot's widest rule read a saved bed, and names that bed", async () => {
+      saveProfile({ bedWidth: 150, bedDepth: 150 });
+      render(<ProductApp productId={PLANT_POT_ID} />);
+      // The default pot is about 147 mm across at the rim; a 150 mm bed
+      // less 12 mm allows 138 mm, so the rule refuses it and the message
+      // names the bed from the profile, not the 220 mm reference.
+      const error = await screen.findByTestId("param-wall-angle-degrees-error");
+      expect(error.textContent).toMatch(
+        /Keep it at most 138 mm, the 150 mm bed in your printer profile less 12 mm\./,
+      );
+      expect(screen.getByTestId("download-stl-button")).toHaveProperty("disabled", true);
+    });
 
     it("gives no bed warning before a profile is saved", async () => {
       await renderReadyApp();

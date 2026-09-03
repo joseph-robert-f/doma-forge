@@ -191,10 +191,10 @@ export {
   QUALITY_SEGMENTS as SAUCER_QUALITY_SEGMENTS,
   RIB_WIDTH_MM,
   SAUCER_MAXIMUM_INNER_DIAMETER_MM,
-  SAUCER_MAXIMUM_OUTSIDE_DIAMETER_MM,
   deriveSaucerLayout,
   minimumRimHeight,
   type PlantSaucerLayout,
   type PlantSaucerParameters,
+  maximumSaucerDiameter,
 } from "./schema";
 export { validatePlantSaucer } from "./validate";

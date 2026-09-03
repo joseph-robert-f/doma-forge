@@ -284,6 +284,11 @@ export interface LegSplitRequest {
   clearHeight: number;
   /** The square leg section. */
   section: number;
+  /**
+   * The tallest one-piece print, normally the bed height less a margin.
+   * Defaults to ONE_PIECE_HEIGHT_MM, the 250 mm reference bed less 10 mm.
+   */
+  onePieceHeight?: number;
 }
 
 export type LegSplitPlan =
@@ -317,10 +322,12 @@ export type LegSplitPlan =
  */
 export function planLegSplit(request: LegSplitRequest): LegSplitPlan {
   const { deckThickness, clearHeight, section } = request;
+  const onePieceHeight = request.onePieceHeight ?? ONE_PIECE_HEIGHT_MM;
   const totalHeight = deckThickness + clearHeight;
   if (
     !Number.isFinite(totalHeight) ||
-    totalHeight <= ONE_PIECE_HEIGHT_MM + 1e-9
+    !Number.isFinite(onePieceHeight) ||
+    totalHeight <= onePieceHeight + 1e-9
   ) {
     return { split: false, totalHeight };
   }
@@ -329,9 +336,9 @@ export function planLegSplit(request: LegSplitRequest): LegSplitPlan {
   }
   const pegSide = section - 2 * SOCKET_WALL_MM;
   const pegLength = Math.max(10, Math.round(pegSide * 1.5));
-  const upperLength = ONE_PIECE_HEIGHT_MM - deckThickness;
+  const upperLength = onePieceHeight - deckThickness;
   const extensionLength = clearHeight - upperLength;
-  if (extensionLength + pegLength > ONE_PIECE_HEIGHT_MM + 1e-9) {
+  if (extensionLength + pegLength > onePieceHeight + 1e-9) {
     return { split: false, totalHeight, reason: "height" };
   }
   return {

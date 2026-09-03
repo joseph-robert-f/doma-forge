@@ -233,6 +233,46 @@ export function extentsFromBounds(bounds: {
   };
 }
 
+/**
+ * What a product's validation may read from the printer profile: the bed,
+ * as three extents, or null while the profile still holds the placeholder
+ * bed nobody entered, and the nozzle. A product that reads the bed uses a
+ * reference size when it is null, so an unsaved profile changes nothing.
+ * See 29_PRINT_CONTEXT_NOTES.md, decision D-1801.
+ */
+export interface PrintContext {
+  bed: Extents | null;
+  /**
+   * The nozzle from the profile. Unlike the bed it has no "known" flag: the
+   * profile's default nozzle is a real, common size, and the thin-wall rule
+   * already reads it the same way.
+   */
+  nozzleDiameter: number;
+}
+
+/** The bed a product's widest rule reads: the person's, or the reference. */
+export interface BedLimit {
+  /** The widest the part may be: the bed less the product's margin. */
+  limit: number;
+  /** The smaller bed axis the limit came from. */
+  bedWidth: number;
+  /** True when the bed is the saved profile's, false for the reference. */
+  known: boolean;
+}
+
+export function printContextOf(
+  profile: PrinterProfileV1,
+  bedIsKnown: boolean,
+): PrintContext {
+  return {
+    bed: bedIsKnown
+      ? { x: profile.bedWidth, y: profile.bedDepth, z: profile.bedHeight }
+      : null,
+    nozzleDiameter: profile.nozzleDiameter,
+  };
+}
+
+
 export interface CompensationNote {
   axis: "x" | "y";
   axisLabel: "X" | "Y";

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   activeCorrections,
+  printContextOf,
   bedWarnings,
   calibrationProposal,
   compensate,
@@ -599,5 +600,24 @@ describe("diameter compensation in the notes and the file name", () => {
       correctionFilenameTag(profile(0.5, 0.2), { x: ["width"], y: ["depth"] }),
     ).toBe("cx0p5y0p2");
     expect(correctionFilenameTag(profile(0.5, 0.2))).toBe("cx0p5y0p2");
+  });
+});
+
+describe("print context", () => {
+  it("holds a null bed until the profile is saved, and the bed afterwards", () => {
+    const profile = normalizePrinterProfile({
+      bedWidth: 180,
+      bedDepth: 200,
+      bedHeight: 210,
+      nozzleDiameter: 0.6,
+    });
+    expect(printContextOf(profile, false)).toEqual({
+      bed: null,
+      nozzleDiameter: 0.6,
+    });
+    expect(printContextOf(profile, true)).toEqual({
+      bed: { x: 180, y: 200, z: 210 },
+      nozzleDiameter: 0.6,
+    });
   });
 });

@@ -335,3 +335,27 @@ describe("load model", () => {
     expect(loadNote(Number.NaN)).toBe("—");
   });
 });
+
+describe("planLegSplit with a one-piece height", () => {
+  it("keeps the constant as its default", () => {
+    const plan = planLegSplit({ deckThickness: 4, clearHeight: 296, section: 28 });
+    expect(plan).toMatchObject({ split: true, upperLength: ONE_PIECE_HEIGHT_MM - 4 });
+  });
+
+  it("does not split a riser at or under the one-piece height", () => {
+    expect(
+      planLegSplit({ deckThickness: 4, clearHeight: 296, section: 28, onePieceHeight: 300 }),
+    ).toEqual({ split: false, totalHeight: 300 });
+  });
+
+  it("splits at a lower one-piece height with the deck body at that height", () => {
+    const split = planLegSplit({ deckThickness: 4, clearHeight: 296, section: 28, onePieceHeight: 200 });
+    expect(split).toMatchObject({ split: true, upperLength: 196, extensionLength: 100 });
+  });
+
+  it("gives no split for a one-piece height that is not a number", () => {
+    expect(
+      planLegSplit({ deckThickness: 4, clearHeight: 296, section: 28, onePieceHeight: Number.NaN }),
+    ).toEqual({ split: false, totalHeight: 300 });
+  });
+});

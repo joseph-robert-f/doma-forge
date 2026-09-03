@@ -149,6 +149,10 @@
       "purpose": "Geometry per product, worker chunk, coupon in the worker, printed walls, diameter correction, and decisions (S13)"
     },
     {
+      "path": "29_PRINT_CONTEXT_NOTES.md",
+      "purpose": "Print context in validation, bed-aware pot rules, the riser's one-piece height, and decisions (S14)"
+    },
+    {
       "path": "sprints/S01_FIT_TEST_COUPON.md",
       "purpose": "Sprint spec: fit-test coupon export"
     },
@@ -199,6 +203,10 @@
     {
       "path": "sprints/S13_CONTRACT_FOLLOW_UPS.md",
       "purpose": "Sprint spec: contract follow-ups"
+    },
+    {
+      "path": "sprints/S14_PRINT_CONTEXT.md",
+      "purpose": "Sprint spec: print context in validation"
     },
     {
       "path": "sprints/PRINT_RECORDS.md",

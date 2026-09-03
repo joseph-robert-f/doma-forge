@@ -397,8 +397,8 @@ holds its load.
 |---|---|
 | Date | |
 | Product and geometry version | Shelf riser, geometry version 1 |
-| Preset or parameters | Defaults (unmodified). deckWidth 300, deckDepth 200, deckThickness 4, clearHeight 120, legSection 14, lightenDeck true, cornerRadius 6, meshQuality standard |
-| Design file name | drawerforge-shelf-riser-300x200x124-bdd8f7.stl |
+| Preset or parameters | Defaults (unmodified). deckWidth 300, deckDepth 200, deckThickness 4, clearHeight 120, legSection 14, onePieceHeight 240, lightenDeck true, cornerRadius 6, meshQuality standard |
+| Design file name | drawerforge-shelf-riser-300x200x124-e7fd6b.stl |
 | Printer, nozzle, material | |
 | Perimeters, layer height | |
 | Target outside width x depth x height, mm | 300 x 200 x 124 |
