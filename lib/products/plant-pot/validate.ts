@@ -1,9 +1,15 @@
-import { IssueCollector, formatMillimeters, validateAgainstSpecs } from "../shared";
+import type { PrintContext } from "../../printer-profile";
+import {
+  IssueCollector,
+  formatMillimeters,
+  validateAgainstSpecs,
+} from "../shared";
 import type { ValidationResult } from "../types";
 import {
   DRAIN_WEB_MM,
   PLANT_POT_SPECS,
-  POT_MAXIMUM_DIAMETER_MM,
+  POT_BED_MARGIN_MM,
+  maximumPotDiameter,
   derivePotLayout,
   type PlantPotKey,
   type PlantPotParameters,
@@ -13,6 +19,7 @@ const mm = (value: number) => formatMillimeters(value, 1);
 
 export function validatePlantPot(
   parameters: PlantPotParameters,
+  context?: PrintContext,
 ): ValidationResult<PlantPotKey> {
   const collector = new IssueCollector<PlantPotKey>();
   validateAgainstSpecs(PLANT_POT_SPECS, parameters, collector);
@@ -41,10 +48,17 @@ export function validatePlantPot(
     return collector.result();
   }
 
-  if (layout.widestDiameter > POT_MAXIMUM_DIAMETER_MM + 1e-9) {
+  const bed = maximumPotDiameter(context);
+  const smallestPot = PLANT_POT_SPECS.baseDiameter.min;
+  if (bed.known && bed.limit < smallestPot) {
     add(
       "wallAngleDegrees",
-      `The pot is ${mm(layout.widestDiameter)} mm across at the rim. Keep it at most ${mm(POT_MAXIMUM_DIAMETER_MM)} mm, the 220 mm bed less 12 mm. Use a smaller wall angle, a shorter pot, or a smaller base.`,
+      `The ${mm(bed.bedWidth)} mm bed in your printer profile is too small for any pot this app makes; the smallest is ${mm(smallestPot)} mm across the rim. Check the bed size in the profile.`,
+    );
+  } else if (layout.widestDiameter > bed.limit + 1e-9) {
+    add(
+      "wallAngleDegrees",
+      `The pot is ${mm(layout.widestDiameter)} mm across at the rim. Keep it at most ${mm(bed.limit)} mm, the ${mm(bed.bedWidth)} mm bed${bed.known ? " in your printer profile" : ""} less ${POT_BED_MARGIN_MM} mm. Use a smaller wall angle, a shorter pot, or a smaller base.`,
     );
   }
 
@@ -55,7 +69,10 @@ export function validatePlantPot(
     );
   }
 
-  if (Number.isFinite(layout.neighbourWeb) && layout.neighbourWeb < DRAIN_WEB_MM - 1e-9) {
+  if (
+    Number.isFinite(layout.neighbourWeb) &&
+    layout.neighbourWeb < DRAIN_WEB_MM - 1e-9
+  ) {
     add(
       "drainHoles",
       `${parameters.drainHoles} holes of ${mm(parameters.drainHoleDiameter)} mm leave ${mm(layout.neighbourWeb)} mm between neighbours. Keep at least ${mm(DRAIN_WEB_MM)} mm. Use fewer holes, a smaller hole, or a wider base.`,

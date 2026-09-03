@@ -5,11 +5,11 @@ import {
   PLANT_SAUCER_DEFAULTS,
   PLANT_SAUCER_SPECS,
   RIB_WIDTH_MM,
-  SAUCER_MAXIMUM_OUTSIDE_DIAMETER_MM,
   deriveSaucerLayout,
   minimumRimHeight,
   plantSaucer,
   type PlantSaucerParameters,
+  maximumSaucerDiameter,
 } from "../lib/products/plant-saucer";
 import {
   normalizePrinterProfile,
@@ -69,7 +69,6 @@ describe("plant saucer parameters", () => {
   });
 
   it("stops the outside diameter at the bed less 12 mm, naming the taper", () => {
-    expect(SAUCER_MAXIMUM_OUTSIDE_DIAMETER_MM).toBe(208);
     // The outside is always wider than the floor, so the widest floors need a
     // small taper, a thin wall, or a short rim.
     const wide = withChanges({
@@ -432,5 +431,39 @@ describe("printed walls", () => {
     const walls = plantSaucer.printedWalls!(cleared);
     expect(walls.every((wall) => Number.isFinite(wall.value))).toBe(true);
     expect(walls.some((wall) => wall.key === "rib-width")).toBe(false);
+  });
+});
+
+describe("print context", () => {
+  const wide = plantSaucer.normalize({
+    ...PLANT_SAUCER_DEFAULTS,
+    innerDiameter: 180,
+    rimHeight: 20,
+    taperDegrees: 8,
+  });
+
+  it("uses the reference bed while the profile is unsaved, exactly as before", () => {
+    const unsaved = { bed: null, nozzleDiameter: 0.4 };
+    expect(plantSaucer.validate(wide, unsaved)).toEqual(plantSaucer.validate(wide));
+    expect(plantSaucer.validate(wide).valid).toBe(true);
+    expect(maximumSaucerDiameter(unsaved)).toEqual({ limit: 208, bedWidth: 220, known: false });
+  });
+
+  it("refuses a saucer wider than the saved bed less 12 mm and names that bed", () => {
+    const small = { bed: { x: 200, y: 180, z: 250 }, nozzleDiameter: 0.4 };
+    const result = plantSaucer.validate(wide, small);
+    expect(result.valid).toBe(false);
+    expect(result.byField.taperDegrees?.[0]).toMatch(
+      /^The saucer is [\d.]+ mm across at the rim\. Keep it at most 168 mm, the 180 mm bed in your printer profile less 12 mm\./,
+    );
+    expect(plantSaucer.validate(PLANT_SAUCER_DEFAULTS, small).valid).toBe(true);
+  });
+
+  it("names a bed too small for any saucer instead of a limit no field can reach", () => {
+    const tiny = { bed: { x: 60, y: 60, z: 60 }, nozzleDiameter: 0.4 };
+    const result = plantSaucer.validate(PLANT_SAUCER_DEFAULTS, tiny);
+    expect(result.byField.taperDegrees).toEqual([
+      "The 60 mm bed in your printer profile is too small for any saucer this app makes; the smallest is about 63.2 mm across the rim. Check the bed size in the profile.",
+    ]);
   });
 });

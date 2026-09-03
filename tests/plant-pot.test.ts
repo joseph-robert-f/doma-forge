@@ -10,6 +10,7 @@ import {
   drainHoleCenters,
   plantPot,
   type PlantPotParameters,
+  maximumPotDiameter,
 } from "../lib/products/plant-pot";
 import { SAUCER_DERIVED_ID } from "../lib/products/plant-pot/index";
 import { deriveSaucerLayout, plantSaucer } from "../lib/products/plant-saucer";
@@ -403,5 +404,51 @@ describe("printed walls", () => {
     const cleared = { ...PLANT_POT_DEFAULTS, baseDiameter: Number.NaN };
     const walls = plantPot.printedWalls!(cleared);
     expect(walls.every((wall) => Number.isFinite(wall.value))).toBe(true);
+  });
+});
+
+describe("print context", () => {
+  const widest = plantPot.normalize({
+    ...PLANT_POT_DEFAULTS,
+    baseDiameter: 160,
+    potHeight: 100,
+    wallAngleDegrees: 10,
+  });
+
+  it("uses the reference bed while the profile is unsaved, exactly as before", () => {
+    const unsaved = { bed: null, nozzleDiameter: 0.4 };
+    expect(plantPot.validate(widest, unsaved)).toEqual(plantPot.validate(widest));
+    expect(plantPot.validate(widest).valid).toBe(true);
+    expect(maximumPotDiameter(unsaved)).toEqual({ limit: 208, bedWidth: 220, known: false });
+  });
+
+  it("refuses a pot wider than the saved bed less 12 mm and names that bed", () => {
+    const small = { bed: { x: 180, y: 220, z: 250 }, nozzleDiameter: 0.4 };
+    expect(maximumPotDiameter(small)).toEqual({ limit: 168, bedWidth: 180, known: true });
+    const result = plantPot.validate(widest, small);
+    expect(result.valid).toBe(false);
+    expect(result.byField.wallAngleDegrees?.[0]).toMatch(
+      /^The pot is [\d.]+ mm across at the rim\. Keep it at most 168 mm, the 180 mm bed in your printer profile less 12 mm\./,
+    );
+    expect(plantPot.validate(PLANT_POT_DEFAULTS, small).valid).toBe(true);
+  });
+
+  it("does not raise the field limit for a bed larger than the reference", () => {
+    const large = { bed: { x: 300, y: 300, z: 300 }, nozzleDiameter: 0.4 };
+    expect(maximumPotDiameter(large).limit).toBe(288);
+    expect(plantPot.specs.baseDiameter.max).toBe(200);
+    expect(plantPot.validate(widest, large).valid).toBe(true);
+  });
+
+  it("names a bed too small for any pot instead of a limit no field can reach", () => {
+    const tiny = { bed: { x: 60, y: 200, z: 200 }, nozzleDiameter: 0.4 };
+    const result = plantPot.validate(PLANT_POT_DEFAULTS, tiny);
+    expect(result.byField.wallAngleDegrees).toEqual([
+      "The 60 mm bed in your printer profile is too small for any pot this app makes; the smallest is 50 mm across the rim. Check the bed size in the profile.",
+    ]);
+    // A context whose bed axes are not usable counts as the reference bed.
+    expect(
+      maximumPotDiameter({ bed: { x: Number.NaN, y: 180, z: 200 }, nozzleDiameter: 0.4 }),
+    ).toEqual({ limit: 208, bedWidth: 220, known: false });
   });
 });

@@ -90,6 +90,15 @@ export const SHELF_RISER_SPECS = {
     step: 1,
     unit: "mm",
   } satisfies NumberSpec,
+  onePieceHeight: {
+    kind: "number",
+    label: "One-piece height",
+    shortLabel: "One-piece height",
+    min: 100,
+    max: 500,
+    step: 1,
+    unit: "mm",
+  } satisfies NumberSpec,
   lightenDeck: {
     kind: "boolean",
     label: "Lighten the deck",
@@ -127,6 +136,7 @@ export const SHELF_RISER_DEFAULTS: ShelfRiserParameters = {
   deckThickness: 4,
   clearHeight: 120,
   legSection: 14,
+  onePieceHeight: ONE_PIECE_HEIGHT_MM,
   lightenDeck: true,
   cornerRadius: 6,
   meshQuality: "standard",
@@ -145,8 +155,8 @@ export const SHELF_RISER_GROUPS: ParameterGroup<ShelfRiserKey>[] = [
     index: "02",
     title: "Legs",
     description:
-      "The clear height is the space under the deck. A leg buckles when it is too slender, so the clear height is at most 12 times the leg section. Over 240 mm in all, the legs split into press-fit extensions.",
-    keys: ["clearHeight", "legSection"],
+      "The clear height is the space under the deck. A leg buckles when it is too slender, so the clear height is at most 12 times the leg section. The one-piece height is the tallest part your printer builds in one go, normally your bed height; a riser taller than that splits its legs into press-fit extensions.",
+    keys: ["clearHeight", "legSection", "onePieceHeight"],
   },
   {
     id: "construction",
@@ -205,6 +215,7 @@ const NUMBER_KEYS = [
   "deckThickness",
   "clearHeight",
   "legSection",
+  "onePieceHeight",
   "cornerRadius",
 ] as const;
 
@@ -277,6 +288,7 @@ export function deriveLayout(
     deckThickness,
     clearHeight,
     section: legSection,
+    onePieceHeight: parameters.onePieceHeight,
   });
   const deckLegLength = split.split ? split.upperLength : clearHeight;
   const extensionPitch = legSection + EXTENSION_GAP_MM;

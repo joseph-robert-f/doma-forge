@@ -126,7 +126,7 @@ Use four perimeters and at least 25 percent infill in the legs. Use a stiff fila
 
 The third product is a round saucer that matches the base of a plant pot. Open it from the product switcher or at `/products/plant-saucer`.
 
-Measure the base of the pot with a caliper. Set the inner floor diameter to that measurement plus 2 mm. The printer profile's correction reaches the inner floor diameter as the mean of the X and Y corrections; see [Printer profile and calibration](#printer-profile-and-calibration). Set the rim height and the wall taper. The wall opens upward, between 3 and 12 degrees from vertical, so the saucer lifts off the bed cleanly and stacks with another saucer. The inner floor diameter stops at 208 mm, the 220 mm printer bed less 12 mm. The app rejects a saucer whose outside diameter passes the same 208 mm, and names the taper.
+Measure the base of the pot with a caliper. Set the inner floor diameter to that measurement plus 2 mm. The printer profile's correction reaches the inner floor diameter as the mean of the X and Y corrections; see [Printer profile and calibration](#printer-profile-and-calibration). Set the rim height and the wall taper. The wall opens upward, between 3 and 12 degrees from vertical, so the saucer lifts off the bed cleanly and stacks with another saucer. The inner floor diameter stops at 208 mm, the 220 mm reference bed less 12 mm. The app rejects a saucer whose outside diameter passes the bed less 12 mm, and names the taper. Once you save a printer profile, that rule reads your bed: the smaller of its width and depth, less 12 mm, and the message names your bed. The field limit itself stays at 208 mm.
 
 The rolled rim is a bead that rolls inward from the top of the wall. It never overhangs the outside, so the saucer prints without supports. The app reduces the bead radius when the setting does not fit: the bead is never more than a quarter of the rim height, never wider than the wall it rolls over, and never near the axis. The calculated result names the radius the app used and the radius you asked for.
 
@@ -142,7 +142,7 @@ The fourth product is a round plant pot with drainage. Open it from the product 
 
 Set the outside diameter at the base, the height, and the wall angle. The printer profile's correction reaches the base diameter as the mean of the X and Y corrections, and the flare above it follows. The base diameter is the measurement the saucer must match, so the calculated result shows **Matching saucer floor**: the base diameter plus 2 mm. Enter that number as the saucer's inner floor diameter. The saucer floor is then 2 mm wider than the pot base all round, which is a 1 mm gap on each side.
 
-The wall angle runs from 0 to 45 degrees from vertical. The app rejects a pot that is more than 208 mm across at the rim, the 220 mm printer bed less 12 mm, and names the wall angle. The drainage holes are 4 to 8 mm, and they go through the flat base only. They never cut the wall: a single hole sits at the center, and two or more sit on a circle of half the floor radius. The app rejects holes that leave less than 2.5 mm between two neighbours, or less than 2.5 mm between a hole and the wall.
+The wall angle runs from 0 to 45 degrees from vertical. The app rejects a pot that is wider across the rim than the bed less 12 mm, 208 mm on the 220 mm reference bed, and names the wall angle. Once you save a printer profile, the rule reads your bed, the smaller of its width and depth, and the message names it. The drainage holes are 4 to 8 mm, and they go through the flat base only. They never cut the wall: a single hole sits at the center, and two or more sit on a circle of half the floor radius. The app rejects holes that leave less than 2.5 mm between two neighbours, or less than 2.5 mm between a hole and the wall.
 
 ### Print notes for the pot
 
@@ -237,7 +237,7 @@ The third bracket product is a deck on four legs, for a second level on a shelf 
 
 Set the deck size and the clear height under it. The leg rule from the drawer riser applies: the clear height is at most 12 times the leg section, the section is at least 8 mm, and every leg flares into the deck with a gusset. A rib stands under the deck wherever the span between two legs passes 150 mm. The deck underside is lightened with pockets inside the leg pads, each pocket ceiling at most 40 mm, and you can turn the pockets off.
 
-A riser over 240 mm tall does not print in one piece on a 250 mm bed. The app then splits each leg: the deck keeps as much leg as one piece allows, and four extensions with square pegs stand beside the deck in the same file. The joint needs a leg section of at least 12 mm; the peg is the section minus 6 mm, with 0.1 mm of clearance per side. The calculated result names the pieces.
+The **one-piece height** is the tallest part your printer builds in one go: normally your bed height, 240 mm by default. Once you save a printer profile, a riser that is taller than your bed is refused on that field until the one-piece height is at most the bed height, so the legs split where your printer needs them. A riser that fits the bed prints whatever the setting says. A riser taller than the one-piece height does not print in one piece. The app then splits each leg: the deck keeps as much leg as one piece allows, and four extensions with square pegs stand beside the deck in the same file. The joint needs a leg section of at least 12 mm; the peg is the section minus 6 mm, with 0.1 mm of clearance per side. The calculated result names the pieces.
 
 ### Print notes for the riser
 
@@ -292,6 +292,8 @@ Apply clears the two measurements. A second Apply of the same measurement is the
 
 The app shows a **warning** when the part is larger than the bed in X, Y, or Z. A part equal to the bed gives no warning. A warning never stops a download: you can split the part or use another machine.
 
+A saved profile also reaches two product rules. The plant pot and the saucer refuse a part wider than your bed less 12 mm, instead of the 220 mm reference bed, and the shelf riser refuses a one-piece height above your bed height. Both messages name your bed. No other rule reads the bed; a part larger than the bed stays a warning.
+
 The bed warning starts only after you save a printer profile. Open the **Printer** section and enter your bed size once. Until then the bed values are placeholders, and the app shows the line "Enter your bed size to get build-volume warnings." instead of a warning about a bed you did not enter.
 
 The app shows an **error** when a wall is thinner than two nozzle widths. A wall that thin is weak, so DrawerForge does not print it. The error names the nozzle and the wall, and it keeps **Download STL** and **Download fit test** disabled until you set a larger wall or a smaller nozzle.
@@ -324,7 +326,7 @@ The app also shows an error when a correction takes a value past its limit. The 
 - `lib/products/geometry-registry.ts` — one lazy loader per product for its geometry and, where it has one, its fit-test coupon. The worker and every product definition build through this table, so the geometry of a product loads once, when a page first asks for it.
 - `lib/generation/` — the Web Worker that loads one product's geometry on demand and builds the preview or the fit-test coupon off the main thread, its message protocol with a `kind` of model or coupon, and the page-side client.
 - `lib/design-file.ts` — the portable `.drawerforge.json` format, export, and non-destructive import.
-- `lib/printer-profile.ts` — the local printer profile, the pure `compensate()` step, the compensation and calibration text, the build-volume warning, and the thin-wall error.
+- `lib/printer-profile.ts` — the local printer profile, the pure `compensate()` step, the compensation and calibration text, the build-volume warning, the thin-wall error, and the print context a product's validation may read.
 - `lib/workspace.ts` — the versioned local storage envelope with one current design per product, and the version 1 migration.
 - `app/components/ProductApp.tsx` — renders any product from the registry.
 - `app/components/ParameterControls.tsx` — number, boolean, and enum controls driven by specs.

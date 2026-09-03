@@ -32,6 +32,7 @@ import {
   normalizePrinterName,
   normalizePrinterProfile,
   validatePrinterProfile,
+  printContextOf,
   wallsFromSpecs,
   withCorrectionTag,
   type CalibrationProposal,
@@ -276,9 +277,15 @@ export function ProductApp({ productId }: { productId: string }) {
       : product.copy.title;
   }, [designName, product]);
 
+  // The bed a product's own rules may read. Null until the profile is saved,
+  // so an unsaved profile changes no rule (D-1801).
+  const printContext = useMemo(
+    () => printContextOf(printer, printerSaved),
+    [printer, printerSaved],
+  );
   const validation = useMemo(
-    () => product.validate(parameters),
-    [product, parameters],
+    () => product.validate(parameters, printContext),
+    [product, parameters, printContext],
   );
   const derivedValues = useMemo(
     () => product.derive(parameters),
@@ -315,8 +322,8 @@ export function ProductApp({ productId }: { productId: string }) {
   // then shows a legal number, so the message names the correction instead
   // of the field limit, and the download stays refused until it is fixed.
   const compensatedValidation = useMemo(
-    () => product.validate(compensatedParameters),
-    [product, compensatedParameters],
+    () => product.validate(compensatedParameters, printContext),
+    [product, compensatedParameters, printContext],
   );
   const correctionMessages = useMemo(() => {
     if (!validation.valid || compensatedValidation.valid) return [];

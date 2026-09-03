@@ -1,5 +1,9 @@
 import type { GeneratedModel } from "../kernel/mesh";
-import type { CompensableParameters, WallValue } from "../printer-profile";
+import type {
+  CompensableParameters,
+  PrintContext,
+  WallValue,
+} from "../printer-profile";
 
 export type MeshQuality = "draft" | "standard" | "fine";
 
@@ -164,7 +168,15 @@ export interface ProductDefinition<
   defaults: P;
   presets: ProductPreset<P>[];
   normalize(input: unknown): P;
-  validate(parameters: P): ValidationResult<keyof Specs & string>;
+  /**
+   * Checks the parameters, and the print context when the product has a rule
+   * that reads the bed. A product that ignores the context is unchanged by
+   * it. See 29_PRINT_CONTEXT_NOTES.md, decision D-1801.
+   */
+  validate(
+    parameters: P,
+    context?: PrintContext,
+  ): ValidationResult<keyof Specs & string>;
   signature(parameters: P): string;
   derive(parameters: P): DerivedValue[];
   generate(parameters: P): Promise<GeneratedModel<P>>;

@@ -1,3 +1,4 @@
+import type { BedLimit, PrintContext } from "../../printer-profile";
 import {
   REVOLVE_SEGMENTS,
   buildVesselProfile,
@@ -15,8 +16,8 @@ import type {
 
 /**
  * The largest inner diameter the app offers. The plan's rule is "the bed less
- * 12 mm". A product cannot read the printer profile, so the number comes from
- * the profile default bed of 220 mm. See 23_REVOLVED_FORMS_NOTES.md, D-1503.
+ * 12 mm". The field limit is static, so the number comes from the profile
+ * default bed of 220 mm; validation reads the saved bed (S14, D-1802). See 23_REVOLVED_FORMS_NOTES.md, D-1503.
  */
 export const SAUCER_BED_WIDTH_MM = 220;
 export const SAUCER_BED_MARGIN_MM = 12;
@@ -33,9 +34,18 @@ export const NOTCH_MAXIMUM_DEPTH_MM = 4;
 export const RIB_HEADROOM_MM = 1;
 /** The least water depth a saucer is built with. */
 export const MINIMUM_HOLDING_DEPTH_MM = 3;
-/** The widest a saucer may be outside. The bed less the same 12 mm margin. */
-export const SAUCER_MAXIMUM_OUTSIDE_DIAMETER_MM =
-  SAUCER_MAXIMUM_INNER_DIAMETER_MM;
+
+/**
+ * The widest a saucer may be across the rim. With a known bed it is the
+ * smaller bed axis less the margin; otherwise the 220 mm reference bed
+ * (D-1802). Same shape as the pot's `maximumPotDiameter`.
+ */
+export function maximumSaucerDiameter(context?: PrintContext): BedLimit {
+  const bed = context?.bed;
+  const usable = Boolean(bed && Number.isFinite(bed.x) && Number.isFinite(bed.y));
+  const bedWidth = usable && bed ? Math.min(bed.x, bed.y) : SAUCER_BED_WIDTH_MM;
+  return { limit: bedWidth - SAUCER_BED_MARGIN_MM, bedWidth, known: usable };
+}
 /** The pot base is this much smaller than the saucer floor it sits on. */
 export const POT_BASE_GAP_MM = 2;
 

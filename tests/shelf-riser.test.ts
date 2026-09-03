@@ -123,7 +123,7 @@ describe("shelf riser parameters", () => {
   });
 
   it("derives and validates a cleared field without throwing", () => {
-    for (const key of ["deckWidth", "deckDepth", "deckThickness", "clearHeight", "legSection", "cornerRadius"] as const) {
+    for (const key of ["deckWidth", "deckDepth", "deckThickness", "clearHeight", "legSection", "onePieceHeight", "cornerRadius"] as const) {
       const cleared = { ...SHELF_RISER_DEFAULTS, [key]: Number.NaN };
       expect(() => shelfRiser.derive(cleared)).not.toThrow();
       const result = validate(cleared);
@@ -334,5 +334,70 @@ describe("printed walls", () => {
     const walls = shelfRiser.printedWalls!(cleared);
     expect(walls.every((wall) => Number.isFinite(wall.value))).toBe(true);
     expect(walls.some((wall) => wall.key === "leg-section")).toBe(false);
+  });
+});
+
+describe("one-piece height", () => {
+  it("passes at its limits and fails one step over", () => {
+    expect(shelfRiser.validate(withChanges({ onePieceHeight: 100 })).valid).toBe(true);
+    expect(shelfRiser.validate(withChanges({ onePieceHeight: 500 })).valid).toBe(true);
+    expect(shelfRiser.validate(withChanges({ onePieceHeight: 99 })).byField.onePieceHeight?.[0]).toBe(
+      "One-piece height must be between 100 and 500 mm.",
+    );
+    expect(shelfRiser.validate(withChanges({ onePieceHeight: 501 })).valid).toBe(false);
+  });
+
+  it("moves the split with the setting, and reproduces the old mesh at the default", () => {
+    const tall = withChanges({ clearHeight: 296, legSection: 28 });
+    expect(deriveLayout(tall).split.split).toBe(true);
+    const taller = withChanges({ clearHeight: 296, legSection: 28, onePieceHeight: 300 });
+    expect(deriveLayout(taller).split).toEqual({ split: false, totalHeight: 300 });
+    expect(shelfRiser.validate(taller).valid).toBe(true);
+    expect(SHELF_RISER_DEFAULTS.onePieceHeight).toBe(240);
+    // Both split refusals are reachable once the one-piece height can be
+    // low: a leg under the 12 mm split minimum that is not slender, and an
+    // extension longer than one piece.
+    const thinLegs = withChanges({ clearHeight: 120, legSection: 10, onePieceHeight: 100 });
+    expect(deriveLayout(thinLegs).split).toMatchObject({ split: false, reason: "section" });
+    expect(shelfRiser.validate(thinLegs).byField.legSection?.[0]).toBe(
+      "A riser 124 mm tall is over the 100 mm one-piece height, so each leg gets a press-fit extension. That joint needs a leg section of at least 12 mm. Use a larger section, or a clear height of at most 96 mm, or a larger one-piece height if your printer allows it.",
+    );
+    const tooShort = withChanges({ clearHeight: 296, legSection: 28, onePieceHeight: 100 });
+    expect(deriveLayout(tooShort).split).toMatchObject({ split: false, reason: "height" });
+    expect(shelfRiser.validate(tooShort).byField.clearHeight?.[0]).toBe(
+      "A riser 300 mm tall needs a leg extension longer than one piece can print. Use a lower clear height.",
+    );
+  });
+
+  it("refuses a one-piece height above the saved bed only when the riser is taller than the bed", () => {
+    const low = { bed: { x: 220, y: 220, z: 200 }, nozzleDiameter: 0.4 };
+    // The default riser is 124 mm tall and fits a 200 mm bed, so the
+    // setting does not matter and nothing is refused (D-811, D-1803).
+    expect(shelfRiser.validate(SHELF_RISER_DEFAULTS, low).valid).toBe(true);
+    // A 300 mm riser at the default one-piece height lays out a 240 mm deck
+    // body, taller than the bed: refused on the setting, with the fix.
+    const tall = withChanges({ clearHeight: 296, legSection: 28 });
+    const result = shelfRiser.validate(tall, low);
+    expect(result.valid).toBe(false);
+    expect(result.byField.onePieceHeight).toEqual([
+      "Your bed is 200 mm high and the riser's deck body is 240 mm tall. Set the one-piece height to at most 200 mm so the legs split there, or raise the bed height in the printer profile if it is wrong.",
+    ]);
+    expect(shelfRiser.validate({ ...tall, onePieceHeight: 200 }, low).valid).toBe(true);
+    // A 220 mm riser in one piece is also taller than the bed.
+    const middling = withChanges({ clearHeight: 216, legSection: 20 });
+    expect(shelfRiser.validate(middling, low).byField.onePieceHeight?.[0]).toContain(
+      "deck body is 220 mm tall",
+    );
+    expect(shelfRiser.validate(SHELF_RISER_DEFAULTS, { bed: null, nozzleDiameter: 0.4 })).toEqual(
+      shelfRiser.validate(SHELF_RISER_DEFAULTS),
+    );
+  });
+
+  it("treats a cleared one-piece height as a missing number, without a split", () => {
+    const cleared = withChanges({ onePieceHeight: Number.NaN });
+    expect(deriveLayout(cleared).split).toEqual({ split: false, totalHeight: 124 });
+    const result = shelfRiser.validate(cleared);
+    expect(result.valid).toBe(false);
+    expect(result.byField.onePieceHeight?.length).toBeGreaterThan(0);
   });
 });

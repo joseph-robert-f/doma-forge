@@ -1,12 +1,16 @@
-import { IssueCollector, formatMillimeters, validateAgainstSpecs } from "../shared";
+import type { PrintContext } from "../../printer-profile";
+import {
+  IssueCollector,
+  formatMillimeters,
+  validateAgainstSpecs,
+} from "../shared";
 import type { ValidationResult } from "../types";
 import {
   MINIMUM_HOLDING_DEPTH_MM,
   PLANT_SAUCER_SPECS,
   RIB_HEADROOM_MM,
   SAUCER_BED_MARGIN_MM,
-  SAUCER_BED_WIDTH_MM,
-  SAUCER_MAXIMUM_OUTSIDE_DIAMETER_MM,
+  maximumSaucerDiameter,
   deriveSaucerLayout,
   type PlantSaucerKey,
   type PlantSaucerParameters,
@@ -16,6 +20,7 @@ const mm = (value: number) => formatMillimeters(value, 1);
 
 export function validatePlantSaucer(
   parameters: PlantSaucerParameters,
+  context?: PrintContext,
 ): ValidationResult<PlantSaucerKey> {
   const collector = new IssueCollector<PlantSaucerKey>();
   validateAgainstSpecs(PLANT_SAUCER_SPECS, parameters, collector);
@@ -53,17 +58,30 @@ export function validatePlantSaucer(
     );
   }
 
-  if (
+  const bed = maximumSaucerDiameter(context);
+  // The smallest saucer the fields allow: the smallest floor and two of the
+  // thinnest walls, before any taper.
+  const smallestSaucer =
+    PLANT_SAUCER_SPECS.innerDiameter.min + 2 * PLANT_SAUCER_SPECS.wallThickness.min;
+  if (bed.known && bed.limit < smallestSaucer) {
+    add(
+      "taperDegrees",
+      `The ${mm(bed.bedWidth)} mm bed in your printer profile is too small for any saucer this app makes; the smallest is about ${mm(smallestSaucer)} mm across the rim. Check the bed size in the profile.`,
+    );
+  } else if (
     Number.isFinite(layout.outsideDiameter) &&
-    layout.outsideDiameter > SAUCER_MAXIMUM_OUTSIDE_DIAMETER_MM + 1e-9
+    layout.outsideDiameter > bed.limit + 1e-9
   ) {
     add(
       "taperDegrees",
-      `The saucer is ${mm(layout.outsideDiameter)} mm across at the rim. Keep it at most ${mm(SAUCER_MAXIMUM_OUTSIDE_DIAMETER_MM)} mm, the ${SAUCER_BED_WIDTH_MM} mm bed less ${SAUCER_BED_MARGIN_MM} mm. Use less taper, a shorter rim, a thinner wall, or a smaller floor.`,
+      `The saucer is ${mm(layout.outsideDiameter)} mm across at the rim. Keep it at most ${mm(bed.limit)} mm, the ${mm(bed.bedWidth)} mm bed${bed.known ? " in your printer profile" : ""} less ${SAUCER_BED_MARGIN_MM} mm. Use less taper, a shorter rim, a thinner wall, or a smaller floor.`,
     );
   }
 
-  if (parameters.liftRibs >= 1 && parameters.ribHeight > layout.maximumRibHeight + 1e-9) {
+  if (
+    parameters.liftRibs >= 1 &&
+    parameters.ribHeight > layout.maximumRibHeight + 1e-9
+  ) {
     add(
       "ribHeight",
       `A lift rib must be at most ${mm(layout.maximumRibHeight)} mm high, so ${mm(RIB_HEADROOM_MM)} mm stays between the rib and the rim. Use a lower rib, a taller rim, or a thinner floor.`,

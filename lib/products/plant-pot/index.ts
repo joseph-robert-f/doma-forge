@@ -177,12 +177,12 @@ export {
   DRAIN_WEB_MM,
   PLANT_POT_DEFAULTS,
   PLANT_POT_SPECS,
-  POT_MAXIMUM_DIAMETER_MM,
   QUALITY_SEGMENTS as POT_QUALITY_SEGMENTS,
   SAUCER_GAP_MM,
   derivePotLayout,
   drainHoleCenters,
   type PlantPotLayout,
   type PlantPotParameters,
+  maximumPotDiameter,
 } from "./schema";
 export { validatePlantPot } from "./validate";

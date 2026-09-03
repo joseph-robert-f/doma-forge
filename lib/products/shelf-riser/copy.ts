@@ -14,7 +14,7 @@ export const SHELF_RISER_COPY: ProductCopy = {
   eyebrow: "Parametric shelf riser",
   headline: "A second level on the shelf.",
   intro:
-    "Measure the height of what stays under the riser and set the clear height above it. The preview shows the riser as it prints, deck down and legs up. A riser taller than 240 mm gets press-fit leg extensions, printed from the same file.",
+    "Measure the height of what stays under the riser and set the clear height above it. The preview shows the riser as it prints, deck down and legs up. A riser taller than the one-piece height, 240 mm unless you set your printer's, gets press-fit leg extensions, printed from the same file.",
   presetLegend: "Start with a shelf preset",
   customPresetLabel: "Custom",
   customPresetDescription: "Your own shelf and items",
