@@ -19,7 +19,8 @@ const PRODUCT_FAMILIES = [
  */
 export function ProductSwitcher() {
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
+  const [openPathname, setOpenPathname] = useState<string | null>(null);
+  const isOpen = openPathname === pathname;
   const switcherRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelIdSuffix = useId();
@@ -40,14 +41,14 @@ export function ProductSwitcher() {
     const closeOnOutsidePointer = (event: PointerEvent) => {
       const target = event.target;
       if (target instanceof Node && !switcherRef.current?.contains(target)) {
-        setIsOpen(false);
+        setOpenPathname(null);
       }
     };
 
     const closeOnOutsideFocus = (event: FocusEvent) => {
       const target = event.target;
       if (target instanceof Node && !switcherRef.current?.contains(target)) {
-        setIsOpen(false);
+        setOpenPathname(null);
       }
     };
 
@@ -69,10 +70,6 @@ export function ProductSwitcher() {
     };
   }, [isOpen]);
 
-  useEffect(() => {
-    setIsOpen(false);
-  }, [pathname]);
-
   if (!activeProduct) return null;
 
   return (
@@ -90,7 +87,9 @@ export function ProductSwitcher() {
         aria-expanded={isOpen}
         aria-controls={panelId}
         data-testid="product-switcher-trigger"
-        onClick={() => setIsOpen((open) => !open)}
+        onClick={() =>
+          setOpenPathname(isOpen ? null : pathname)
+        }
       >
         <span className="product-switcher-trigger-prefix">Products</span>
         <span
@@ -154,7 +153,7 @@ export function ProductSwitcher() {
                           className={`product-switcher-link${isActive ? " product-switcher-link--active" : ""}`}
                           aria-current={isActive ? "page" : undefined}
                           data-testid={`product-switcher-link-${product.id}`}
-                          onClick={() => setIsOpen(false)}
+                          onClick={() => setOpenPathname(null)}
                         >
                           <span>{product.label}</span>
                           {isActive ? (
