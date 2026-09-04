@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PRODUCTS } from "../../lib/products/registry";
-import { gotoReady, waitForReady } from "./support";
+import { gotoReady } from "./support";
 
 const PRODUCT_FAMILIES = [
   "Shelled trays and bins",
@@ -10,9 +10,14 @@ const PRODUCT_FAMILIES = [
 ] as const;
 
 const VIEWPORTS = [
-  { name: "desktop", width: 1363, height: 936, minHeaderHeight: 64, maxHeaderHeight: 80 },
-  { name: "mobile", width: 390, height: 844, minHeaderHeight: 52, maxHeaderHeight: 64 },
-  { name: "narrow mobile", width: 320, height: 700, minHeaderHeight: 52, maxHeaderHeight: 64 },
+  { name: "desktop", width: 1363, height: 936, headerHeight: 72 },
+  { name: "wide tablet", width: 1024, height: 768, headerHeight: 72 },
+  { name: "desktop boundary", width: 960, height: 720, headerHeight: 72 },
+  { name: "tablet", width: 768, height: 900, headerHeight: 72 },
+  { name: "tablet boundary", width: 640, height: 900, headerHeight: 72 },
+  { name: "mobile boundary", width: 639, height: 844, headerHeight: 58 },
+  { name: "mobile", width: 390, height: 844, headerHeight: 58 },
+  { name: "narrow mobile", width: 320, height: 700, headerHeight: 58 },
 ] as const;
 
 function switcherParts(page: Page) {
@@ -48,8 +53,7 @@ async function expectClosedSwitcherFitsHeader(
   const triggerBottom = triggerBox.y + triggerBox.height;
 
   expect(headerBox.y).toBeGreaterThanOrEqual(0);
-  expect(headerBox.height).toBeGreaterThanOrEqual(viewport.minHeaderHeight);
-  expect(headerBox.height).toBeLessThanOrEqual(viewport.maxHeaderHeight);
+  expect(headerBox.height).toBe(viewport.headerHeight);
   expect(triggerBox.x).toBeGreaterThanOrEqual(headerBox.x);
   expect(triggerBox.y).toBeGreaterThanOrEqual(headerBox.y);
   expect(triggerBox.x + triggerBox.width).toBeLessThanOrEqual(headerBox.x + headerBox.width);
@@ -65,16 +69,23 @@ async function expectClosedSwitcherFitsHeader(
 }
 
 test.describe("product switcher", () => {
-  for (const viewport of VIEWPORTS) {
-    test(`keeps the closed picker inside the ${viewport.name} header without horizontal overflow`, async ({
-      page,
-    }) => {
-      await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await gotoReady(page, "/");
-
-      await expectClosedSwitcherFitsHeader(page, viewport);
+  test("keeps the closed picker inside every target header without horizontal overflow", async ({
+    page,
+  }) => {
+    await page.setViewportSize({
+      width: VIEWPORTS[0].width,
+      height: VIEWPORTS[0].height,
     });
-  }
+    await gotoReady(page, "/");
+
+    for (const viewport of VIEWPORTS) {
+      await page.setViewportSize({
+        width: viewport.width,
+        height: viewport.height,
+      });
+      await expectClosedSwitcherFitsHeader(page, viewport);
+    }
+  })
 
   test("opens with Enter and Space, then closes on Escape and returns focus", async ({
     page,
@@ -153,8 +164,6 @@ test.describe("product switcher", () => {
       page.waitForURL(new RegExp(`/products/${destinationProduct.id}$`)),
       destination.click(),
     ]);
-    await waitForReady(page);
-
     await expect(trigger).toContainText(destinationProduct.label);
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
     await expect(panel).toBeHidden();
@@ -179,7 +188,7 @@ test.describe("product switcher", () => {
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByRole("alert")).toContainText(
+    await expect(page.getByTestId("renderer-error")).toContainText(
       "This browser does not provide WebGL for the 3D preview.",
     );
     await expect(page.getByTestId("preview-status")).toHaveAttribute("data-status", "error");

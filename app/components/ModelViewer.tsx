@@ -713,6 +713,7 @@ export function ModelViewer({
         id="preview-status"
         role="status"
         aria-live="polite"
+        aria-label={rendererErrorMessage ? `Error. ${rendererErrorMessage}` : undefined}
         style={statusStyle}
         data-testid="preview-status"
         data-status={effectiveStatus}
@@ -743,7 +744,13 @@ export function ModelViewer({
         Drag to orbit · Scroll to zoom · Right-drag to pan
       </span>
 
-      <div ref={rendererErrorRef} role="alert" style={rendererErrorStyle} hidden />
+      <div
+        ref={rendererErrorRef}
+        aria-hidden="true"
+        data-testid="renderer-error"
+        style={rendererErrorStyle}
+        hidden
+      />
     </div>
   );
 }
