@@ -1,5 +1,10 @@
 # Next-agent brief
 
+> Superseded on 2026-09-04 by
+> [`31_SESSION_HANDOFF.md`](31_SESSION_HANDOFF.md). This brief describes the
+> repository before the sprint program, at commit `785ea4e`. It is kept as
+> history. Read document 31 for the current state.
+
 ## Mission
 
 Extend DrawerForge safely from the repository's clean `main` snapshot at commit `785ea4e`. The application already creates, previews, validates, and exports watertight regular-grid drawer organizers entirely in the browser. Preserve its core geometric and UX guarantees while implementing the next approved phase.

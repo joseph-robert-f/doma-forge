@@ -70,7 +70,7 @@
     },
     {
       "path": "09_NEXT_AGENT_BRIEF.md",
-      "purpose": "Implementation-ready next-agent mission, constraints, and prompt"
+      "purpose": "Pre-sprint-program next-agent mission and constraints; superseded by 31_SESSION_HANDOFF.md, kept as history"
     },
     {
       "path": "10_MULTI_PRODUCT_EXPANSION_PLAN.md",
@@ -155,6 +155,10 @@
     {
       "path": "30_OWED_REVIEWS_NOTES.md",
       "purpose": "The owed primary reviews of S09 and S13, every finding and its disposition, and decisions (S15)"
+    },
+    {
+      "path": "31_SESSION_HANDOFF.md",
+      "purpose": "Current session handoff: architecture, constraining decisions and their logic, open issues, and priorities; supersedes document 09"
     },
     {
       "path": "sprints/S01_FIT_TEST_COUPON.md",
