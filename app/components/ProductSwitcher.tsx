@@ -55,7 +55,7 @@ export function ProductSwitcher() {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
-      setIsOpen(false);
+      setOpenPathname(null);
       triggerRef.current?.focus();
     };
 
