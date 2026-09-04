@@ -73,11 +73,6 @@ export function ProductSwitcher() {
     setIsOpen(false);
   }, [pathname]);
 
-  const closeAndFocus = () => {
-    setIsOpen(false);
-    triggerRef.current?.focus();
-  };
-
   if (!activeProduct) return null;
 
   return (
