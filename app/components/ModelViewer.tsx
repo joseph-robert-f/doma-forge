@@ -315,8 +315,6 @@ export function ModelViewer({
     const canvasHost = canvasHostRef.current;
     if (!container || !canvasHost) return;
 
-    setRendererErrorMessage(null);
-
     if (rendererErrorRef.current) {
       rendererErrorRef.current.hidden = true;
       rendererErrorRef.current.style.display = "none";
