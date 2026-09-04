@@ -1,4 +1,4 @@
-import { SOCKET_WALL_MM, beamLoadNewtons, loadNote } from "../../kernel/bracket-rules";
+import { beamLoadNewtons, loadNote } from "../../kernel/bracket-rules";
 import {
   filenameNumber,
   formatMillimeters,
@@ -31,7 +31,7 @@ import { validateShelfRiser } from "./validate";
  * equal parameters would produce a different mesh, and re-record the golden
  * test.
  */
-export const SHELF_RISER_GEOMETRY_VERSION = 1;
+export const SHELF_RISER_GEOMETRY_VERSION = 2;
 
 function signature(parameters: ShelfRiserParameters): string {
   return signatureFromSpecs(
@@ -119,11 +119,12 @@ export const shelfRiser: ProductDefinition<ShelfRiserSpecs> = {
   // Everything else here is solved or fixed, and the key rule misses all of
   // it, so the product reports it (D-1703): the leg section, a load-bearing
   // column; the rib thickness, fixed whenever a span over 150 mm gets a
-  // rib; the lightening web between deck pockets; and the press-fit
-  // socket wall, fixed whenever the riser is tall enough to split. The
-  // gusset only widens the post toward the deck and the shelf thickness and
-  // the gusset thickness both equal the deck thickness exactly, so none of
-  // those adds a value the deck thickness has not already reported.
+  // rib; the lightening web between deck pockets; the deck skin left over a
+  // pocket, which is thinner than the deck thickness the specs report; and
+  // the press-fit socket wall, whenever the riser is tall enough to split.
+  // The gusset only widens the post toward the deck and the shelf thickness
+  // and the gusset thickness both equal the deck thickness exactly, so none
+  // of those adds a value the deck thickness has not already reported.
   printedWalls: (parameters) => {
     const walls = wallsFromSpecs(SHELF_RISER_SPECS, parameters);
     const layout = deriveLayout(parameters);
@@ -150,12 +151,24 @@ export const shelfRiser: ProductDefinition<ShelfRiserSpecs> = {
         label: "Web between deck pockets",
         value: LIGHTENING_WEB_MM,
       });
+      // The skin left over a pocket is solved from the deck thickness, not
+      // set by a parameter, so nothing else in this list reports it. It is
+      // the thinnest printed wall in a lightened riser at every deck
+      // thickness up to 4 mm, the default included. See S15 finding F-3.
+      walls.push({
+        key: "deck-skin",
+        label: "Deck over a pocket",
+        value: parameters.deckThickness - layout.pocketDepth,
+      });
     }
     if (layout.split.split) {
+      // The wall the geometry builds, not the nominal socket wall: the
+      // socket is the peg plus the press-fit clearance, so each wall is
+      // that much thinner. See S15 finding F-3.
       walls.push({
         key: "socket-wall",
         label: "Press-fit socket wall",
-        value: SOCKET_WALL_MM,
+        value: (parameters.legSection - layout.split.socketSide) / 2,
       });
     }
     return walls;

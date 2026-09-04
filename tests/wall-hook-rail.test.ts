@@ -14,6 +14,7 @@ import {
   thinWallIssues,
   wallLikeKeys,
 } from "../lib/printer-profile";
+import { fitTestCouponFilename } from "../lib/products/shared";
 import { inspectBinaryStl, serializeBinaryStl } from "../lib/stl";
 import { analyzeBufferGeometry, modelToBufferGeometry } from "../lib/three-geometry";
 import {
@@ -25,7 +26,7 @@ import { describeOverhangs, overhangFaces } from "./helpers/print-pose";
 
 const { normalize, validate, generate } = wallHookRail;
 
-// Recorded at geometryVersion 1 for the defaults. A change here is a
+// Recorded at geometryVersion 1 for the defaults and unchanged at version 2 (S15: the screw band moved through a flat plate face). A change here is a
 // geometry change: bump WALL_HOOK_RAIL_GEOMETRY_VERSION and re-record on purpose.
 const GOLDEN_TRIANGLES = 692;
 const GOLDEN_VOLUME = 69278.04;
@@ -39,9 +40,13 @@ const MINIMUM_CASE: Partial<WallHookRailParameters> = {
   hookRoot: 8, hookProjection: 12, hookLip: 0, screwCount: 1, screwSpacing: 20,
   screwDiameter: 3, keyShelf: false, cornerRadius: 0,
 };
+// Every field at its maximum except the lip: with the screw band measured
+// from the hook lip (S15 finding F-2), a 20 mm lip on a 20 mm root needs
+// 122 mm of rail and the field stops at 120. An 18 mm lip lands the
+// minimum height on 120 exactly.
 const MAXIMUM_CASE: Partial<WallHookRailParameters> = {
   railLength: 400, railHeight: 120, plateThickness: 8, hookCount: 8, hookWidth: 24,
-  hookRoot: 20, hookProjection: 50, hookLip: 20, screwCount: 4, screwSpacing: 100,
+  hookRoot: 20, hookProjection: 50, hookLip: 18, screwCount: 4, screwSpacing: 100,
   screwDiameter: 6, keyShelf: true, shelfDepth: 80, cornerRadius: 10,
 };
 
@@ -60,10 +65,10 @@ describe("wall hook rail parameters", () => {
     expect(layout.rootTop).toBe(17);
     expect(layout.lipTop).toBe(20);
     expect(layout.headDiameter).toBe(9);
-    expect(layout.screwBandBottom).toBe(25);
+    expect(layout.screwBandBottom).toBe(28);
     expect(layout.screwBandTop).toBe(42);
-    expect(layout.screwZ).toBe(33.5);
-    expect(layout.minimumHeight).toBe(42);
+    expect(layout.screwZ).toBe(35);
+    expect(layout.minimumHeight).toBe(45);
     expect(layout.hookCenters.map((x) => Number(x.toFixed(6)))).toEqual([-75.6, -25.2, 25.2, 75.6]);
     expect(layout.screws).toMatchObject({ ok: true, positions: [-80, 80] });
   });
@@ -93,8 +98,10 @@ describe("wall hook rail parameters", () => {
   });
 
   it("needs room for the fillet, the ramp, and the lip in the projection", () => {
-    expect(validate(withChanges({ hookRoot: 12, hookLip: 20, hookProjection: 26 })).valid).toBe(true);
-    const result = validate(withChanges({ hookRoot: 12, hookLip: 20, hookProjection: 25 }));
+    // A 20 mm lip on a 12 mm root needs a 63 mm rail once the screw band
+    // clears the lip, so this case sets the height as well.
+    expect(validate(withChanges({ hookRoot: 12, hookLip: 20, hookProjection: 26, railHeight: 63 })).valid).toBe(true);
+    const result = validate(withChanges({ hookRoot: 12, hookLip: 20, hookProjection: 25, railHeight: 63 }));
     expect(result.byField.hookProjection?.[0]).toBe(
       "Hook projection must be at least 26 mm, so the fillet, the lip ramp, and the lip fit. Use a shorter lip, or a longer projection.",
     );
@@ -116,15 +123,37 @@ describe("wall hook rail parameters", () => {
     );
   });
 
-  it("keeps the screw row 8 mm from the hook root and the plate top, or the shelf gussets", () => {
-    expect(validate(withChanges({ railHeight: 42 })).valid).toBe(true);
-    expect(validate(withChanges({ railHeight: 41 })).byField.railHeight?.[0]).toBe(
-      "Rail height must be at least 42 mm, to hold the hook root, the screw row, and 8 mm of plate around each countersink. Use a taller rail, a smaller root, or a smaller screw.",
+  it("keeps the screw row 8 mm from the hook and the plate top, or the shelf gussets", () => {
+    expect(validate(withChanges({ railHeight: 45 })).valid).toBe(true);
+    expect(validate(withChanges({ railHeight: 44 })).byField.railHeight?.[0]).toBe(
+      "Rail height must be at least 45 mm, to hold the hook, the screw row, and 8 mm of plate around each countersink. Use a taller rail, a smaller root, a shorter lip, or a smaller screw.",
     );
-    expect(validate(withChanges({ keyShelf: true, railHeight: 77 })).valid).toBe(true);
-    expect(validate(withChanges({ keyShelf: true, railHeight: 76 })).byField.railHeight?.[0]).toBe(
-      "Rail height must be at least 77 mm, to hold the hook root, the screw row, the shelf gussets, and 8 mm of plate around each countersink. Use a taller rail, a smaller root, or a smaller screw.",
+    expect(validate(withChanges({ keyShelf: true, railHeight: 80 })).valid).toBe(true);
+    expect(validate(withChanges({ keyShelf: true, railHeight: 79 })).byField.railHeight?.[0]).toBe(
+      "Rail height must be at least 80 mm, to hold the hook, the screw row, the shelf gussets, and 8 mm of plate around each countersink. Use a taller rail, a smaller root, a shorter lip, or a smaller screw.",
     );
+  });
+
+  it("starts the screw band above the hook lip once the lip passes the root band", () => {
+    // S15 finding F-2. The root band tops out at the root plus the 3 mm
+    // fillet, and a countersink needs 8 mm of plate under it, so a lip of
+    // exactly 3 + 8 = 11 mm reaches the band bottom the root alone would
+    // set and half a millimetre more stands inside it. Both are measured
+    // from the lip now, so both keep 8 mm of plate above the lip.
+    const level = deriveLayout(withChanges({ hookLip: 11, railHeight: 50 }));
+    expect(level.rootTop).toBe(17);
+    expect(level.lipTop).toBe(25);
+    expect(level.screwBandBottom).toBe(33);
+    expect(level.minimumHeight).toBe(50);
+    const over = deriveLayout(withChanges({ hookLip: 11.5, railHeight: 51 }));
+    expect(over.lipTop).toBe(25.5);
+    expect(over.screwBandBottom).toBe(33.5);
+    expect(over.minimumHeight).toBe(50.5);
+    for (const layout of [level, over]) {
+      expect(layout.screwZ - layout.headDiameter / 2).toBeGreaterThanOrEqual(layout.lipTop + 8);
+    }
+    expect(validate(withChanges({ hookLip: 11, railHeight: 50 })).valid).toBe(true);
+    expect(validate(withChanges({ hookLip: 11.5, railHeight: 50 })).valid).toBe(false);
   });
 
   it("puts a gusset at each end of the shelf and a rib every 150 mm", () => {
@@ -165,7 +194,7 @@ describe("wall hook rail parameters", () => {
     expect(wallHookRail.derive(WALL_HOOK_RAIL_DEFAULTS).map((value) => value.value)).toEqual([
       "240 × 25 × 50 mm",
       "50.4 mm, 38.4 mm between hooks",
-      "2 at 160 mm, 33.5 mm up from the bottom",
+      "2 at 160 mm, 35 mm up from the bottom",
       "about 3.3 kg at 3 perimeters in PLA, approximate",
     ]);
     expect(wallHookRail.derive(withChanges({ keyShelf: true, railHeight: 80 })).at(-1)).toMatchObject({
@@ -268,6 +297,29 @@ describe("wall hook rail geometry", () => {
     expect(screws.containsSolid([0, -parameters.plateThickness / 2])).toBe(true);
   });
 
+  it("leaves no hook material in front of a countersink with a tall lip", async () => {
+    // S15 finding F-2: hookRoot 12, hookLip 20, hookProjection 26 at the
+    // rail height the app used to call the minimum put both end hooks
+    // right across both countersinks.
+    const refused = validate(withChanges({ hookRoot: 12, hookLip: 20, hookProjection: 26, railHeight: 46 }));
+    expect(refused.valid).toBe(false);
+    const parameters = withChanges({ hookRoot: 12, hookLip: 20, hookProjection: 26, railHeight: 63 });
+    expect(validate(parameters).valid).toBe(true);
+    const layout = deriveLayout(parameters);
+    const model = await generate(parameters);
+    const slice = horizontalSliceTopology(model.mesh, layout.screwZ + 0.3);
+    expect(layout.screws.ok).toBe(true);
+    const positions = layout.screws.ok ? layout.screws.positions : [];
+    expect(positions).toEqual([-80, 80]);
+    for (const x of positions) {
+      // The bore is open at the screw axis, and nothing stands in front of it.
+      expect(slice.containsSolid([x, -parameters.plateThickness / 2])).toBe(false);
+      for (const depth of [1, 5, 10, 15, 20, 25]) {
+        expect(slice.containsSolid([x, -(parameters.plateThickness + depth)])).toBe(false);
+      }
+    }
+  });
+
   it("clips the shelf and its gussets to the rounded plate corners", async () => {
     const parameters = withChanges({ keyShelf: true, railHeight: 80, cornerRadius: 10 });
     const model = await generate(parameters);
@@ -293,6 +345,16 @@ describe("wall hook rail geometry", () => {
     await expect(wallHookRail.coupon!(withChanges({ hookProjection: 20.5 }))).rejects.toThrow(
       /snaps across the layers/,
     );
+  });
+
+  it("names the coupon file with the product id, the size, and the hash", async () => {
+    // S15 finding F-6: two products ship a coupon now, so the coupon name
+    // carries the product id the way a full model file does.
+    const parameters = normalize(WALL_HOOK_RAIL_DEFAULTS);
+    const coupon = await wallHookRail.coupon!(parameters);
+    const name = fitTestCouponFilename(coupon, wallHookRail.signature(parameters));
+    expect(name).toBe("drawerforge-fit-test-wall-hook-rail-60x25-8da4a7.stl");
+    expect(name).toContain(wallHookRail.id);
   });
 
   it("increases round-feature fidelity with mesh quality", async () => {
@@ -334,7 +396,7 @@ describe("wall hook rail geometry", () => {
 
   it("matches the geometry version 1 golden record for the defaults", async () => {
     const model = await generate(normalize(WALL_HOOK_RAIL_DEFAULTS));
-    expect(wallHookRail.geometryVersion).toBe(1);
+    expect(wallHookRail.geometryVersion).toBe(2);
     expect(model.mesh.triVerts.length / 3).toBe(GOLDEN_TRIANGLES);
     expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(0.001);
     expect(model.bounds).toEqual([

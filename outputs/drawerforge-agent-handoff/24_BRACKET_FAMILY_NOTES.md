@@ -226,8 +226,11 @@ is modeled as used because it has no extensions. The intro copy says the
 preview shows the riser as it prints, and the README says to turn it over.
 
 **D-1607. The leg split keeps the extension as short as possible.**
-The deck body takes 240 mm minus the deck thickness of leg, and each
-extension takes the rest plus a square peg. The peg side is the section
+The deck body takes 240 mm minus the deck thickness of leg, or the clear
+height minus the peg length if that is less (S15), and each extension
+takes the rest plus a square peg. The cap keeps an extension from being
+shorter than the peg it carries, which would be four extra parts for a
+fraction of a millimetre of leg. The peg side is the section
 minus two 3 mm socket walls, the peg length is one and a half peg sides
 and at least 10 mm, and the socket is 0.1 mm larger per side. The peg is
 on the extension and the socket in the deck leg, so both bodies print
@@ -359,7 +362,8 @@ primary's review stays owed; open issue 7 records it.
    names it for the shelf riser deck. A 400 mm shelf on two end gussets
    is the same problem, so it gets a rib gusset every 150 mm.
 4. **The 8 mm screw rule is applied to the gusset band and the pocket
-   walls as well as the plate edges and the hook root**, because a screw
+   walls as well as the plate edges, the hook root, and, since S15, the
+   hook lip**, because a screw
    head under a gusset cannot be driven.
 5. **The mount's screw spacing is derived, not set.** A narrow mount on
    one stud has no horizontal spacing to match, and the vertical spacing
@@ -377,7 +381,7 @@ primary's review stays owed; open issue 7 records it.
 |---|---|
 | Kernel time, defaults, standard quality | rail 12 ms, mount 12 ms, riser 56 ms, valet 10 ms |
 | Kernel time, largest range corner, fine quality | rail 42 ms (2 542 triangles), mount 18 ms (1 124), riser 208 ms (9 686, five bodies), valet 17 ms (482) |
-| Golden records at geometry version 1 | rail 692 triangles, volume 69 278.04, bounds ±120 × -25..0 × 0..50; mount 624, 110 119.44, ±45 × -45..0 × 0..150; riser 2 862, 331 378.70, ±150 × ±100 × 0..124; valet 266, 1 006 792.52, ±120 × ±75 × 0..70 |
+| Golden records at geometry version 1, unchanged at the rail's and the riser's version 2 (S15) | rail 692 triangles, volume 69 278.04, bounds ±120 × -25..0 × 0..50; mount 624, 110 119.44, ±45 × -45..0 × 0..150; riser 2 862, 331 378.70, ±150 × ±100 × 0..124; valet 266, 1 006 792.52, ±120 × ±75 × 0..70 |
 | Worker chunk | 197 245 bytes with fifteen products; budget 224 KB |
 | Page chunk | 601 995 bytes; budget 650 KB |
 | Vitest | 844 in 32 files, about 20 s |
@@ -415,9 +419,9 @@ primary's review stays owed; open issue 7 records it.
    the gussets already use.
 
 7. **The primary review is owed.** Section 5a's review was done by the
-   fallback reviewer at the same effort. Run the primary review on the
-   merged sprint when it is available, and apply what it finds as a
-   follow-up.
+   fallback reviewer at the same effort. Closed in S15: the primary review
+   ran on the merged sprint and its six findings were applied; see
+   30_OWED_REVIEWS_NOTES.md section 2.
 ---
 
 ## 9. Follow-ups

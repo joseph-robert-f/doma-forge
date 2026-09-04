@@ -391,8 +391,8 @@ Budgets: worker 16 KB, registry 176 KB, page 650 KB. All pass.
 | Nozzle | Refusals |
 |---|---|
 | 0.4 mm | none (after D-1713; before it, the parts bin's defaults and two presets on the 0.6 mm and 0.55 mm recess skin) |
-| 0.6 mm | the parts bin's compact preset, 1 mm lip wall (key-name rule, as before) |
-| 1.5 mm | every 2 mm wall as before, plus 21 reported webs, ribs, ledges, and lips across nine products |
+| 0.6 mm | four refusals, all on the parts bin: the defaults and the garage shelf preset on the 0.8 mm recess skin, the compact preset on its 0.85 mm skin and on its 1 mm lip wall (corrected in S15; this row first named only the lip wall, see 30_OWED_REVIEWS_NOTES.md S13-4) |
+| 1.5 mm | every 2 mm wall as before, plus 32 reported webs, ribs, ledges, and lips over 10 product-and-feature pairs across six products (corrected in S15 from "21 across nine") |
 
 ### 7.5 Golden records
 
@@ -415,10 +415,10 @@ new default wall: 688 triangles as before, volume 154,444.59 mm³ (was
    loads after the worker starts. The browser suite's 5 s Ready budget
    measures it; see section 7.
 5. **The primary review of S09 is still owed** (24_BRACKET_FAMILY_NOTES.md
-   open issue 7). The retry in this sprint failed the same way, on server overload, twice. Run it when the primary reviewer is available.
+   open issue 7). The retry in this sprint failed the same way, on server overload, twice. Closed in S15: both the S09 and this sprint's primary reviews ran; see 30_OWED_REVIEWS_NOTES.md.
 
 6. **The parts bin's recess skin is 0.8 mm at the defaults**, exactly
-   two widths of a 0.4 mm nozzle (D-1713). Record 8 decides whether that
+   two widths of a 0.4 mm nozzle (D-1713), so the defaults and two presets are refused at a 0.6 mm nozzle (S15, D-1903). Record 8 decides whether that
    skin, backed by the lip below it, prints well; if not, the fix is a
    larger reserve or a thicker default wall, not a smaller nozzle.
 7. **The key-name rule has a false positive.** The remote caddy's

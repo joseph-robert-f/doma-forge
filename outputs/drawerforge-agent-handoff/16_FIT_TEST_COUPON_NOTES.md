@@ -81,7 +81,7 @@ product family could change that.
 
 ### 1.4 Filename
 
-The pattern is `drawerforge-fit-test-<width>x<depth>-<hash>.stl`. The design
+The pattern is `drawerforge-fit-test-<width>x<depth>-<hash>.stl` (since S15, `drawerforge-fit-test-<product id>-<width>x<depth>-<hash>.stl`, because a second product has a coupon; see 30_OWED_REVIEWS_NOTES.md S09-6). The design
 name prefix comes from the existing `namedMeshFilename()`, the same helper
 the STL download uses. Width and depth come from the coupon's own bounds, not
 from a drawer-tray-specific derived-dimensions call. The hash is
@@ -197,7 +197,7 @@ enabled. Clicking it produced a real browser download:
 
 ```json
 {
-  "fitTest": { "name": "drawerforge-fit-test-299x199-137f96.stl", "size": 11284 },
+  "fitTest": { "name": "drawerforge-fit-test-299x199-137f96.stl", "size": 11284 }, (since S15: drawerforge-fit-test-drawer-tray-299x199-137f96.stl)
   "stl": { "name": "drawerforge-drawer-tray-299x199x50-2x3-137f96.stl", "size": 18184 }
 }
 ```

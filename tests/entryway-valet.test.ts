@@ -191,6 +191,28 @@ describe("entryway valet geometry", () => {
     expect(faces, describeOverhangs(faces)).toEqual([]);
   });
 
+  it("reads a coplanar sliver on a divider top as no overhang", async () => {
+    // S15 finding F-4: the top of the back divider here carries a triangle
+    // of 0.000185 mm square whose corners differ only by float32 rounding of
+    // the plane y = -91. Its normal is noise, and the check used to call it
+    // a 90 degree overhang.
+    const parameters = withChanges({
+      valetWidth: 400,
+      valetDepth: 250,
+      valetHeight: 20,
+      wellWidths: [60, 60],
+      wellDepth: 30,
+      wallThickness: 4,
+      baseThickness: 1.6,
+      dividerThickness: 1.2,
+      cornerRadius: 0,
+    });
+    expect(validate(parameters).valid).toBe(true);
+    const model = await generate(parameters);
+    const faces = overhangFaces(model.mesh, entrywayValet.printOrientation);
+    expect(faces, describeOverhangs(faces)).toEqual([]);
+  });
+
   it("shows three wells and the slot as holes, and the leaning rest above the walls", async () => {
     const parameters = withChanges({});
     const layout = deriveLayout(parameters);

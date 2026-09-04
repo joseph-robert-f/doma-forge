@@ -49,7 +49,7 @@ The user has reported that a generated STL imports and slices successfully in Ba
 7. [`06_TESTING_AND_QA.md`](06_TESTING_AND_QA.md) — automated coverage, current verification evidence, browser/print QA, and regression expectations.
 8. [`07_OPERATIONS_AND_MIGRATION.md`](07_OPERATIONS_AND_MIGRATION.md) — current Sites coupling and the selected direct-Cloudflare migration path.
 9. [`08_EXPANSION_ROADMAP.md`](08_EXPANSION_ROADMAP.md) — prioritized expansion work and the guardrails attached to each phase.
-10. [`09_NEXT_AGENT_BRIEF.md`](09_NEXT_AGENT_BRIEF.md) — a concise implementation brief that can be passed directly to the next agent.
+10. [`09_NEXT_AGENT_BRIEF.md`](09_NEXT_AGENT_BRIEF.md) — the implementation brief written before the sprint program; superseded by document 31 and kept as history.
 11. [`10_MULTI_PRODUCT_EXPANSION_PLAN.md`](10_MULTI_PRODUCT_EXPANSION_PLAN.md) — governance rules for the drawer tray and the 15-product catalog plan built on the same engine.
 12. [`11_PRODUCT_REGISTRY_REFACTOR_NOTES.md`](11_PRODUCT_REGISTRY_REFACTOR_NOTES.md) — decisions, deviations, open issues, and follow-ups from the product-registry refactor.
 13. [`12_WEB_WORKER_GENERATION_NOTES.md`](12_WEB_WORKER_GENERATION_NOTES.md) — design, decisions, measurements, and follow-ups for off-thread mesh generation.
@@ -70,8 +70,10 @@ The user has reported that a generated STL imports and slices successfully in Ba
 28. [`27_PRINT_PROGRAM_NOTES.md`](27_PRINT_PROGRAM_NOTES.md) — the print record program and decisions from sprint S12; the records themselves are in `sprints/PRINT_RECORDS.md`.
 29. [`28_CONTRACT_FOLLOW_UPS_NOTES.md`](28_CONTRACT_FOLLOW_UPS_NOTES.md) — geometry loaded per product, the worker's fixed chunk, the coupon in the worker, printed walls the product reports, the diameter correction, and decisions from sprint S13.
 30. [`29_PRINT_CONTEXT_NOTES.md`](29_PRINT_CONTEXT_NOTES.md) — the print context that validation may read, the bed-aware pot rules, the riser's one-piece height as a setting, and decisions from sprint S14.
-31. [`sprints/`](sprints/) — one spec per sprint, S01 to S14, plus the print records.
-32. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
+31. [`30_OWED_REVIEWS_NOTES.md`](30_OWED_REVIEWS_NOTES.md) — the primary reviews of S09 and S13 run on the merged code, every finding and its disposition, and decisions from sprint S15.
+32. [`31_SESSION_HANDOFF.md`](31_SESSION_HANDOFF.md) — the current session handoff: the architecture a new team must know, the decisions that constrain new work and the logic behind them, the open issues, and the priorities. Start here; it supersedes document 09.
+33. [`sprints/`](sprints/) — one spec per sprint, S01 to S15, plus the print records.
+34. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
 
 `CHECKSUMS.sha256` contains SHA-256 hashes for every document and the manifest so a copied or extracted package can be verified.
 

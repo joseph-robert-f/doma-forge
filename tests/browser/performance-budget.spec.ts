@@ -32,7 +32,10 @@ const WORKER_CHUNK_BUDGET_BYTES = 16 * 1024;
 // The registry chunk holds every product's schema, validation, copy, and
 // presets, which the page needs for its form. Fifteen products measure
 // 126 KB, about 8.5 KB per product, so the budget is 176 KB: room for five
-// more products, and a builder module leaking in fails it.
+// more products. This budget measures the size of the definitions the form
+// needs; it does not catch a builder module leaking into a definition, since
+// Rollup hoists a shared builder into its own chunk rather than growing this
+// one. The import-graph walk in tests/products.test.ts is the guard for that.
 const REGISTRY_CHUNK_BUDGET_BYTES = 176 * 1024;
 
 /** Finds the one built asset file whose name matches the given pattern. */

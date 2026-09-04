@@ -27,6 +27,7 @@ import {
   compensate,
   compensationNotes,
   correctionRangeMessages,
+  diameterCorrection,
   extentsFromBounds,
   thinWallIssues,
   normalizePrinterName,
@@ -386,10 +387,33 @@ export function ProductApp({ productId }: { productId: string }) {
     [product, compensatedParameters, activeProfile],
   );
   const calibrationProposals = useMemo(() => {
-    if (!modeledExtents) return [] as CalibrationProposal[];
+    if (!targetExtents) return [] as CalibrationProposal[];
+    // A product whose only compensable list is the diameter has one
+    // correction shared by both axes, not two independent ones. Proposing
+    // against each axis's own correction would let the two proposals walk
+    // apart every round even after the print measures the target, so both
+    // axes propose against the shared mean instead (F-3, D-1704).
+    // Length, not truthiness, so an empty list reads the way
+    // activeCorrections reads it.
+    const isDiameterOnly =
+      !!product.compensable?.diameter?.length &&
+      !product.compensable?.x?.length &&
+      !product.compensable?.y?.length;
+    const existingKind: "axis" | "mean" = isDiameterOnly ? "mean" : "axis";
+    const diameterExisting = isDiameterOnly
+      ? diameterCorrection(activeProfile)
+      : 0;
     const entries: Array<["x" | "y", number, string]> = [
-      ["x", activeProfile.correctionX, measured.x],
-      ["y", activeProfile.correctionY, measured.y],
+      [
+        "x",
+        isDiameterOnly ? diameterExisting : activeProfile.correctionX,
+        measured.x,
+      ],
+      [
+        "y",
+        isDiameterOnly ? diameterExisting : activeProfile.correctionY,
+        measured.y,
+      ],
     ];
     const proposals: CalibrationProposal[] = [];
     for (const [axis, existing, text] of entries) {
@@ -397,13 +421,14 @@ export function ProductApp({ productId }: { productId: string }) {
       const proposal = calibrationProposal(
         axis,
         existing,
-        modeledExtents[axis],
+        targetExtents[axis],
         Number(text),
+        existingKind,
       );
       if (proposal) proposals.push(proposal);
     }
     return proposals;
-  }, [modeledExtents, activeProfile, measured]);
+  }, [targetExtents, activeProfile, measured, product.compensable]);
 
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
@@ -785,6 +810,7 @@ export function ProductApp({ productId }: { productId: string }) {
         withCorrectionTag(
           namedMeshFilename(designName, product.filename(preview.parameters)),
           activeProfile,
+          product.compensable,
         ),
       );
     } catch (error) {
@@ -875,8 +901,8 @@ export function ProductApp({ productId }: { productId: string }) {
   };
 
   const printerSummary = `Bed ${printer.bedWidth} × ${printer.bedDepth} × ${printer.bedHeight} mm · nozzle ${printer.nozzleDiameter} mm · correction X ${printer.correctionX} mm, Y ${printer.correctionY} mm`;
-  const expectedText = modeledExtents
-    ? `Expected width ${formatMillimeters(modeledExtents.x, 3)} mm and depth ${formatMillimeters(modeledExtents.y, 3)} mm.`
+  const expectedText = targetExtents
+    ? `A correctly calibrated print should measure width ${formatMillimeters(targetExtents.x, 3)} mm and depth ${formatMillimeters(targetExtents.y, 3)} mm, the target size.`
     : "";
 
   const statusDetail =
@@ -1142,7 +1168,7 @@ export function ProductApp({ productId }: { productId: string }) {
                     role="status"
                     aria-live="polite"
                   >
-                    {modeledExtents ? (
+                    {targetExtents ? (
                       <p>{expectedText}</p>
                     ) : (
                       <p>

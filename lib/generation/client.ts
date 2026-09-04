@@ -232,10 +232,10 @@ export class InlineGenerationClient implements GenerationClient {
         if (response.type === "result") pending.resolve(response.model);
         else pending.reject(new Error(response.message));
       };
-      // The protocol module pulls in every product, and each product loads
-      // its geometry and the kernel on demand. Loading the protocol lazily
-      // keeps all of that out of the page bundle in browsers, where the
-      // worker client is used instead.
+      // The protocol module pulls in only the geometry loader table, and
+      // each product's geometry and the kernel load on demand from there.
+      // Loading the protocol lazily keeps even that table out of the page
+      // bundle in browsers, where the worker client is used instead.
       import("./protocol")
         .then(({ handleGenerationRequest }) =>
           handleGenerationRequest({

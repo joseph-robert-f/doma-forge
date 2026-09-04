@@ -341,7 +341,11 @@ export function deriveLayout(
   const shelfUnderside = parameters.keyShelf
     ? parameters.railHeight - shelfThickness
     : parameters.railHeight;
-  const screwBandBottom = rootTop + SCREW_MINIMUM_EDGE_MM;
+  // The screw band clears the whole hook, not only its root. A lip that
+  // reaches above the root's top fillet stands in front of a countersink
+  // measured from the root alone, and no screwdriver reaches it. See S15
+  // finding F-2.
+  const screwBandBottom = Math.max(rootTop, lipTop) + SCREW_MINIMUM_EDGE_MM;
   const screwBandTop = shelfUnderside - gussetRise - SCREW_MINIMUM_EDGE_MM;
   const screwZ = (screwBandBottom + screwBandTop) / 2;
   const screws = planScrewRow({

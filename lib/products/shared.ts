@@ -227,8 +227,12 @@ export function filenameNumber(value: number): string {
 }
 
 /**
- * `drawerforge-fit-test-<width>x<depth>-<hash>.stl`, built from the coupon's
- * own bounds so the name works for any product's fit-test coupon.
+ * `drawerforge-fit-test-<product id>-<width>x<depth>-<hash>.stl`, built from
+ * the coupon's own bounds so the name works for any product's fit-test
+ * coupon. The product id comes from the signature, whose first field is the
+ * product id by construction in `signatureFromSpecs`; a full model file name
+ * carries the same id, so two coupons in one downloads folder can be told
+ * apart the way two models can. See S15 finding F-6.
  */
 export function fitTestCouponFilename(
   model: GeneratedModel<unknown>,
@@ -237,7 +241,8 @@ export function fitTestCouponFilename(
   const width = model.bounds[1][0] - model.bounds[0][0];
   const depth = model.bounds[1][1] - model.bounds[0][1];
   const size = [width, depth].map(filenameNumber).join("x");
-  return `drawerforge-fit-test-${size}-${shortHash(signature)}.stl`;
+  const productId = signature.split("|")[0];
+  return `drawerforge-fit-test-${productId}-${size}-${shortHash(signature)}.stl`;
 }
 
 export function formatMillimeters(value: number, digits = 1): string {

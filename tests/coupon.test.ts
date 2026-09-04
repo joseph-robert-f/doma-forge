@@ -12,6 +12,7 @@ import {
   buildFitTestCouponMesh,
   generateFitTestCoupon,
 } from "../lib/products/drawer-tray/coupon";
+import { fitTestCouponFilename } from "../lib/products/shared";
 import { inspectBinaryStl, serializeBinaryStl } from "../lib/stl";
 import {
   analyzeBufferGeometry,
@@ -298,6 +299,19 @@ describe("fit-test coupon geometry", () => {
     await expect(buildFitTestCouponMesh(collapsed)).rejects.toThrow(
       /no inside opening/i,
     );
+  });
+
+  it("names the coupon file with the product id, the size, and the hash", async () => {
+    // S15 finding F-6: the drawer tray is no longer the only product with a
+    // coupon, so the name carries the product id the way a full model file
+    // does.
+    const parameters = normalize(DEFAULT_PARAMETERS);
+    const model = await generateFitTestCoupon(parameters);
+    const name = fitTestCouponFilename(model, drawerTray.signature(parameters));
+    expect(name).toBe("drawerforge-fit-test-drawer-tray-299x199-137f96.stl");
+    expect(drawerTray.filename(parameters)).toContain(drawerTray.id);
+    expect(name).toContain(drawerTray.id);
+    expect(name).toMatch(/^drawerforge-fit-test-drawer-tray-299x199-[0-9a-f]{6}\.stl$/);
   });
 
   it("round-trips through the binary STL inspector", async () => {

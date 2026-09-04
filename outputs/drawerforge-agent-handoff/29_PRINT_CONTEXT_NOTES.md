@@ -277,7 +277,7 @@ bed.
 
 All fifteen unchanged. The riser's file name hash moves from `bdd8f7` to
 `e7fd6b`, because the signature covers the new key; record 17 carries the
-new name.
+new name (`3c7117` since S15, which bumped the riser's geometry version).
 
 ### 7.5 Browser suite
 
@@ -289,7 +289,7 @@ Eleven of eleven on the production build. The first Ready preview at
 ## 8. Open issues
 
 3. **The primary review is still owed for S09 and S13.** This sprint had
-   it; see section 5a.
+   it; see section 5a. Closed in S15; see 30_OWED_REVIEWS_NOTES.md.
 
 ---
 
