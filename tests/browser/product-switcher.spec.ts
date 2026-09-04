@@ -12,6 +12,7 @@ const PRODUCT_FAMILIES = [
 const VIEWPORTS = [
   { name: "desktop", width: 1363, height: 936, minHeaderHeight: 64, maxHeaderHeight: 80 },
   { name: "mobile", width: 390, height: 844, minHeaderHeight: 52, maxHeaderHeight: 64 },
+  { name: "narrow mobile", width: 320, height: 700, minHeaderHeight: 52, maxHeaderHeight: 64 },
 ] as const;
 
 function switcherParts(page: Page) {
@@ -101,7 +102,7 @@ test.describe("product switcher", () => {
       name: PRODUCTS[0].label,
       exact: true,
     });
-    await firstProductLink.focus();
+    await page.keyboard.press("Tab");
     await expect(firstProductLink).toBeFocused();
 
     await page.keyboard.press("Escape");
@@ -183,5 +184,7 @@ test.describe("product switcher", () => {
     );
     await expect(page.getByTestId("preview-status")).toHaveAttribute("data-status", "error");
     await expect(page.getByTestId("preview-status")).toContainText(/^Error/);
+    await expect(page.getByTestId("fit-view-button")).toBeDisabled();
+    await expect(page.getByTestId("reset-view-button")).toBeDisabled();
   });
 });

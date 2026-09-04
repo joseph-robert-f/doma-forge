@@ -204,6 +204,7 @@ export function ModelViewer({
   const keyLightRef = useRef<THREE.DirectionalLight | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const [printPoseActive, setPrintPoseActive] = useState(false);
+  const [rendererErrorMessage, setRendererErrorMessage] = useState<string | null>(null);
 
   const frameModel = useCallback((resetDirection: boolean) => {
     const mesh = modelMeshRef.current;
@@ -314,6 +315,8 @@ export function ModelViewer({
     const canvasHost = canvasHostRef.current;
     if (!container || !canvasHost) return;
 
+    setRendererErrorMessage(null);
+
     if (rendererErrorRef.current) {
       rendererErrorRef.current.hidden = true;
       rendererErrorRef.current.style.display = "none";
@@ -419,6 +422,7 @@ export function ModelViewer({
     let removeFallbackResize: (() => void) | null = null;
 
     const reportRendererError = (message: string) => {
+      setRendererErrorMessage(message);
       if (!rendererErrorRef.current) return;
       rendererErrorRef.current.textContent = message;
       rendererErrorRef.current.hidden = false;
@@ -430,7 +434,9 @@ export function ModelViewer({
       typeof window.WebGL2RenderingContext !== "undefined";
 
     if (!hasWebGL) {
-      reportRendererError("This browser does not provide WebGL for the 3D preview.");
+      reportRendererError(
+        "This browser does not provide WebGL for the 3D preview. You can still edit the model and download the STL.",
+      );
     } else {
       try {
         renderer = new THREE.WebGLRenderer({
@@ -522,7 +528,9 @@ export function ModelViewer({
         renderer?.domElement.remove();
         renderer = null;
         rendererRef.current = null;
-        reportRendererError("The 3D preview could not start in this browser.");
+        reportRendererError(
+          "The 3D preview could not start in this browser. You can still edit the model and download the STL.",
+        );
       }
     }
 
@@ -628,8 +636,14 @@ export function ModelViewer({
 
   const fitModel = useCallback(() => frameModel(false), [frameModel]);
   const resetView = useCallback(() => frameModel(true), [frameModel]);
-  const statusLabel = STATUS_LABELS[status];
-  const isBusy = status === "loading" || status === "updating";
+  const effectiveStatus: ViewerStatus = rendererErrorMessage ? "error" : status;
+  const effectiveStatusDetail = rendererErrorMessage
+    ? "3D preview unavailable"
+    : statusDetail;
+  const statusLabel = STATUS_LABELS[effectiveStatus];
+  const isBusy =
+    effectiveStatus === "loading" || effectiveStatus === "updating";
+  const controlsDisabled = !geometry || Boolean(rendererErrorMessage);
 
   return (
     <div
@@ -649,11 +663,11 @@ export function ModelViewer({
           type="button"
           style={{
             ...buttonStyle,
-            opacity: geometry ? 1 : 0.5,
-            cursor: geometry ? "pointer" : "not-allowed",
+            opacity: controlsDisabled ? 0.5 : 1,
+            cursor: controlsDisabled ? "not-allowed" : "pointer",
           }}
           onClick={fitModel}
-          disabled={!geometry}
+          disabled={controlsDisabled}
           data-testid="fit-view-button"
         >
           Fit model
@@ -662,11 +676,11 @@ export function ModelViewer({
           type="button"
           style={{
             ...buttonStyle,
-            opacity: geometry ? 1 : 0.5,
-            cursor: geometry ? "pointer" : "not-allowed",
+            opacity: controlsDisabled ? 0.5 : 1,
+            cursor: controlsDisabled ? "not-allowed" : "pointer",
           }}
           onClick={resetView}
-          disabled={!geometry}
+          disabled={controlsDisabled}
           data-testid="reset-view-button"
         >
           Reset view
@@ -677,11 +691,11 @@ export function ModelViewer({
             style={{
               ...buttonStyle,
               ...(printPoseOn ? activeButtonStyle : null),
-              opacity: geometry ? 1 : 0.5,
-              cursor: geometry ? "pointer" : "not-allowed",
+              opacity: controlsDisabled ? 0.5 : 1,
+              cursor: controlsDisabled ? "not-allowed" : "pointer",
             }}
             onClick={() => setPrintPoseActive((active) => !active)}
-            disabled={!geometry}
+            disabled={controlsDisabled}
             aria-pressed={printPoseOn}
             title={printOrientation.note}
             data-testid="print-pose-toggle"
@@ -703,7 +717,7 @@ export function ModelViewer({
         aria-live="polite"
         style={statusStyle}
         data-testid="preview-status"
-        data-status={status}
+        data-status={effectiveStatus}
       >
         <span
           aria-hidden="true"
@@ -713,9 +727,9 @@ export function ModelViewer({
             flex: "0 0 auto",
             borderRadius: 999,
             background:
-              status === "error"
+              effectiveStatus === "error"
                 ? "#f87171"
-                : status === "paused"
+                : effectiveStatus === "paused"
                   ? "#a8a29e"
                   : "#f6ad3c",
             boxShadow: isBusy ? "0 0 0 4px rgba(246, 173, 60, 0.14)" : "none",
@@ -723,7 +737,7 @@ export function ModelViewer({
         />
         <span>
           <strong>{statusLabel}</strong>
-          {statusDetail ? ` · ${statusDetail}` : ""}
+          {effectiveStatusDetail ? ` · ${effectiveStatusDetail}` : ""}
         </span>
       </div>
 
