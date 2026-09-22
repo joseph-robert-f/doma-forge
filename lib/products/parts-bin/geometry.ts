@@ -1,3 +1,4 @@
+import { ResourceScope } from "../../kernel/ownership";
 import type { ManifoldToplevel } from "manifold-3d";
 import { unionSolids } from "../../kernel/arrays";
 import { getKernel, type Solid } from "../../kernel/manifold";
@@ -30,30 +31,35 @@ function ringPrism(
   growBelow: number,
   growAbove: number,
 ): Solid {
-  const outerProfile = roundedRectangle(
-    kernel,
-    frame.outerHalfWidth * 2,
-    frame.outerHalfDepth * 2,
-    frame.outerCornerRadius,
-    segments,
-  );
-  const innerProfile = roundedRectangle(
-    kernel,
-    frame.innerHalfWidth * 2,
-    frame.innerHalfDepth * 2,
-    frame.innerCornerRadius,
-    segments,
-  );
-  const ring = outerProfile.subtract(innerProfile);
-  outerProfile.delete();
-  innerProfile.delete();
-  const prismAtOrigin = ring.extrude(
-    frame.topZ - frame.bottomZ + growBelow + growAbove,
-  );
-  ring.delete();
-  const prism = prismAtOrigin.translate([0, 0, frame.bottomZ - growBelow]);
-  prismAtOrigin.delete();
-  return prism;
+  const scope = new ResourceScope();
+  try {
+    const outerProfile = scope.own(roundedRectangle(
+      kernel,
+      frame.outerHalfWidth * 2,
+      frame.outerHalfDepth * 2,
+      frame.outerCornerRadius,
+      segments,
+    ));
+    const innerProfile = scope.own(roundedRectangle(
+      kernel,
+      frame.innerHalfWidth * 2,
+      frame.innerHalfDepth * 2,
+      frame.innerCornerRadius,
+      segments,
+    ));
+    const ring = scope.own(outerProfile.subtract(innerProfile));
+    scope.delete(outerProfile);
+    scope.delete(innerProfile);
+    const prismAtOrigin = scope.own(ring.extrude(
+      frame.topZ - frame.bottomZ + growBelow + growAbove,
+    ));
+    scope.delete(ring);
+    const prism = scope.own(prismAtOrigin.translate([0, 0, frame.bottomZ - growBelow]));
+    scope.delete(prismAtOrigin);
+    return scope.take(prism);
+  } finally {
+    scope.dispose();
+  }
 }
 
 /**
@@ -63,32 +69,37 @@ function ringPrism(
  * the bin above it in a stack.
  */
 function labelLedge(kernel: ManifoldToplevel, layout: PartsBinLayout): Solid {
-  const frontY = -layout.bodyDepth / 2;
-  const shelfAtOrigin = kernel.Manifold.cube(
-    [
-      layout.ledgeWidth,
-      LABEL_LEDGE_PROJECTION_MM + BOOLEAN_OVERLAP,
-      LABEL_LEDGE_SHELF_MM,
-    ],
-    true,
-  );
-  const shelf = shelfAtOrigin.translate([
-    0,
-    frontY - LABEL_LEDGE_PROJECTION_MM / 2 + BOOLEAN_OVERLAP / 2,
-    LABEL_LEDGE_SHELF_MM / 2,
-  ]);
-  shelfAtOrigin.delete();
-  const upstandAtOrigin = kernel.Manifold.cube(
-    [layout.ledgeWidth, LABEL_LEDGE_UPSTAND_MM, LABEL_LEDGE_HEIGHT_MM],
-    true,
-  );
-  const upstand = upstandAtOrigin.translate([
-    0,
-    frontY - LABEL_LEDGE_PROJECTION_MM + LABEL_LEDGE_UPSTAND_MM / 2,
-    LABEL_LEDGE_HEIGHT_MM / 2,
-  ]);
-  upstandAtOrigin.delete();
-  return unionSolids(kernel, [shelf, upstand]);
+  const scope = new ResourceScope();
+  try {
+    const frontY = -layout.bodyDepth / 2;
+    const shelfAtOrigin = scope.own(kernel.Manifold.cube(
+      [
+        layout.ledgeWidth,
+        LABEL_LEDGE_PROJECTION_MM + BOOLEAN_OVERLAP,
+        LABEL_LEDGE_SHELF_MM,
+      ],
+      true,
+    ));
+    const shelf = scope.own(shelfAtOrigin.translate([
+      0,
+      frontY - LABEL_LEDGE_PROJECTION_MM / 2 + BOOLEAN_OVERLAP / 2,
+      LABEL_LEDGE_SHELF_MM / 2,
+    ]));
+    scope.delete(shelfAtOrigin);
+    const upstandAtOrigin = scope.own(kernel.Manifold.cube(
+      [layout.ledgeWidth, LABEL_LEDGE_UPSTAND_MM, LABEL_LEDGE_HEIGHT_MM],
+      true,
+    ));
+    const upstand = scope.own(upstandAtOrigin.translate([
+      0,
+      frontY - LABEL_LEDGE_PROJECTION_MM + LABEL_LEDGE_UPSTAND_MM / 2,
+      LABEL_LEDGE_HEIGHT_MM / 2,
+    ]));
+    scope.delete(upstandAtOrigin);
+    return unionSolids(kernel, scope.takeAll([shelf, upstand]));
+  } finally {
+    scope.dispose();
+  }
 }
 
 /**
@@ -102,34 +113,39 @@ function scoopCutter(
   layout: PartsBinLayout,
   segments: number,
 ): Solid {
-  const radius = layout.scoopRadius;
-  const wallLength = parameters.wallThickness + BOOLEAN_OVERLAP * 4;
-  const centerY = -layout.bodyDepth / 2 + parameters.wallThickness / 2;
-  const cylinderAtOrigin = kernel.Manifold.cylinder(
-    wallLength,
-    radius,
-    radius,
-    segments,
-    true,
-  );
-  const rotated = cylinderAtOrigin.rotate([90, 0, 0]);
-  cylinderAtOrigin.delete();
-  const notch = rotated.translate([0, centerY, layout.bodyHeight]);
-  rotated.delete();
-  if (!layout.lip) return notch;
+  const scope = new ResourceScope();
+  try {
+    const radius = layout.scoopRadius;
+    const wallLength = parameters.wallThickness + BOOLEAN_OVERLAP * 4;
+    const centerY = -layout.bodyDepth / 2 + parameters.wallThickness / 2;
+    const cylinderAtOrigin = scope.own(kernel.Manifold.cylinder(
+      wallLength,
+      radius,
+      radius,
+      segments,
+      true,
+    ));
+    const rotated = scope.own(cylinderAtOrigin.rotate([90, 0, 0]));
+    scope.delete(cylinderAtOrigin);
+    const notch = scope.own(rotated.translate([0, centerY, layout.bodyHeight]));
+    scope.delete(rotated);
+    if (!layout.lip) return scope.take(notch);
 
-  const lipHeight = layout.lip.topZ - layout.lip.bottomZ;
-  const slotAtOrigin = kernel.Manifold.cube(
-    [radius * 2, wallLength, lipHeight + BOOLEAN_OVERLAP * 2],
-    true,
-  );
-  const slot = slotAtOrigin.translate([
-    0,
-    centerY,
-    layout.bodyHeight + lipHeight / 2,
-  ]);
-  slotAtOrigin.delete();
-  return unionSolids(kernel, [notch, slot]);
+    const lipHeight = layout.lip.topZ - layout.lip.bottomZ;
+    const slotAtOrigin = scope.own(kernel.Manifold.cube(
+      [radius * 2, wallLength, lipHeight + BOOLEAN_OVERLAP * 2],
+      true,
+    ));
+    const slot = scope.own(slotAtOrigin.translate([
+      0,
+      centerY,
+      layout.bodyHeight + lipHeight / 2,
+    ]));
+    scope.delete(slotAtOrigin);
+    return unionSolids(kernel, scope.takeAll([notch, slot]));
+  } finally {
+    scope.dispose();
+  }
 }
 
 /**
@@ -146,46 +162,53 @@ export function buildPartsBinSolid(
   kernel: ManifoldToplevel,
   parameters: PartsBinParameters,
 ): Solid {
-  const layout = deriveLayout(parameters);
-  const segments = QUALITY_SEGMENTS[parameters.meshQuality];
+  const scope = new ResourceScope();
+  try {
+    const layout = deriveLayout(parameters);
+    const segments = QUALITY_SEGMENTS[parameters.meshQuality];
 
-  const { outer, shell } = roundedShell(kernel, {
-    width: layout.bodyWidth,
-    depth: layout.bodyDepth,
-    height: layout.bodyHeight,
-    cornerRadius: parameters.cornerRadius,
-    wallThickness: parameters.wallThickness,
-    baseThickness: parameters.baseThickness,
-    segments,
-  });
-  outer.delete();
+    const { outer, shell } = roundedShell(kernel, {
+      width: layout.bodyWidth,
+      depth: layout.bodyDepth,
+      height: layout.bodyHeight,
+      cornerRadius: parameters.cornerRadius,
+      wallThickness: parameters.wallThickness,
+      baseThickness: parameters.baseThickness,
+      segments,
+    });
+    scope.own(outer);
+    scope.own(shell);
+    scope.delete(outer);
 
-  const additions: Solid[] = [shell];
-  if (layout.lip) {
-    additions.push(ringPrism(kernel, layout.lip, segments, BOOLEAN_OVERLAP, 0));
-  }
-  if (parameters.labelLedge) {
-    additions.push(labelLedge(kernel, layout));
-  }
-  let solid = unionSolids(kernel, additions);
+    const additions: Solid[] = [shell];
+    if (layout.lip) {
+      additions.push(scope.own(ringPrism(kernel, layout.lip, segments, BOOLEAN_OVERLAP, 0)));
+    }
+    if (parameters.labelLedge) {
+      additions.push(scope.own(labelLedge(kernel, layout)));
+    }
+    let solid = scope.own(unionSolids(kernel, scope.takeAll(additions)));
 
-  const cutters: Solid[] = [];
-  if (layout.recess) {
-    cutters.push(
-      ringPrism(kernel, layout.recess, segments, BOOLEAN_OVERLAP, 0),
-    );
+    const cutters: Solid[] = [];
+    if (layout.recess) {
+      cutters.push(
+        scope.own(ringPrism(kernel, layout.recess, segments, BOOLEAN_OVERLAP, 0)),
+      );
+    }
+    if (parameters.frontScoop) {
+      cutters.push(scope.own(scoopCutter(kernel, parameters, layout, segments)));
+    }
+    if (cutters.length > 0) {
+      const cutter = scope.own(unionSolids(kernel, scope.takeAll(cutters)));
+      const cut = scope.own(solid.subtract(cutter));
+      scope.delete(cutter);
+      scope.delete(solid);
+      solid = cut;
+    }
+    return scope.take(solid);
+  } finally {
+    scope.dispose();
   }
-  if (parameters.frontScoop) {
-    cutters.push(scoopCutter(kernel, parameters, layout, segments));
-  }
-  if (cutters.length > 0) {
-    const cutter = unionSolids(kernel, cutters);
-    const cut = solid.subtract(cutter);
-    cutter.delete();
-    solid.delete();
-    solid = cut;
-  }
-  return solid;
 }
 
 export async function generatePartsBin(

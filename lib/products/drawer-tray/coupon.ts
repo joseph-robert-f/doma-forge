@@ -1,3 +1,4 @@
+import { ResourceScope } from "../../kernel/ownership";
 import { getKernel } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
 import { roundedRectangle } from "../../kernel/profiles";
@@ -31,50 +32,55 @@ export {
 export async function buildFitTestCouponMesh(
   parameters: DrawerTrayParameters,
 ): Promise<GeneratedModel<DrawerTrayParameters>> {
-  const kernel = await getKernel();
-  const derived = deriveDimensions(parameters);
-  const segments = QUALITY_SEGMENTS[parameters.meshQuality];
-  const ringWall = getCouponWallThickness(parameters);
+  const scope = new ResourceScope();
+  try {
+    const kernel = await getKernel();
+    const derived = deriveDimensions(parameters);
+    const segments = QUALITY_SEGMENTS[parameters.meshQuality];
+    const ringWall = getCouponWallThickness(parameters);
 
-  const outerProfile = roundedRectangle(
-    kernel,
-    derived.outsideWidth,
-    derived.outsideDepth,
-    parameters.cornerRadius,
-    segments,
-  );
-  const outer = outerProfile.extrude(FIT_TEST_COUPON_HEIGHT);
-  outerProfile.delete();
+    const outerProfile = scope.own(roundedRectangle(
+      kernel,
+      derived.outsideWidth,
+      derived.outsideDepth,
+      parameters.cornerRadius,
+      segments,
+    ));
+    const outer = scope.own(outerProfile.extrude(FIT_TEST_COUPON_HEIGHT));
+    scope.delete(outerProfile);
 
-  const innerWidth = derived.outsideWidth - ringWall * 2;
-  const innerDepth = derived.outsideDepth - ringWall * 2;
-  if (innerWidth <= 0 || innerDepth <= 0) {
-    outer.delete();
-    throw new Error(
-      "The fit-test ring wall leaves no inside opening at this size.",
-    );
+    const innerWidth = derived.outsideWidth - ringWall * 2;
+    const innerDepth = derived.outsideDepth - ringWall * 2;
+    if (innerWidth <= 0 || innerDepth <= 0) {
+      scope.delete(outer);
+      throw new Error(
+        "The fit-test ring wall leaves no inside opening at this size.",
+      );
+    }
+    const innerRadius = Math.max(0, parameters.cornerRadius - ringWall);
+    const innerProfile = scope.own(roundedRectangle(
+      kernel,
+      innerWidth,
+      innerDepth,
+      innerRadius,
+      segments,
+    ));
+    // The cavity runs through the whole ring height, with overlap past both
+    // faces so the through-hole never leaves a coplanar sliver.
+    const cavityHeight = FIT_TEST_COUPON_HEIGHT + BOOLEAN_OVERLAP * 2;
+    const cavityAtOrigin = scope.own(innerProfile.extrude(cavityHeight));
+    scope.delete(innerProfile);
+    const cavity = scope.own(cavityAtOrigin.translate([0, 0, -BOOLEAN_OVERLAP]));
+    scope.delete(cavityAtOrigin);
+
+    const ring = scope.own(outer.subtract(cavity));
+    scope.delete(outer);
+    scope.delete(cavity);
+
+    return finishSolid(scope.take(ring), parameters, "fit-test coupon");
+  } finally {
+    scope.dispose();
   }
-  const innerRadius = Math.max(0, parameters.cornerRadius - ringWall);
-  const innerProfile = roundedRectangle(
-    kernel,
-    innerWidth,
-    innerDepth,
-    innerRadius,
-    segments,
-  );
-  // The cavity runs through the whole ring height, with overlap past both
-  // faces so the through-hole never leaves a coplanar sliver.
-  const cavityHeight = FIT_TEST_COUPON_HEIGHT + BOOLEAN_OVERLAP * 2;
-  const cavityAtOrigin = innerProfile.extrude(cavityHeight);
-  innerProfile.delete();
-  const cavity = cavityAtOrigin.translate([0, 0, -BOOLEAN_OVERLAP]);
-  cavityAtOrigin.delete();
-
-  const ring = outer.subtract(cavity);
-  outer.delete();
-  cavity.delete();
-
-  return finishSolid(ring, parameters, "fit-test coupon");
 }
 
 /**

@@ -1,3 +1,4 @@
+import { ResourceScope } from "../../kernel/ownership";
 import { boreCutter, cutterArray, unionSolids } from "../../kernel/arrays";
 import { lightenUnderside } from "../../kernel/lightening";
 import { getKernel, type Solid } from "../../kernel/manifold";
@@ -54,31 +55,36 @@ function tiltedBoreCutter(
   kernel: Awaited<ReturnType<typeof getKernel>>,
   options: Parameters<typeof boreCutter>[1] & { tiltDegrees: number },
 ): Solid {
-  if (!options.tiltDegrees) return boreCutter(kernel, options);
-  const tiltRadians = options.tiltDegrees * DEGREES_TO_RADIANS;
-  const wideRadius = options.diameter / 2 + options.chamfer;
-  // How far, along the untilted axis, the widest disk must reach on
-  // either side of the true mouth plane: the mouth ellipse needs headroom
-  // above the plane on the side the tilt lifts, and the same amount below
-  // it on the side the tilt lowers, which side is which depending on the
-  // rotation's own sign. A cap spanning both directions by this much
-  // covers whichever side needs it, without having to know that sign.
-  const extra = wideRadius * Math.tan(tiltRadians) + BOOLEAN_OVERLAP;
+  const scope = new ResourceScope();
+  try {
+    if (!options.tiltDegrees) return boreCutter(kernel, options);
+    const tiltRadians = options.tiltDegrees * DEGREES_TO_RADIANS;
+    const wideRadius = options.diameter / 2 + options.chamfer;
+    // How far, along the untilted axis, the widest disk must reach on
+    // either side of the true mouth plane: the mouth ellipse needs headroom
+    // above the plane on the side the tilt lifts, and the same amount below
+    // it on the side the tilt lowers, which side is which depending on the
+    // rotation's own sign. A cap spanning both directions by this much
+    // covers whichever side needs it, without having to know that sign.
+    const extra = wideRadius * Math.tan(tiltRadians) + BOOLEAN_OVERLAP;
 
-  const original = boreCutter(kernel, options);
-  const capAtOrigin = kernel.Manifold.cylinder(2 * extra, wideRadius, wideRadius, options.segments);
-  const cap = capAtOrigin.translate([0, 0, options.topZ - extra]);
-  capAtOrigin.delete();
-  const cutter = unionSolids(kernel, [original, cap]);
+    const original = scope.own(boreCutter(kernel, options));
+    const capAtOrigin = scope.own(kernel.Manifold.cylinder(2 * extra, wideRadius, wideRadius, options.segments));
+    const cap = scope.own(capAtOrigin.translate([0, 0, options.topZ - extra]));
+    scope.delete(capAtOrigin);
+    const cutter = scope.own(unionSolids(kernel, scope.takeAll([original, cap])));
 
-  const pivot: [number, number, number] = [0, 0, options.topZ];
-  const atOrigin = cutter.translate([-pivot[0], -pivot[1], -pivot[2]]);
-  cutter.delete();
-  const tilted = atOrigin.rotate(-options.tiltDegrees, 0, 0);
-  atOrigin.delete();
-  const positioned = tilted.translate(pivot);
-  tilted.delete();
-  return positioned;
+    const pivot: [number, number, number] = [0, 0, options.topZ];
+    const atOrigin = scope.own(cutter.translate([-pivot[0], -pivot[1], -pivot[2]]));
+    scope.delete(cutter);
+    const tilted = scope.own(atOrigin.rotate(-options.tiltDegrees, 0, 0));
+    scope.delete(atOrigin);
+    const positioned = scope.own(tilted.translate(pivot));
+    scope.delete(tilted);
+    return scope.take(positioned);
+  } finally {
+    scope.dispose();
+  }
 }
 
 /**
@@ -92,60 +98,62 @@ function tiltedBoreCutter(
 export async function generateMarkerCupBlock(
   parameters: MarkerCupBlockParameters,
 ): Promise<GeneratedModel<MarkerCupBlockParameters>> {
-  const validation = validateMarkerCupBlock(parameters);
-  if (!validation.valid) {
-    throw new Error(validation.issues.map((issue) => issue.message).join(" "));
+  const scope = new ResourceScope();
+  try {
+    const validation = validateMarkerCupBlock(parameters);
+    if (!validation.valid) {
+      throw new Error(validation.issues.map((issue) => issue.message).join(" "));
+    }
+
+    const kernel = await getKernel();
+    const layout = deriveLayout(parameters);
+    const segments = QUALITY_SEGMENTS[parameters.meshQuality];
+    const spacing = layout.rowSpacing;
+    if (!spacing.ok) throw new Error("The rows do not fit the block depth at this tilt.");
+
+    const slab = scope.own(roundedSlab(kernel, {
+      width: parameters.blockWidth,
+      depth: parameters.blockDepth,
+      height: parameters.blockHeight,
+      cornerRadius: parameters.cornerRadius,
+      segments,
+    }));
+
+    const rowCutters: Solid[] = layout.rowLayouts.map((rowLayout, index) => {
+      if (!rowLayout.ok) throw new Error(`Row ${index + 1} does not fit the block width.`);
+      const centerY = spacing.firstCenter + index * spacing.pitch;
+      return scope.own(cutterArray(
+        kernel,
+        () =>
+          tiltedBoreCutter(kernel, {
+            diameter: parameters.boreDiameter,
+            depth: parameters.boreDepth,
+            chamfer: parameters.chamfer ? CHAMFER_MM : 0,
+            segments,
+            topZ: parameters.blockHeight,
+            tiltDegrees: parameters.tiltDegrees,
+          }),
+        {
+          pitchX: rowLayout.pitch,
+          pitchY: 0,
+          countX: parameters.cupsPerRow,
+          countY: 1,
+          origin: [rowLayout.firstCenter, centerY, 0],
+        },
+      ));
+    });
+    const bores = scope.own(unionSolids(kernel, scope.takeAll(rowCutters)));
+    let solid = scope.own(slab.subtract(bores));
+    scope.delete(bores);
+    scope.delete(slab);
+
+    if (parameters.lightenUnderside) {
+      const options = lighteningOptions(parameters, segments);
+      solid = scope.own(lightenUnderside(kernel, scope.take(solid), options).solid);
+    }
+
+    return finishSolid(scope.take(solid), parameters, "cup block");
+  } finally {
+    scope.dispose();
   }
-
-  const kernel = await getKernel();
-  const layout = deriveLayout(parameters);
-  const segments = QUALITY_SEGMENTS[parameters.meshQuality];
-  const spacing = layout.rowSpacing;
-  if (!spacing.ok) throw new Error("The rows do not fit the block depth at this tilt.");
-
-  const slab = roundedSlab(kernel, {
-    width: parameters.blockWidth,
-    depth: parameters.blockDepth,
-    height: parameters.blockHeight,
-    cornerRadius: parameters.cornerRadius,
-    segments,
-  });
-
-  const rowCutters: Solid[] = layout.rowLayouts.map((rowLayout, index) => {
-    if (!rowLayout.ok) throw new Error(`Row ${index + 1} does not fit the block width.`);
-    const centerY = spacing.firstCenter + index * spacing.pitch;
-    return cutterArray(
-      kernel,
-      () =>
-        tiltedBoreCutter(kernel, {
-          diameter: parameters.boreDiameter,
-          depth: parameters.boreDepth,
-          chamfer: parameters.chamfer ? CHAMFER_MM : 0,
-          segments,
-          topZ: parameters.blockHeight,
-          tiltDegrees: parameters.tiltDegrees,
-        }),
-      {
-        pitchX: rowLayout.pitch,
-        pitchY: 0,
-        countX: parameters.cupsPerRow,
-        countY: 1,
-        origin: [rowLayout.firstCenter, centerY, 0],
-      },
-    );
-  });
-  const bores = unionSolids(kernel, rowCutters);
-  let solid = slab.subtract(bores);
-  bores.delete();
-  slab.delete();
-
-  if (parameters.lightenUnderside) {
-    solid = lightenUnderside(
-      kernel,
-      solid,
-      lighteningOptions(parameters, segments),
-    ).solid;
-  }
-
-  return finishSolid(solid, parameters, "cup block");
 }

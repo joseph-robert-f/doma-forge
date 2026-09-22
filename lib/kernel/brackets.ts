@@ -1,3 +1,4 @@
+import { ResourceScope } from "./ownership";
 import type { CrossSection, ManifoldToplevel } from "manifold-3d";
 import { boreCutter, unionSolids } from "./arrays";
 import type { Solid } from "./manifold";
@@ -43,16 +44,21 @@ export function extrudeAlongX(
   profile: CrossSection,
   width: number,
 ): Solid {
-  if (!Number.isFinite(width) || width <= 0) {
-    throw new Error("extrudeAlongX needs a finite, positive width.");
+  const scope = new ResourceScope();
+  try {
+    if (!Number.isFinite(width) || width <= 0) {
+      throw new Error("extrudeAlongX needs a finite, positive width.");
+    }
+    const alongZ = scope.own(profile.extrude(width));
+    // Local X to Y, local Y to Z, local Z to X: turn 90 about X, then 90 about Z.
+    const turned = scope.own(alongZ.rotate([90, 0, 90]));
+    scope.delete(alongZ);
+    const centered = scope.own(turned.translate([-width / 2, 0, 0]));
+    scope.delete(turned);
+    return scope.take(centered);
+  } finally {
+    scope.dispose();
   }
-  const alongZ = profile.extrude(width);
-  // Local X to Y, local Y to Z, local Z to X: turn 90 about X, then 90 about Z.
-  const turned = alongZ.rotate([90, 0, 90]);
-  alongZ.delete();
-  const centered = turned.translate([-width / 2, 0, 0]);
-  turned.delete();
-  return centered;
 }
 
 /**
@@ -60,10 +66,15 @@ export function extrudeAlongX(
  * plate face Y = 0. The caller places it and owns it.
  */
 export function jHook(kernel: ManifoldToplevel, options: JHookOptions): Solid {
-  const profile = jHookProfile(kernel, options);
-  const solid = extrudeAlongX(kernel, profile, options.width);
-  profile.delete();
-  return solid;
+  const scope = new ResourceScope();
+  try {
+    const profile = scope.own(jHookProfile(kernel, options));
+    const solid = scope.own(extrudeAlongX(kernel, profile, options.width));
+    scope.delete(profile);
+    return scope.take(solid);
+  } finally {
+    scope.dispose();
+  }
 }
 
 export interface ScrewCutterOptions {
@@ -85,30 +96,35 @@ export function screwCutter(
   kernel: ManifoldToplevel,
   options: ScrewCutterOptions,
 ): Solid {
-  const { diameter, headDiameter, plateThickness, segments } = options;
-  if (
-    ![diameter, headDiameter, plateThickness].every((value) =>
-      Number.isFinite(value),
-    ) ||
-    diameter <= 0 ||
-    headDiameter < diameter ||
-    plateThickness <= 0
-  ) {
-    throw new Error(
-      "screwCutter needs a finite bore, a head at least as wide, and a plate.",
-    );
+  const scope = new ResourceScope();
+  try {
+    const { diameter, headDiameter, plateThickness, segments } = options;
+    if (
+      ![diameter, headDiameter, plateThickness].every((value) =>
+        Number.isFinite(value),
+      ) ||
+      diameter <= 0 ||
+      headDiameter < diameter ||
+      plateThickness <= 0
+    ) {
+      throw new Error(
+        "screwCutter needs a finite bore, a head at least as wide, and a plate.",
+      );
+    }
+    const alongZ = scope.own(boreCutter(kernel, {
+      diameter,
+      depth: plateThickness + BOOLEAN_OVERLAP,
+      chamfer: (headDiameter - diameter) / 2,
+      segments,
+      topZ: plateThickness,
+    }));
+    // Turn -90 about X: local +Z becomes +Y, so the countersink faces +Y.
+    const alongY = scope.own(alongZ.rotate([-90, 0, 0]));
+    scope.delete(alongZ);
+    return scope.take(alongY);
+  } finally {
+    scope.dispose();
   }
-  const alongZ = boreCutter(kernel, {
-    diameter,
-    depth: plateThickness + BOOLEAN_OVERLAP,
-    chamfer: (headDiameter - diameter) / 2,
-    segments,
-    topZ: plateThickness,
-  });
-  // Turn -90 about X: local +Z becomes +Y, so the countersink faces +Y.
-  const alongY = alongZ.rotate([-90, 0, 0]);
-  alongZ.delete();
-  return alongY;
 }
 
 /**
@@ -120,12 +136,17 @@ export function screwCutters(
   positions: ReadonlyArray<readonly [number, number]>,
   options: ScrewCutterOptions,
 ): Solid {
-  if (positions.length === 0)
-    throw new Error("screwCutters needs at least one screw.");
-  const template = screwCutter(kernel, options);
-  const placed = positions.map(([x, z]) => template.translate([x, 0, z]));
-  template.delete();
-  return unionSolids(kernel, placed);
+  const scope = new ResourceScope();
+  try {
+    if (positions.length === 0)
+      throw new Error("screwCutters needs at least one screw.");
+    const template = scope.own(screwCutter(kernel, options));
+    const placed = positions.map(([x, z]) => scope.own(template.translate([x, 0, z])));
+    scope.delete(template);
+    return unionSolids(kernel, scope.takeAll(placed));
+  } finally {
+    scope.dispose();
+  }
 }
 
 export interface HullGussetOptions {
@@ -150,43 +171,48 @@ export function hullGusset(
   kernel: ManifoldToplevel,
   options: HullGussetOptions,
 ): Solid {
-  const { thickness, rise, run, overlap } = options;
-  if (
-    ![thickness, rise, run, overlap].every((value) => Number.isFinite(value)) ||
-    thickness <= 0 ||
-    rise <= 0 ||
-    run <= 0 ||
-    overlap < 0
-  ) {
-    throw new Error(
-      "hullGusset needs a finite, positive thickness, rise, and run.",
-    );
+  const scope = new ResourceScope();
+  try {
+    const { thickness, rise, run, overlap } = options;
+    if (
+      ![thickness, rise, run, overlap].every((value) => Number.isFinite(value)) ||
+      thickness <= 0 ||
+      rise <= 0 ||
+      run <= 0 ||
+      overlap < 0
+    ) {
+      throw new Error(
+        "hullGusset needs a finite, positive thickness, rise, and run.",
+      );
+    }
+    // The two strips lie inside the wedge's own outline, Y from -overlap to
+    // run and Z from -rise to overlap, so the hull adds nothing outside it.
+    const skin = 0.01;
+    const underShelfAtOrigin = scope.own(kernel.Manifold.cube(
+      [thickness, run + overlap, skin],
+      true,
+    ));
+    const underShelf = scope.own(underShelfAtOrigin.translate([
+      0,
+      (run - overlap) / 2,
+      overlap - skin / 2,
+    ]));
+    scope.delete(underShelfAtOrigin);
+    const onPlateAtOrigin = scope.own(kernel.Manifold.cube(
+      [thickness, skin, rise + overlap],
+      true,
+    ));
+    const onPlate = scope.own(onPlateAtOrigin.translate([
+      0,
+      -overlap + skin / 2,
+      (overlap - rise) / 2,
+    ]));
+    scope.delete(onPlateAtOrigin);
+    const wedge = scope.own(kernel.Manifold.hull([underShelf, onPlate]));
+    scope.delete(underShelf);
+    scope.delete(onPlate);
+    return scope.take(wedge);
+  } finally {
+    scope.dispose();
   }
-  // The two strips lie inside the wedge's own outline, Y from -overlap to
-  // run and Z from -rise to overlap, so the hull adds nothing outside it.
-  const skin = 0.01;
-  const underShelfAtOrigin = kernel.Manifold.cube(
-    [thickness, run + overlap, skin],
-    true,
-  );
-  const underShelf = underShelfAtOrigin.translate([
-    0,
-    (run - overlap) / 2,
-    overlap - skin / 2,
-  ]);
-  underShelfAtOrigin.delete();
-  const onPlateAtOrigin = kernel.Manifold.cube(
-    [thickness, skin, rise + overlap],
-    true,
-  );
-  const onPlate = onPlateAtOrigin.translate([
-    0,
-    -overlap + skin / 2,
-    (overlap - rise) / 2,
-  ]);
-  onPlateAtOrigin.delete();
-  const wedge = kernel.Manifold.hull([underShelf, onPlate]);
-  underShelf.delete();
-  onPlate.delete();
-  return wedge;
 }

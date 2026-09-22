@@ -110,35 +110,37 @@ export function finishSolid<P>(
   parameters: P,
   productLabel: string,
 ): GeneratedModel<P> {
-  const status = solid.status();
-  if (status !== "NoError" || solid.isEmpty()) {
-    solid.delete();
-    throw new Error(
-      `The geometry kernel could not create this ${productLabel} (${status}).`,
-    );
-  }
-  const box = solid.boundingBox();
-  const volume = solid.volume();
-  const outputMesh = solid.getMesh();
-  const vertProperties = Float32Array.from(outputMesh.vertProperties);
-  const mesh: KernelMesh = {
-    numProp: outputMesh.numProp,
-    vertProperties,
-    triVerts: dropZeroAreaTriangles(
+  try {
+    const status = solid.status();
+    if (status !== "NoError" || solid.isEmpty()) {
+      throw new Error(
+        `The geometry kernel could not create this ${productLabel} (${status}).`,
+      );
+    }
+    const box = solid.boundingBox();
+    const volume = solid.volume();
+    const outputMesh = solid.getMesh();
+    const vertProperties = Float32Array.from(outputMesh.vertProperties);
+    const mesh: KernelMesh = {
+      numProp: outputMesh.numProp,
       vertProperties,
-      Uint32Array.from(outputMesh.triVerts),
-      outputMesh.numProp,
-    ),
-  };
-  solid.delete();
-  return {
-    mesh,
-    parameters: copyParameters(parameters),
-    bounds: [
-      [box.min[0], box.min[1], box.min[2]],
-      [box.max[0], box.max[1], box.max[2]],
-    ],
-    volume,
-    status,
-  };
+      triVerts: dropZeroAreaTriangles(
+        vertProperties,
+        Uint32Array.from(outputMesh.triVerts),
+        outputMesh.numProp,
+      ),
+    };
+    return {
+      mesh,
+      parameters: copyParameters(parameters),
+      bounds: [
+        [box.min[0], box.min[1], box.min[2]],
+        [box.max[0], box.max[1], box.max[2]],
+      ],
+      volume,
+      status,
+    };
+  } finally {
+    solid.delete();
+  }
 }

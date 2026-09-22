@@ -1,3 +1,4 @@
+import { ResourceScope } from "./ownership";
 import type { ManifoldToplevel } from "manifold-3d";
 import type { Solid } from "./manifold";
 import { chamferedCircle } from "./profiles";
@@ -24,46 +25,58 @@ export function cutterArray(
   factory: () => Solid,
   options: CutterArrayOptions,
 ): Solid {
-  const { pitchX, pitchY, countX, countY, origin } = options;
-  if (
-    !Number.isInteger(countX) ||
-    !Number.isInteger(countY) ||
-    countX < 1 ||
-    countY < 1
-  ) {
-    throw new Error(
-      "cutterArray needs whole counts of at least 1 on both axes.",
-    );
-  }
-  const template = factory();
-  const copies: Solid[] = [];
-  for (let row = 0; row < countY; row += 1) {
-    for (let column = 0; column < countX; column += 1) {
-      copies.push(
-        template.translate([
-          origin[0] + column * pitchX,
-          origin[1] + row * pitchY,
-          origin[2],
-        ]),
+  const scope = new ResourceScope();
+  try {
+    const { pitchX, pitchY, countX, countY, origin } = options;
+    if (
+      !Number.isInteger(countX) ||
+      !Number.isInteger(countY) ||
+      countX < 1 ||
+      countY < 1
+    ) {
+      throw new Error(
+        "cutterArray needs whole counts of at least 1 on both axes.",
       );
     }
+    const template = scope.own(factory());
+    const copies: Solid[] = [];
+    for (let row = 0; row < countY; row += 1) {
+      for (let column = 0; column < countX; column += 1) {
+        copies.push(
+          scope.own(template.translate([
+            origin[0] + column * pitchX,
+            origin[1] + row * pitchY,
+            origin[2],
+          ])),
+        );
+      }
+    }
+    scope.delete(template);
+    return unionSolids(kernel, scope.takeAll(copies));
+  } finally {
+    scope.dispose();
   }
-  template.delete();
-  return unionSolids(kernel, copies);
 }
 
 /**
- * One batched union. Every input is deleted; a single input is returned as
- * is. An empty list is an error because there is nothing to return.
+ * Consumes every input, including on failure. A single input is returned
+ * as is, transferring its ownership to the caller without deleting it.
+ * An empty list is an error because there is nothing to return.
  */
 export function unionSolids(kernel: ManifoldToplevel, solids: Solid[]): Solid {
-  if (solids.length === 0) {
-    throw new Error("unionSolids needs at least one solid.");
+  const scope = new ResourceScope();
+  try {
+    for (const solid of solids) scope.own(solid);
+    if (solids.length === 0) {
+      throw new Error("unionSolids needs at least one solid.");
+    }
+    if (solids.length === 1) return scope.take(solids[0]);
+    const union = scope.own(kernel.Manifold.union(solids));
+    for (const solid of solids) scope.delete(solid);
+    return scope.take(union);
+  } finally {
+    scope.dispose();
   }
-  if (solids.length === 1) return solids[0];
-  const union = kernel.Manifold.union(solids);
-  for (const solid of solids) solid.delete();
-  return union;
 }
 
 export interface BoreCutterOptions {
@@ -86,25 +99,30 @@ export function boreCutter(
   kernel: ManifoldToplevel,
   options: BoreCutterOptions,
 ): Solid {
-  const radius = options.diameter / 2;
-  const bodyAtOrigin = kernel.Manifold.cylinder(
-    options.depth + BOOLEAN_OVERLAP,
-    radius,
-    radius,
-    options.segments,
-  );
-  const body = bodyAtOrigin.translate([0, 0, options.topZ - options.depth]);
-  bodyAtOrigin.delete();
-  if (options.chamfer <= 0) return body;
-  const coneAtOrigin = chamferedCircle(
-    kernel,
-    radius,
-    options.chamfer,
-    options.segments,
-  );
-  const cone = coneAtOrigin.translate([0, 0, options.topZ - options.chamfer]);
-  coneAtOrigin.delete();
-  return unionSolids(kernel, [body, cone]);
+  const scope = new ResourceScope();
+  try {
+    const radius = options.diameter / 2;
+    const bodyAtOrigin = scope.own(kernel.Manifold.cylinder(
+      options.depth + BOOLEAN_OVERLAP,
+      radius,
+      radius,
+      options.segments,
+    ));
+    const body = scope.own(bodyAtOrigin.translate([0, 0, options.topZ - options.depth]));
+    scope.delete(bodyAtOrigin);
+    if (options.chamfer <= 0) return scope.take(body);
+    const coneAtOrigin = scope.own(chamferedCircle(
+      kernel,
+      radius,
+      options.chamfer,
+      options.segments,
+    ));
+    const cone = scope.own(coneAtOrigin.translate([0, 0, options.topZ - options.chamfer]));
+    scope.delete(coneAtOrigin);
+    return unionSolids(kernel, scope.takeAll([body, cone]));
+  } finally {
+    scope.dispose();
+  }
 }
 
 export interface DividerArrayOptions {
@@ -137,37 +155,42 @@ export function dividerArrayAtPositions(
   outer: Solid,
   options: DividerArrayOptions,
 ): Solid | null {
-  const { positions, thickness, length, height, centerZ } = options;
-  if (positions.length === 0) return null;
-  if (
-    !Number.isFinite(thickness) ||
-    !Number.isFinite(length) ||
-    !Number.isFinite(height) ||
-    !Number.isFinite(centerZ) ||
-    thickness <= 0 ||
-    length <= 0 ||
-    height <= 0
-  ) {
-    throw new Error(
-      "dividerArrayAtPositions needs a finite, positive thickness, length, and height.",
-    );
+  const scope = new ResourceScope();
+  try {
+    const { positions, thickness, length, height, centerZ } = options;
+    if (positions.length === 0) return null;
+    if (
+      !Number.isFinite(thickness) ||
+      !Number.isFinite(length) ||
+      !Number.isFinite(height) ||
+      !Number.isFinite(centerZ) ||
+      thickness <= 0 ||
+      length <= 0 ||
+      height <= 0
+    ) {
+      throw new Error(
+        "dividerArrayAtPositions needs a finite, positive thickness, length, and height.",
+      );
+    }
+    if (positions.some((position) => !Number.isFinite(position))) {
+      throw new Error("dividerArrayAtPositions needs finite positions.");
+    }
+    const alongX = (options.axis ?? "x") === "x";
+    const size: [number, number, number] = alongX
+      ? [thickness, length, height]
+      : [length, thickness, height];
+    const clipped = positions.map((position) => {
+      const atOrigin = scope.own(kernel.Manifold.cube(size, true));
+      const positioned = scope.own(atOrigin.translate(
+        alongX ? [position, 0, centerZ] : [0, position, centerZ],
+      ));
+      scope.delete(atOrigin);
+      const inside = scope.own(positioned.intersect(outer));
+      scope.delete(positioned);
+      return inside;
+    });
+    return unionSolids(kernel, scope.takeAll(clipped));
+  } finally {
+    scope.dispose();
   }
-  if (positions.some((position) => !Number.isFinite(position))) {
-    throw new Error("dividerArrayAtPositions needs finite positions.");
-  }
-  const alongX = (options.axis ?? "x") === "x";
-  const size: [number, number, number] = alongX
-    ? [thickness, length, height]
-    : [length, thickness, height];
-  const clipped = positions.map((position) => {
-    const atOrigin = kernel.Manifold.cube(size, true);
-    const positioned = atOrigin.translate(
-      alongX ? [position, 0, centerZ] : [0, position, centerZ],
-    );
-    atOrigin.delete();
-    const inside = positioned.intersect(outer);
-    positioned.delete();
-    return inside;
-  });
-  return unionSolids(kernel, clipped);
 }

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { drawerTray } from "../../lib/products/drawer-tray";
 import { collectPageErrors, gotoReady, statusText, waitForReady } from "./support";
 
 /**
@@ -16,12 +17,24 @@ test.describe("viewer under a heavy regeneration", () => {
   test("a 6x8 fine-quality tray regenerates cleanly after a full-mesh edit", async ({ page }) => {
     const errors = collectPageErrors(page);
     await gotoReady(page, "/", 60_000);
+    const viewer = page.getByTestId("model-viewer");
+    const heavyParameters = {
+      ...drawerTray.defaults,
+      rows: 6,
+      columns: 8,
+      drawerWidth: 600,
+      drawerDepth: 600,
+      meshQuality: "fine" as const,
+    };
 
     await page.getByTestId("param-rows-number").fill("6");
     await page.getByTestId("param-columns-number").fill("8");
     await page.getByTestId("param-drawer-width-number").fill("600");
     await page.getByTestId("param-drawer-depth-number").fill("600");
     await page.getByTestId("param-mesh-quality-fine").click();
+    await expect(viewer).toHaveAttribute(
+      "data-model-key", drawerTray.signature(heavyParameters), { timeout: 60_000 },
+    );
     await waitForReady(page, 60_000);
 
     // clearancePerSide stays at the 0.5 mm default, so a 600 mm drawer
@@ -30,17 +43,14 @@ test.describe("viewer under a heavy regeneration", () => {
     expect(beforeToggle).toContain("599 × 599");
     expect(beforeToggle).toContain("6 × 8");
 
-    const { longestTaskMs, longTaskCount } = await page.evaluate(async () => {
-      const longTasks: number[] = [];
-      const observer = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) longTasks.push(entry.duration);
-      });
-      observer.observe({ entryTypes: ["longtask"] });
-      document.querySelector<HTMLButtonElement>('[data-testid="param-finger-scoop-toggle"]')?.click();
-      await new Promise((resolve) => setTimeout(resolve, 2_500));
-      observer.disconnect();
-      return { longestTaskMs: Math.max(0, ...longTasks), longTaskCount: longTasks.length };
-    });
+    await page.getByTestId("param-finger-scoop-toggle").click();
+    // Wait for the edited mesh, not an old Ready label or a machine-dependent
+    // long task. A responsive browser may complete without any long tasks.
+    await expect(viewer).toHaveAttribute(
+      "data-model-key",
+      drawerTray.signature({ ...heavyParameters, fingerScoop: !heavyParameters.fingerScoop }),
+      { timeout: 60_000 },
+    );
 
     // The regeneration must finish and settle back on the same footprint;
     // the finger scoop only cuts a notch and never changes the outer bounds.
@@ -49,16 +59,7 @@ test.describe("viewer under a heavy regeneration", () => {
     expect(afterToggle).toContain("599 × 599");
     expect(afterToggle).toContain("6 × 8");
 
-    // No hard ceiling on longestTaskMs: 12_WEB_WORKER_GENERATION_NOTES.md
-    // section 3.2 recorded this in the 170-250 ms range on the worker
-    // branch, driven by software-WebGL frame cost rather than the kernel,
-    // and it is not a regression signal on its own. The measurement is
-    // recorded for the notes. The real assertion here is that the
-    // PerformanceObserver actually recorded at least one long task during
-    // the regeneration; a page that froze solid, or a browser that never
-    // fired the observer, would leave longTaskCount at 0.
-    expect(longTaskCount).toBeGreaterThan(0);
-    expect(Number.isFinite(longestTaskMs)).toBe(true);
+    await expect(page.getByTestId("download-stl-button")).toBeEnabled();
 
     expect(errors).toEqual([]);
   });

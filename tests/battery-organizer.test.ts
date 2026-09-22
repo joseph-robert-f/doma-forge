@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { describe, expect, it } from "vitest";
 import {
   BATTERY_ORGANIZER_DEFAULTS,
@@ -15,7 +14,6 @@ import {
   thinWallIssues,
   wallLikeKeys,
 } from "../lib/printer-profile";
-import { inspectBinaryStl, serializeBinaryStl } from "../lib/stl";
 import {
   analyzeBufferGeometry,
   modelToBufferGeometry,
@@ -25,6 +23,7 @@ import {
   connectedComponentCount,
   horizontalSliceTopology,
 } from "./helpers/mesh-checks";
+import { assertBinaryStlRoundTrip } from "./helpers/product-contract";
 
 const { normalize, validate, generate } = batteryOrganizer;
 
@@ -384,18 +383,11 @@ describe("battery organizer geometry", () => {
   it("round-trips the exact preview triangles through binary STL", async () => {
     const model = await generate(withChanges({}));
     const geometry = modelToBufferGeometry(model);
-    const data = serializeBinaryStl(geometry);
-    const inspected = inspectBinaryStl(data);
-    geometry.computeBoundingBox();
-    expect(inspected.triangleCount).toBe(geometry.getAttribute("position").count / 3);
-    expect(inspected.finite).toBe(true);
-    expect(inspected.minimumNormalAlignment).toBeGreaterThan(0.99999);
-    expect(inspected.bounds.min.distanceTo(geometry.boundingBox!.min)).toBeLessThan(1e-5);
-    expect(inspected.bounds.max.distanceTo(geometry.boundingBox!.max)).toBeLessThan(1e-5);
-    const parsed = new STLLoader().parse(data);
-    expect(parsed.getAttribute("position").count).toBe(geometry.getAttribute("position").count);
-    parsed.dispose();
-    geometry.dispose();
+    try {
+      assertBinaryStlRoundTrip(geometry, `battery-organizer defaults: ${JSON.stringify(model.parameters)}`);
+    } finally {
+      geometry.dispose();
+    }
   });
 
   it("matches the geometry version 1 golden record for the defaults", async () => {

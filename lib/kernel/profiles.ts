@@ -1,3 +1,4 @@
+import { ResourceScope } from "./ownership";
 import type { CrossSection, ManifoldToplevel } from "manifold-3d";
 import type { Solid } from "./manifold";
 
@@ -12,20 +13,25 @@ export function roundedRectangle(
   radius: number,
   segments: number,
 ): CrossSection {
-  const safeRadius = Math.max(
-    0,
-    Math.min(radius, width / 2 - 0.01, depth / 2 - 0.01),
-  );
-  if (safeRadius < 0.01) {
-    return kernel.CrossSection.square([width, depth], true);
+  const scope = new ResourceScope();
+  try {
+    const safeRadius = Math.max(
+      0,
+      Math.min(radius, width / 2 - 0.01, depth / 2 - 0.01),
+    );
+    if (safeRadius < 0.01) {
+      return kernel.CrossSection.square([width, depth], true);
+    }
+    const core = scope.own(kernel.CrossSection.square(
+      [width - safeRadius * 2, depth - safeRadius * 2],
+      true,
+    ));
+    const rounded = scope.own(core.offset(safeRadius, "Round", 2, segments));
+    scope.delete(core);
+    return scope.take(rounded);
+  } finally {
+    scope.dispose();
   }
-  const core = kernel.CrossSection.square(
-    [width - safeRadius * 2, depth - safeRadius * 2],
-    true,
-  );
-  const rounded = core.offset(safeRadius, "Round", 2, segments);
-  core.delete();
-  return rounded;
 }
 
 /**

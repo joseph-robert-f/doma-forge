@@ -1,3 +1,4 @@
+import { ResourceScope } from "../../kernel/ownership";
 import { unionSolids } from "../../kernel/arrays";
 import { hullGusset, jHook, screwCutters } from "../../kernel/brackets";
 import { getKernel, type Solid } from "../../kernel/manifold";
@@ -41,105 +42,110 @@ export async function generateWallHookRail(
 export async function buildWallHookRail(
   parameters: WallHookRailParameters,
 ): Promise<GeneratedModel<WallHookRailParameters>> {
-  const kernel = await getKernel();
-  const layout = deriveLayout(parameters);
-  if (!layout.screws.ok || !layout.hooks?.ok) {
-    throw new Error("The hooks or the screws do not fit the rail.");
-  }
-  const segments = QUALITY_SEGMENTS[parameters.meshQuality];
-  const T = parameters.plateThickness;
-  const L = parameters.railLength;
-  const H = parameters.railHeight;
-
-  // The plate outline in the X-Z plane, extruded along Y. The same outline,
-  // extruded deep, clips every front feature so the shelf and the gussets
-  // follow the rounded plate corners.
-  const outline = roundedRectangle(
-    kernel,
-    L,
-    H,
-    parameters.cornerRadius,
-    segments,
-  );
-  const plateFlat = outline.extrude(T);
-  const plateTurned = plateFlat.rotate([90, 0, 0]);
-  plateFlat.delete();
-  const plate = plateTurned.translate([0, T, H / 2]);
-  plateTurned.delete();
-  const clipDepth = layout.outsideDepth + BOOLEAN_OVERLAP * 2;
-  const clipFlat = outline.extrude(clipDepth);
-  outline.delete();
-  const clipTurned = clipFlat.rotate([90, 0, 0]);
-  clipFlat.delete();
-  const clip = clipTurned.translate([0, clipDepth - BOOLEAN_OVERLAP, H / 2]);
-  clipTurned.delete();
-
-  const front: Solid[] = [];
-  const hookTemplate = jHook(kernel, {
-    width: parameters.hookWidth,
-    root: parameters.hookRoot,
-    projection: parameters.hookProjection,
-    lipHeight: parameters.hookLip,
-    lipThickness: LIP_THICKNESS_MM,
-    fillet: HOOK_FILLET_MM,
-    overlap: BOOLEAN_OVERLAP,
-    segments: Math.max(2, Math.round(segments / 4)),
-  });
-  for (const x of layout.hookCenters) {
-    front.push(hookTemplate.translate([x, T, layout.armZ]));
-  }
-  hookTemplate.delete();
-
-  if (parameters.keyShelf) {
-    const shelfAtOrigin = kernel.Manifold.cube(
-      [L, parameters.shelfDepth + BOOLEAN_OVERLAP, layout.shelfThickness],
-      true,
-    );
-    front.push(
-      shelfAtOrigin.translate([
-        0,
-        T + (parameters.shelfDepth - BOOLEAN_OVERLAP) / 2,
-        layout.shelfUnderside + layout.shelfThickness / 2,
-      ]),
-    );
-    shelfAtOrigin.delete();
-    const gussetTemplate = hullGusset(kernel, {
-      thickness: T,
-      rise: layout.gussetRise,
-      run: layout.gussetRun,
-      overlap: BOOLEAN_OVERLAP,
-    });
-    for (const x of layout.gussetCenters) {
-      front.push(gussetTemplate.translate([x, T, layout.shelfUnderside]));
+  const scope = new ResourceScope();
+  try {
+    const kernel = await getKernel();
+    const layout = deriveLayout(parameters);
+    if (!layout.screws.ok || !layout.hooks?.ok) {
+      throw new Error("The hooks or the screws do not fit the rail.");
     }
-    gussetTemplate.delete();
-  }
+    const segments = QUALITY_SEGMENTS[parameters.meshQuality];
+    const T = parameters.plateThickness;
+    const L = parameters.railLength;
+    const H = parameters.railHeight;
 
-  const features = unionSolids(kernel, front);
-  const clipped = features.intersect(clip);
-  features.delete();
-  clip.delete();
-  const body = unionSolids(kernel, [plate, clipped]);
-
-  const screws = screwCutters(
-    kernel,
-    layout.screws.positions.map((x) => [x, layout.screwZ] as const),
-    {
-      diameter: parameters.screwDiameter,
-      headDiameter: layout.headDiameter,
-      plateThickness: T,
+    // The plate outline in the X-Z plane, extruded along Y. The same outline,
+    // extruded deep, clips every front feature so the shelf and the gussets
+    // follow the rounded plate corners.
+    const outline = scope.own(roundedRectangle(
+      kernel,
+      L,
+      H,
+      parameters.cornerRadius,
       segments,
-    },
-  );
-  const assembled = body.subtract(screws);
-  body.delete();
-  screws.delete();
-  // Face the viewer: the hooks go toward -Y. The hook row, the screw row,
-  // and the gussets are symmetric about X = 0, so the turn changes no
-  // position the layout reports.
-  const solid = assembled.rotate([0, 0, 180]);
-  assembled.delete();
-  return finishSolid(solid, parameters, "rail");
+    ));
+    const plateFlat = scope.own(outline.extrude(T));
+    const plateTurned = scope.own(plateFlat.rotate([90, 0, 0]));
+    scope.delete(plateFlat);
+    const plate = scope.own(plateTurned.translate([0, T, H / 2]));
+    scope.delete(plateTurned);
+    const clipDepth = layout.outsideDepth + BOOLEAN_OVERLAP * 2;
+    const clipFlat = scope.own(outline.extrude(clipDepth));
+    scope.delete(outline);
+    const clipTurned = scope.own(clipFlat.rotate([90, 0, 0]));
+    scope.delete(clipFlat);
+    const clip = scope.own(clipTurned.translate([0, clipDepth - BOOLEAN_OVERLAP, H / 2]));
+    scope.delete(clipTurned);
+
+    const front: Solid[] = [];
+    const hookTemplate = scope.own(jHook(kernel, {
+      width: parameters.hookWidth,
+      root: parameters.hookRoot,
+      projection: parameters.hookProjection,
+      lipHeight: parameters.hookLip,
+      lipThickness: LIP_THICKNESS_MM,
+      fillet: HOOK_FILLET_MM,
+      overlap: BOOLEAN_OVERLAP,
+      segments: Math.max(2, Math.round(segments / 4)),
+    }));
+    for (const x of layout.hookCenters) {
+      front.push(scope.own(hookTemplate.translate([x, T, layout.armZ])));
+    }
+    scope.delete(hookTemplate);
+
+    if (parameters.keyShelf) {
+      const shelfAtOrigin = scope.own(kernel.Manifold.cube(
+        [L, parameters.shelfDepth + BOOLEAN_OVERLAP, layout.shelfThickness],
+        true,
+      ));
+      front.push(
+        scope.own(shelfAtOrigin.translate([
+          0,
+          T + (parameters.shelfDepth - BOOLEAN_OVERLAP) / 2,
+          layout.shelfUnderside + layout.shelfThickness / 2,
+        ])),
+      );
+      scope.delete(shelfAtOrigin);
+      const gussetTemplate = scope.own(hullGusset(kernel, {
+        thickness: T,
+        rise: layout.gussetRise,
+        run: layout.gussetRun,
+        overlap: BOOLEAN_OVERLAP,
+      }));
+      for (const x of layout.gussetCenters) {
+        front.push(scope.own(gussetTemplate.translate([x, T, layout.shelfUnderside])));
+      }
+      scope.delete(gussetTemplate);
+    }
+
+    const features = scope.own(unionSolids(kernel, scope.takeAll(front)));
+    const clipped = scope.own(features.intersect(clip));
+    scope.delete(features);
+    scope.delete(clip);
+    const body = scope.own(unionSolids(kernel, scope.takeAll([plate, clipped])));
+
+    const screws = scope.own(screwCutters(
+      kernel,
+      layout.screws.positions.map((x) => [x, layout.screwZ] as const),
+      {
+        diameter: parameters.screwDiameter,
+        headDiameter: layout.headDiameter,
+        plateThickness: T,
+        segments,
+      },
+    ));
+    const assembled = scope.own(body.subtract(screws));
+    scope.delete(body);
+    scope.delete(screws);
+    // Face the viewer: the hooks go toward -Y. The hook row, the screw row,
+    // and the gussets are symmetric about X = 0, so the turn changes no
+    // position the layout reports.
+    const solid = scope.own(assembled.rotate([0, 0, 180]));
+    scope.delete(assembled);
+    return finishSolid(scope.take(solid), parameters, "rail");
+  } finally {
+    scope.dispose();
+  }
 }
 
 /**

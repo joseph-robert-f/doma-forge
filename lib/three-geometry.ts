@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { DEGENERATE_AREA_EPSILON } from "./kernel/mesh";
 import type { GeneratedModel } from "./kernel/mesh";
+import type { BoundsContract } from "./products/types";
 
 export interface MeshAnalysis {
   triangleCount: number;
@@ -9,6 +10,40 @@ export interface MeshAnalysis {
   minimumTriangleArea: number;
   minimumNormalLength: number;
   finite: boolean;
+}
+
+export function boundsSatisfyContract(bounds: THREE.Box3, contract: BoundsContract) {
+  const actualMin = bounds.min.toArray();
+  const actualMax = bounds.max.toArray();
+  return contract.min.every(
+    (expected, axis) =>
+      Math.abs(actualMin[axis] - expected) <= contract.tolerance &&
+      Math.abs(actualMax[axis] - contract.max[axis]) <= contract.tolerance,
+  );
+}
+
+/** Returns owned geometry on success and releases it on every rejected path. */
+export function checkedModelGeometry(
+  model: GeneratedModel<unknown>,
+  contract: BoundsContract,
+  failureMessage: string,
+): { geometry: THREE.BufferGeometry; analysis: MeshAnalysis } {
+  const geometry = modelToBufferGeometry(model);
+  try {
+    const analysis = analyzeBufferGeometry(geometry);
+    if (
+      !analysis.finite ||
+      analysis.minimumTriangleArea <= 0 ||
+      analysis.signedVolume <= 0 ||
+      !boundsSatisfyContract(analysis.bounds, contract)
+    ) {
+      throw new Error(failureMessage);
+    }
+    return { geometry, analysis };
+  } catch (error) {
+    geometry.dispose();
+    throw error;
+  }
 }
 
 export function modelToBufferGeometry(

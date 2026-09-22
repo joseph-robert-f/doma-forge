@@ -1,3 +1,4 @@
+import { ResourceScope } from "./ownership";
 import type { ManifoldToplevel } from "manifold-3d";
 import { cutterArray } from "./arrays";
 import type { Solid } from "./manifold";
@@ -14,67 +15,73 @@ import {
  * the pockets and a rim around them. The pocket grid is clipped to the
  * inner rounded profile (the outer profile inset by the rim), so a corner
  * pocket follows a large outer corner radius instead of cutting through
- * it. The slab is deleted when a pocket is cut; it is returned untouched
- * when `planLightening` returns null.
+ * it. Consumes the slab, including on failure. The slab is deleted when a
+ * pocket is cut; ownership is returned untouched when the plan is null.
  */
 export function lightenUnderside(
   kernel: ManifoldToplevel,
   slab: Solid,
   options: LighteningOptions,
 ): { solid: Solid; plan: LighteningPlan | null } {
-  const plan = planLightening(options);
-  if (!plan) return { solid: slab, plan: null };
+  const scope = new ResourceScope();
+  try {
+    scope.own(slab);
+    const plan = planLightening(options);
+    if (!plan) return { solid: scope.take(slab), plan: null };
 
-  const innerWidth = options.width - options.rim * 2;
-  const innerDepth = options.depth - options.rim * 2;
-  const pockets = cutterArray(
-    kernel,
-    () => {
-      const profile = roundedRectangle(
-        kernel,
-        plan.spanX,
-        plan.spanY,
-        options.pocketRadius,
-        options.segments,
-      );
-      const pocketAtOrigin = profile.extrude(
-        plan.pocketDepth + BOOLEAN_OVERLAP,
-      );
-      profile.delete();
-      const pocket = pocketAtOrigin.translate([0, 0, -BOOLEAN_OVERLAP]);
-      pocketAtOrigin.delete();
-      return pocket;
-    },
-    {
-      pitchX: plan.spanX + options.web,
-      pitchY: plan.spanY + options.web,
-      countX: plan.countX,
-      countY: plan.countY,
-      origin: [
-        -innerWidth / 2 + plan.spanX / 2,
-        -innerDepth / 2 + plan.spanY / 2,
-        0,
-      ],
-    },
-  );
-  const clipProfile = roundedRectangle(
-    kernel,
-    innerWidth,
-    innerDepth,
-    Math.max(0, options.cornerRadius - options.rim),
-    options.segments,
-  );
-  const clipAtOrigin = clipProfile.extrude(
-    plan.pocketDepth + BOOLEAN_OVERLAP * 2,
-  );
-  clipProfile.delete();
-  const clip = clipAtOrigin.translate([0, 0, -BOOLEAN_OVERLAP]);
-  clipAtOrigin.delete();
-  const clippedPockets = pockets.intersect(clip);
-  pockets.delete();
-  clip.delete();
-  const solid = slab.subtract(clippedPockets);
-  clippedPockets.delete();
-  slab.delete();
-  return { solid, plan };
+    const innerWidth = options.width - options.rim * 2;
+    const innerDepth = options.depth - options.rim * 2;
+    const pockets = scope.own(cutterArray(
+      kernel,
+      () => {
+        const profile = scope.own(roundedRectangle(
+          kernel,
+          plan.spanX,
+          plan.spanY,
+          options.pocketRadius,
+          options.segments,
+        ));
+        const pocketAtOrigin = scope.own(profile.extrude(
+          plan.pocketDepth + BOOLEAN_OVERLAP,
+        ));
+        scope.delete(profile);
+        const pocket = scope.own(pocketAtOrigin.translate([0, 0, -BOOLEAN_OVERLAP]));
+        scope.delete(pocketAtOrigin);
+        return scope.take(pocket);
+      },
+      {
+        pitchX: plan.spanX + options.web,
+        pitchY: plan.spanY + options.web,
+        countX: plan.countX,
+        countY: plan.countY,
+        origin: [
+          -innerWidth / 2 + plan.spanX / 2,
+          -innerDepth / 2 + plan.spanY / 2,
+          0,
+        ],
+      },
+    ));
+    const clipProfile = scope.own(roundedRectangle(
+      kernel,
+      innerWidth,
+      innerDepth,
+      Math.max(0, options.cornerRadius - options.rim),
+      options.segments,
+    ));
+    const clipAtOrigin = scope.own(clipProfile.extrude(
+      plan.pocketDepth + BOOLEAN_OVERLAP * 2,
+    ));
+    scope.delete(clipProfile);
+    const clip = scope.own(clipAtOrigin.translate([0, 0, -BOOLEAN_OVERLAP]));
+    scope.delete(clipAtOrigin);
+    const clippedPockets = scope.own(pockets.intersect(clip));
+    scope.delete(pockets);
+    scope.delete(clip);
+    const solid = scope.own(slab.subtract(clippedPockets));
+    scope.delete(clippedPockets);
+    scope.delete(slab);
+    return { solid: scope.take(solid), plan };
+  } finally {
+    scope.dispose();
+  }
 }

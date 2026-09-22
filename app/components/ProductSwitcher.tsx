@@ -117,7 +117,7 @@ export function ProductSwitcher() {
               Choose a product
             </h2>
             <p className="product-switcher-panel-summary">
-              15 printable models, grouped by how they are made.
+              {PRODUCTS.length} printable models, grouped by how they are made.
             </p>
           </div>
         </div>

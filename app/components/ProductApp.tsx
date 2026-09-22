@@ -1,22 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import type * as THREE from "three";
 import {
   DESIGN_FILE_MAX_BYTES,
   DESIGN_NAME_MAX_LENGTH,
   createDesignFile,
   designFilename,
-  namedMeshFilename,
   parseDesignFile,
   readFileText,
   serializeDesignFile,
 } from "../../lib/design-file";
-import {
-  GenerationCancelledError,
-  createGenerationClient,
-  type GenerationClient,
-} from "../../lib/generation/client";
 import {
   PRINTER_LIMITS,
   PRINTER_NAME_MAX_LENGTH,
@@ -35,23 +28,18 @@ import {
   validatePrinterProfile,
   printContextOf,
   wallsFromSpecs,
-  withCorrectionTag,
   type CalibrationProposal,
   type Extents,
   type PrinterNumberField,
   type PrinterProfileV1,
 } from "../../lib/printer-profile";
 import { getProduct } from "../../lib/products/registry";
-import {
-  fitTestCouponFilename,
-  formatMillimeters,
-} from "../../lib/products/shared";
+import { formatMillimeters } from "../../lib/products/shared";
 import type {
   AnyParameters,
   BoundsContract,
   DerivedValue,
 } from "../../lib/products/types";
-import { inspectBinaryStl, serializeBinaryStl } from "../../lib/stl";
 import {
   readDesign,
   readPrinterEntry,
@@ -59,30 +47,16 @@ import {
   writeDesignName,
   writePrinterProfile,
 } from "../../lib/workspace";
-import {
-  analyzeBufferGeometry,
-  modelToBufferGeometry,
-} from "../../lib/three-geometry";
-import { ModelViewer, type ViewerStatus } from "./ModelViewer";
+import { designReadiness } from "../../lib/design-readiness";
+import { triggerDownload } from "../../lib/download";
+import { ModelViewer } from "./ModelViewer";
+import { useProductGeneration } from "./useProductGeneration";
+import { useStlExport } from "./useStlExport";
 import { ParameterControl } from "./ParameterControls";
 
-const REGENERATION_DELAY_MS = 140;
 const CUSTOM_PRESET_ID = "custom";
 
 type Parameters = AnyParameters;
-
-interface PreviewModel {
-  geometry: THREE.BufferGeometry;
-  /** The target parameters: what the user asked for. */
-  parameters: Parameters;
-  /** The parameters the mesh was built from, after the printer correction. */
-  compensatedParameters: Parameters;
-  /** The identity of the design. Files and the viewer use it. */
-  signature: string;
-  /** The identity of this mesh. It also holds the correction. */
-  meshSignature: string;
-  triangleCount: number;
-}
 
 interface FileMessage {
   tone: "info" | "warning" | "error";
@@ -110,33 +84,6 @@ function partExtents(bounds: () => BoundsContract): Extents | null {
   } catch {
     return null;
   }
-}
-
-function triggerDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
-function boxesMatch(a: THREE.Box3, b: THREE.Box3, tolerance = 1e-4) {
-  return (
-    a.min.distanceTo(b.min) <= tolerance && a.max.distanceTo(b.max) <= tolerance
-  );
-}
-
-function boundsSatisfyContract(bounds: THREE.Box3, contract: BoundsContract) {
-  const actualMin = bounds.min.toArray();
-  const actualMax = bounds.max.toArray();
-  return contract.min.every(
-    (expected, axis) =>
-      Math.abs(actualMin[axis] - expected) <= contract.tolerance &&
-      Math.abs(actualMax[axis] - contract.max[axis]) <= contract.tolerance,
-  );
 }
 
 function DerivedValuesCard({
@@ -224,14 +171,10 @@ export function ProductApp({ productId }: { productId: string }) {
     ...product.defaults,
   }));
   const [selectedPreset, setSelectedPreset] = useState(CUSTOM_PRESET_ID);
-  const [preview, setPreview] = useState<PreviewModel | null>(null);
-  const [viewerStatus, setViewerStatus] = useState<ViewerStatus>("loading");
-  const [generationError, setGenerationError] = useState<string | null>(null);
   const [hasLoadedStorage, setHasLoadedStorage] = useState(false);
   const [saveMessage, setSaveMessage] = useState("Saved on this device");
   const [designName, setDesignName] = useState("");
   const [fileMessage, setFileMessage] = useState<FileMessage | null>(null);
-  const [fitTestBusy, setFitTestBusy] = useState(false);
   const [printer, setPrinter] = useState<PrinterProfileV1>(() => ({
     ...PRINTER_PROFILE_DEFAULTS,
   }));
@@ -247,23 +190,11 @@ export function ProductApp({ productId }: { productId: string }) {
   const [measured, setMeasured] = useState({ x: "", y: "" });
   const [calibrationMessage, setCalibrationMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const generationId = useRef(0);
   const designNameRef = useRef("");
   /** The design already in storage. A write that changes nothing is silent. */
   const savedDesignRef = useRef("");
   /** True once the user has edited the profile. Guards the first write. */
   const printerTouched = useRef(false);
-  const clientRef = useRef<GenerationClient | null>(null);
-  const getClient = () => (clientRef.current ??= createGenerationClient());
-
-  useEffect(
-    () => () => {
-      clientRef.current?.dispose();
-      clientRef.current = null;
-    },
-    [],
-  );
-
   // The document title carries the design name while one is set, so a saved
   // browser tab or bookmark reads by name. Cleared, it reverts to this
   // product's own page title, read fresh from product.copy each time (not
@@ -317,7 +248,6 @@ export function ProductApp({ productId }: { productId: string }) {
     () => product.signature(compensatedParameters),
     [product, compensatedParameters],
   );
-  const previewIsCurrent = preview?.meshSignature === meshSignature;
 
   // A target value can be legal while the corrected value is not. The field
   // then shows a legal number, so the message names the correction instead
@@ -386,6 +316,37 @@ export function ProductApp({ productId }: { productId: string }) {
       ),
     [product, compensatedParameters, activeProfile],
   );
+  const readiness = designReadiness(validation, correctionMessages, wallIssues);
+  const { preview, viewerStatus, generationError, generate, reportError } = useProductGeneration({
+    product,
+    targetParameters,
+    compensatedParameters,
+    meshSignature,
+    enabled: hasLoadedStorage,
+    canGenerate: readiness.canGenerate,
+    onGenerated: (nextPreview) => {
+      const normalized = nextPreview.parameters;
+      let saved = false;
+      const nextKey = designKey(designNameRef.current, normalized);
+      const designChanged = nextKey !== savedDesignRef.current;
+      try {
+        saved = writeDesign(window.localStorage, product, {
+          name: designNameRef.current,
+          parameters: normalized,
+        });
+      } catch {
+        saved = false;
+      }
+      // A printer-only edit rebuilds the mesh without changing the design.
+      if (!saved) setSaveMessage("Local save unavailable");
+      else if (designChanged) {
+        savedDesignRef.current = nextKey;
+        setSaveMessage("Saved on this device");
+      }
+    },
+  });
+  const previewIsCurrent = preview?.meshSignature === meshSignature;
+
   const calibrationProposals = useMemo(() => {
     if (!targetExtents) return [] as CalibrationProposal[];
     // A product whose only compensable list is the diameter has one
@@ -490,104 +451,6 @@ export function ProductApp({ productId }: { productId: string }) {
     }, PRINTER_SAVE_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [printer, hasLoadedStorage]);
-
-  useEffect(() => {
-    if (!hasLoadedStorage) return;
-    const requestId = ++generationId.current;
-
-    if (!validation.valid || correctionBlocked) {
-      const pauseTimer = window.setTimeout(() => {
-        if (requestId === generationId.current) {
-          setViewerStatus("paused");
-          setGenerationError(null);
-        }
-      }, 0);
-      return () => window.clearTimeout(pauseTimer);
-    }
-
-    const statusTimer = window.setTimeout(() => {
-      if (requestId === generationId.current) {
-        setViewerStatus(preview ? "updating" : "loading");
-        setGenerationError(null);
-      }
-    }, 0);
-    const timer = window.setTimeout(async () => {
-      try {
-        const normalized = targetParameters;
-        const forGeneration = compensatedParameters;
-        const model = await getClient().generate(product.id, forGeneration);
-        const geometry = modelToBufferGeometry(model);
-        const analysis = analyzeBufferGeometry(geometry);
-
-        if (requestId !== generationId.current) {
-          geometry.dispose();
-          return;
-        }
-        if (
-          !analysis.finite ||
-          analysis.minimumTriangleArea <= 0 ||
-          analysis.signedVolume <= 0 ||
-          // The mesh comes from the compensated parameters, so its contract
-          // does too. The user's own target is checked by product.validate().
-          !boundsSatisfyContract(
-            analysis.bounds,
-            product.boundsContract(forGeneration),
-          )
-        ) {
-          geometry.dispose();
-          throw new Error("The generated mesh did not pass its safety check.");
-        }
-
-        const nextPreview: PreviewModel = {
-          geometry,
-          parameters: normalized,
-          compensatedParameters: forGeneration,
-          signature: product.signature(normalized),
-          meshSignature: product.signature(forGeneration),
-          triangleCount: analysis.triangleCount,
-        };
-        setPreview(nextPreview);
-        setViewerStatus("ready");
-        let saved = false;
-        const nextKey = designKey(designNameRef.current, normalized);
-        const designChanged = nextKey !== savedDesignRef.current;
-        try {
-          saved = writeDesign(window.localStorage, product, {
-            name: designNameRef.current,
-            parameters: normalized,
-          });
-        } catch {
-          saved = false;
-        }
-        // A printer-only edit rebuilds the mesh but changes no design. The
-        // save line then keeps whatever it said, instead of claiming a
-        // design save that did not happen.
-        if (!saved) setSaveMessage("Local save unavailable");
-        else if (designChanged) {
-          savedDesignRef.current = nextKey;
-          setSaveMessage("Saved on this device");
-        }
-      } catch (error) {
-        if (requestId !== generationId.current) return;
-        if (error instanceof GenerationCancelledError) return;
-        setGenerationError(
-          error instanceof Error ? error.message : "Preview generation failed.",
-        );
-        setViewerStatus("error");
-      }
-    }, REGENERATION_DELAY_MS);
-
-    return () => {
-      window.clearTimeout(statusTimer);
-      window.clearTimeout(timer);
-      if (generationId.current === requestId) generationId.current += 1;
-      // A newer edit supersedes any request still running in the worker.
-      clientRef.current?.cancel();
-    };
-    // The compensated signature is the intentional generation dependency. It
-    // changes with a parameter edit and with a printer correction edit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product, meshSignature, hasLoadedStorage]);
 
   const updateParameter = (key: string, value: unknown) => {
     setSelectedPreset(CUSTOM_PRESET_ID);
@@ -762,143 +625,24 @@ export function ProductApp({ productId }: { productId: string }) {
     );
   };
 
-  const designChecksPassed = validation.valid && !correctionBlocked;
-  const downloadDisabled =
-    !validation.valid ||
-    correctionBlocked ||
-    wallIssues.length > 0 ||
-    !preview ||
-    !previewIsCurrent ||
-    viewerStatus === "loading" ||
-    viewerStatus === "updating" ||
-    viewerStatus === "error";
-  const downloadDisabledReason = !validation.valid
-    ? `Fix ${validation.issues.length} setting${validation.issues.length === 1 ? "" : "s"} before downloading.`
-    : correctionBlocked
-      ? correctionMessages.join(" ")
-      : wallIssues.length > 0
-        ? wallIssues.map((issue) => issue.text).join(" ")
-        : !preview ||
-            !previewIsCurrent ||
-            viewerStatus === "loading" ||
-            viewerStatus === "updating"
-          ? "Wait for the current preview to finish generating."
-          : (generationError ?? "The current preview is ready.");
-
-  const downloadStl = () => {
-    if (downloadDisabled || !preview) return;
-    try {
-      const data = serializeBinaryStl(preview.geometry);
-      const inspection = inspectBinaryStl(data);
-      preview.geometry.computeBoundingBox();
-      if (
-        !inspection.finite ||
-        inspection.minimumTriangleArea <= 0 ||
-        inspection.minimumNormalAlignment < 0.99999 ||
-        inspection.triangleCount !== preview.triangleCount ||
-        !preview.geometry.boundingBox ||
-        !boxesMatch(inspection.bounds, preview.geometry.boundingBox)
-      ) {
-        throw new Error(
-          "The STL safety check did not match the visible preview.",
-        );
-      }
-      triggerDownload(
-        new Blob([data], { type: "model/stl" }),
-        // The hash names the design, which is the target. The tag names the
-        // correction, so two prints of one design never share a file name.
-        withCorrectionTag(
-          namedMeshFilename(designName, product.filename(preview.parameters)),
-          activeProfile,
-          product.compensable,
-        ),
-      );
-    } catch (error) {
-      setGenerationError(
-        error instanceof Error ? error.message : "STL export failed.",
-      );
-      setViewerStatus("error");
-    }
-  };
-
-  const downloadFitTest = async () => {
-    if (
-      downloadDisabled ||
-      !preview ||
-      !product.coupon ||
-      !product.couponBoundsContract ||
-      fitTestBusy
-    ) {
-      return;
-    }
-    setFitTestBusy(true);
-    try {
-      // The coupon carries the same correction the full part carries, so the
-      // ring a person measures is the ring the tray will print. Each product
-      // states its own coupon bounds (D-1617 in 24_BRACKET_FAMILY_NOTES.md).
-      // It builds in the generation worker, like the preview, so the page
-      // never loads the kernel (D-1702).
-      const model = await getClient().generate(
-        product.id,
-        preview.compensatedParameters,
-        "coupon",
-      );
-      const geometry = modelToBufferGeometry(model);
-      const analysis = analyzeBufferGeometry(geometry);
-      const couponContract: BoundsContract = product.couponBoundsContract(
-        preview.compensatedParameters,
-      );
-      if (
-        !analysis.finite ||
-        analysis.minimumTriangleArea <= 0 ||
-        analysis.signedVolume <= 0 ||
-        !boundsSatisfyContract(analysis.bounds, couponContract)
-      ) {
-        geometry.dispose();
-        throw new Error("The fit-test coupon did not pass its safety check.");
-      }
-      const data = serializeBinaryStl(geometry);
-      const inspection = inspectBinaryStl(data);
-      geometry.computeBoundingBox();
-      if (
-        !inspection.finite ||
-        inspection.minimumTriangleArea <= 0 ||
-        inspection.minimumNormalAlignment < 0.99999 ||
-        inspection.triangleCount !== analysis.triangleCount ||
-        !geometry.boundingBox ||
-        !boxesMatch(inspection.bounds, geometry.boundingBox)
-      ) {
-        geometry.dispose();
-        throw new Error(
-          "The fit-test STL safety check did not match the generated coupon.",
-        );
-      }
-      triggerDownload(
-        new Blob([data], { type: "model/stl" }),
-        withCorrectionTag(
-          namedMeshFilename(
-            designName,
-            fitTestCouponFilename(model, preview.signature),
-          ),
-          activeProfile,
-          product.compensable,
-        ),
-      );
-      geometry.dispose();
-    } catch (error) {
-      setFileMessage({
-        tone: "error",
-        text:
-          error instanceof GenerationCancelledError
-            ? "An edit cancelled the fit test. Wait for the preview, then try again."
-            : error instanceof Error
-              ? error.message
-              : "Fit-test export failed.",
-      });
-    } finally {
-      setFitTestBusy(false);
-    }
-  };
+  const designChecksPassed = readiness.checksPassed;
+  const generationBlockReason = viewerStatus === "error"
+    ? (generationError ?? "Preview generation failed.")
+    : !preview || !previewIsCurrent || viewerStatus !== "ready"
+      ? "Wait for the current preview to finish generating."
+      : null;
+  const downloadDisabledReason = readiness.downloadBlockReason ?? generationBlockReason;
+  const downloadDisabled = downloadDisabledReason !== null;
+  const { downloadStl, downloadFitTest, fitTestBusy } = useStlExport({
+    product,
+    preview,
+    disabled: downloadDisabled,
+    designName,
+    activeProfile,
+    generate,
+    onModelError: reportError,
+    onFileError: (text) => setFileMessage({ tone: "error", text }),
+  });
 
   const printerSummary = `Bed ${printer.bedWidth} × ${printer.bedDepth} × ${printer.bedHeight} mm · nozzle ${printer.nozzleDiameter} mm · correction X ${printer.correctionX} mm, Y ${printer.correctionY} mm`;
   const expectedText = targetExtents
@@ -1241,20 +985,8 @@ export function ProductApp({ productId }: { productId: string }) {
               {designChecksPassed ? "✓" : "!"}
             </span>
             <div>
-              <strong>
-                {correctionBlocked
-                  ? "The printer correction leaves a limit"
-                  : designChecksPassed
-                    ? "Design checks passed"
-                    : `${validation.issues.length} setting${validation.issues.length === 1 ? " needs" : "s need"} attention`}
-              </strong>
-              <span>
-                {correctionBlocked
-                  ? `${correctionMessages.join(" ")} Lower the correction, or change the value.`
-                  : designChecksPassed
-                    ? "The current dimensions are safe to generate and export."
-                    : "The last valid preview stays visible while you make corrections."}
-              </span>
+              <strong>{readiness.title}</strong>
+              <span>{readiness.detail}</span>
             </div>
           </div>
 

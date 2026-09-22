@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { describe, expect, it } from "vitest";
+import { PRINTER_PROFILE_DEFAULTS, thinWallIssues } from "../lib/printer-profile";
 import {
   MINIMUM_WELL_MM,
   REMOTE_CADDY_DEFAULTS,
@@ -217,6 +218,92 @@ describe("remote caddy parameters", () => {
       "25 mm, 10 mm above the floor",
     ]);
     expect(remoteCaddy.summary(REMOTE_CADDY_DEFAULTS)).toBe("220 × 130 × 60 mm · 3 wells");
+  });
+});
+
+describe("remote caddy printed walls", () => {
+  const printer = { ...PRINTER_PROFILE_DEFAULTS, nozzleDiameter: 0.8 };
+
+  it("reports the outer walls, actual base under wells, and dividers", () => {
+    expect(remoteCaddy.printedWalls!(REMOTE_CADDY_DEFAULTS)).toEqual([
+      { key: "wallThickness", label: "Outer wall thickness", value: 2 },
+      { key: "baseThickness", label: "Base under wells", value: 15 },
+      { key: "dividerThickness", label: "Divider thickness", value: 2 },
+    ]);
+  });
+
+  it("keeps printed thicknesses independent of the front wall height", () => {
+    const lowered = withChanges({ frontWallHeight: 18 });
+    const fullHeight = withChanges({ frontWallHeight: 60 });
+    expect(validate(lowered).valid).toBe(true);
+    expect(validate(fullHeight).valid).toBe(true);
+    expect(remoteCaddy.printedWalls!(lowered)).toEqual(
+      remoteCaddy.printedWalls!(fullHeight),
+    );
+    expect(remoteCaddy.printedWalls!(lowered).map((wall) => wall.key)).not.toContain(
+      "frontWallHeight",
+    );
+  });
+
+  it("does not reject a thin minimum base setting when the actual floor is thick", () => {
+    const parameters = withChanges({ baseThickness: 1.2 });
+    expect(validate(parameters).valid).toBe(true);
+    expect(thinWallIssues(remoteCaddy.printedWalls!(parameters), printer)).toEqual([]);
+  });
+
+  it.each([
+    { wellDepth: 58.8, ids: ["wall-baseThickness"] },
+    { wellDepth: 58.4, ids: [] },
+  ])(
+    "checks the actual floor against two nozzle widths at well depth $wellDepth",
+    ({ wellDepth, ids }) => {
+      const parameters = withChanges({ baseThickness: 1.2, wellDepth });
+      expect(validate(parameters).valid).toBe(true);
+      const issues = thinWallIssues(remoteCaddy.printedWalls!(parameters), printer);
+      expect(issues.map((issue) => issue.id)).toEqual(ids);
+      if (issues.length) {
+        expect(issues[0].text).toBe(
+          "Base under wells is 1.2 mm. A 0.8 mm nozzle needs at least 1.6 mm. A thin wall is weak.",
+        );
+      }
+    },
+  );
+
+  it.each(["wallThickness", "dividerThickness"] as const)(
+    "still rejects a thin %s",
+    (key) => {
+      const parameters = withChanges({ [key]: 1.2 });
+      expect(validate(parameters).valid).toBe(true);
+      expect(
+        thinWallIssues(remoteCaddy.printedWalls!(parameters), printer).map((issue) => issue.id),
+      ).toEqual([`wall-${key}`]);
+    },
+  );
+
+  it.each([{ wellWidths: [] }, { wellWidths: [216] }])(
+    "omits dividers from an incomplete layout with wells $wellWidths",
+    ({ wellWidths }) => {
+      // Normalization pads short lists; inspect the incomplete field as-is.
+      const parameters = { ...REMOTE_CADDY_DEFAULTS, wellWidths };
+      expect(validate(parameters).valid).toBe(false);
+      expect(remoteCaddy.printedWalls!(parameters).map((wall) => wall.key)).toEqual([
+        "wallThickness",
+        "baseThickness",
+      ]);
+    },
+  );
+
+  it("tolerates cleared dimensions and wells without inventing thin-wall errors", () => {
+    const cleared = withChanges({
+      caddyHeight: Number.NaN,
+      wallThickness: Number.NaN,
+      dividerThickness: Number.NaN,
+      wellWidths: [Number.NaN, Number.NaN],
+    });
+    const walls = remoteCaddy.printedWalls!(cleared);
+    expect(walls.every((wall) => Number.isNaN(wall.value))).toBe(true);
+    expect(thinWallIssues(walls, printer)).toEqual([]);
+    expect(validate(cleared).valid).toBe(false);
   });
 });
 

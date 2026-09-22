@@ -89,6 +89,32 @@ export const remoteCaddy: ProductDefinition<RemoteCaddySpecs> = {
     loadGeometry<RemoteCaddyParameters>(REMOTE_CADDY_ID).then((geometry) =>
       geometry.generate(parameters),
     ),
+  printedWalls: (parameters) => {
+    const layout = deriveLayout(parameters);
+    // The lowered front has the same thickness as the other outer walls.
+    // Its height is not a thickness, and the base setting is only a minimum:
+    // the well depth determines the material actually left under each well.
+    const walls = [
+      {
+        key: "wallThickness",
+        label: REMOTE_CADDY_SPECS.wallThickness.label,
+        value: parameters.wallThickness,
+      },
+      {
+        key: "baseThickness",
+        label: "Base under wells",
+        value: layout.floorZ,
+      },
+    ];
+    if (layout.dividerPositions.length > 0) {
+      walls.push({
+        key: "dividerThickness",
+        label: REMOTE_CADDY_SPECS.dividerThickness.label,
+        value: parameters.dividerThickness,
+      });
+    }
+    return walls;
+  },
   // The outside width is caddyWidth and the outside depth is caddyDepth, one
   // to one, the same semantics the drawer tray uses. The solved well takes
   // the correction on the width, so the wells the user typed keep their size.
