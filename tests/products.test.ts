@@ -225,10 +225,13 @@ describe("printed walls", () => {
           expect(keys.has(wall.key), `duplicate key ${wall.key}`).toBe(false);
           keys.add(wall.key);
         }
-        // Every wall-like parameter stays in the list: a product may add
-        // to the key-name rule, never take away from it.
-        for (const key of wallLikeKeys(product.specs)) {
-          expect(keys.has(key), `${key} missing`).toBe(true);
+        // Explicit reports describe the actual printed features and may
+        // omit heuristic matches such as a wall height. Products without
+        // an override must still report every wall-like parameter.
+        if (!product.printedWalls) {
+          for (const key of wallLikeKeys(product.specs)) {
+            expect(keys.has(key), `${key} missing`).toBe(true);
+          }
         }
       }
     },

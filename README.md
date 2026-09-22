@@ -1,6 +1,6 @@
 # DrawerForge
 
-DrawerForge is a browser-only parametric generator for simple, 3D-printable drawer organizers. Enter a drawer’s clear inside dimensions, tune the tray construction and compartment grid, inspect the result in 3D, and download the exact visible mesh as a binary STL. No account, backend, or CAD installation is required.
+DrawerForge is a browser-based parametric generator for 3D-printable organizers, bins, caddies, risers, wall mounts, and plant pots and saucers. Choose a product, enter your measurements, tune its layout and construction, inspect the result in 3D, and download the generated mesh as a binary STL. Design editing and geometry generation run locally in your browser. No account or CAD installation is required.
 
 ## Local setup
 
@@ -20,6 +20,8 @@ npm run dev              # live Vite/vinext development server
 npm run lint             # ESLint
 npm run typecheck        # strict TypeScript check
 npm test                 # unit, geometry, STL, and app integration tests
+npm run test:unit        # all unit, geometry, and STL tests; excludes app integration
+npm run test:integration # all tests/*.integration.test.tsx suites
 npm run build            # production/Cloudflare Worker build
 npm run test:ssr         # production build plus server-render smoke test
 npm run test:deploy-config  # proves a preview build targets the separate preview Worker
@@ -30,9 +32,9 @@ npm run deploy:preview   # build under CLOUDFLARE_ENV=preview, then deploy to th
 
 ## Parameters and validation
 
-All dimensions are millimeters. Organizer width and depth are calculated as the drawer interior dimension minus the selected clearance on both sides. Internal compartment dimensions account for the two perimeter walls and every divider. Rows and columns are evenly spaced.
+All dimensions are millimeters. Each product defines its own measurements, layout, and construction rules. For the drawer organizer tray, width and depth are calculated as the drawer interior dimension minus the selected clearance on both sides. Internal compartment dimensions account for the two perimeter walls and every divider. Its rows and columns are evenly spaced; other products offer individual well widths, bores, slots, hooks, or revolved profiles.
 
-DrawerForge rejects non-finite or out-of-range values, a base that leaves too little wall, a corner radius larger than the tray, and layouts with compartments under 10 mm. Invalid edits never replace the last valid preview and always disable STL download. The latest valid normalized design is stored locally in the browser and can be reset to practical defaults.
+DrawerForge rejects non-finite or out-of-range values and applies each product's construction rules. For the drawer organizer tray, those rules reject a base that leaves too little wall, a corner radius larger than the tray, and layouts with compartments under 10 mm. Invalid edits never replace the last valid preview and always disable STL download. The latest valid normalized design for each product is stored locally in the browser and can be reset to practical defaults.
 
 Draft, Standard, and Fine change curved-feature tessellation only. Standard is the recommended balance for editing and export.
 
@@ -41,7 +43,7 @@ Draft, Standard, and Fine change curved-feature tessellation only. Standard is t
 A design file holds one product's settings in millimeters. Use it to move a design between devices or to keep more than one design.
 
 1. Enter a design name. The name is optional. It becomes the first part of each file name.
-2. Select **Save design file**. The browser downloads `<name>-drawer-tray-<hash>.drawerforge.json`.
+2. Select **Save design file**. The browser downloads `<name>-<product-id>-<hash>.drawerforge.json`.
 3. On any device, select **Open design file** and choose the file. The design replaces the current settings only after every check passes.
 
 A file with an unknown format, an unsupported version, a missing parameter, or an out-of-range value is refused with a message. The current design does not change. A file saved by a different app version loads with a warning that the mesh may differ.
@@ -50,7 +52,7 @@ The design file never holds printer data. Printer corrections belong to a local 
 
 ## Fit test
 
-Select **Download fit test** to get a small, fast print that tests whether the tray fits the drawer before the full tray prints. The fit-test coupon is a 5 mm high ring with the tray's outside profile. It has no base, no dividers, and no scoop.
+Products with a fit-test coupon offer **Download fit test**. For the drawer organizer tray, it produces a small, fast print that tests whether the tray fits the drawer before the full tray prints. This coupon is a 5 mm high ring with the tray's outside profile. It has no base, no dividers, and no scoop. The wall hook rail has a single-hook coupon, described in its print notes below.
 
 Print this ring first. It uses little material and shows whether the tray fits the drawer. The ring wall is never thinner than 2 mm, even if the tray wall is set thinner. A thin wall is weak.
 
@@ -62,7 +64,7 @@ Print the coupon flat on the bed. Do not use supports. Use enough perimeters to 
 
 ## Bit, socket, and driver tray
 
-The second product is a flat tray with a bore for every socket, bit, or driver. Open it from the product switcher or at `/products/socket-tray`.
+The bit, socket, and driver tray is a flat tray with a bore for every socket, bit, or driver. Open it from the product switcher or at `/products/socket-tray`.
 
 Set the outside size, the number of rows, the bores per row, and the bore depth. Each row has its own bore diameter. Row 1 is at the front. Measure the widest item in a row with a caliper and add your own clearance; the app does not add one. The rows and the bores are spaced evenly, with the same web between neighbours as between a bore and the rim.
 
@@ -95,7 +97,7 @@ Turn the stacking lip off for a plain bin. The plain bin keeps the shell, the sc
 Print the bin in the pose the app shows: the open side up, the underside on the bed. Do not use supports. The recess is a groove in the underside, so it prints against the bed. Use three perimeters. Use four perimeters for a bin that carries heavy parts. Use a stiff filament. PLA and PETG are satisfactory. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
 ## Remote and controller caddy
 
-The third product is a caddy with a well for every remote and every controller. Open it from the product switcher or at `/products/remote-caddy`.
+The remote and controller caddy has a well for every remote and every controller. Open it from the product switcher or at `/products/remote-caddy`.
 
 Set the outside size, then give each well its own width. Use **Add well** and **Remove well** to change the number of wells, from two to five. The last well is solved: it takes the width that is left inside the caddy after the other wells and the dividers, so the wells always fill the caddy exactly. The list you type is the design; the calculated result card shows the widths the caddy is built from.
 
@@ -107,7 +109,7 @@ Print the caddy flat on the bed, wells up. Do not use supports. Use three perime
 
 ## Two-tier drawer riser
 
-The fourth product is a drawer tray on four legs. It makes a second level in a drawer that is deeper than the items in it. Open it from the product switcher or at `/products/drawer-riser`.
+The two-tier drawer riser is a drawer tray on four legs. It makes a second level in a drawer that is deeper than the items in it. Open it from the product switcher or at `/products/drawer-riser`.
 
 Measure four values in the drawer: the interior width, the interior depth, the usable height, and the height of the tallest item that stays on the drawer floor. Set the clear height to that item height plus your own clearance. The riser height is the clear height plus the deck plus the tray height. That total must be at most the drawer usable height minus 5 mm; the app names the number of millimeters to remove when it is not.
 
@@ -124,7 +126,7 @@ The deck is a bridge in this pose. Each compartment is an upside-down box, and i
 Use four perimeters and at least 25 percent infill in the legs. Use a stiff filament. PLA and PETG are satisfactory. Do not stand on the riser and do not load it with more than a few kilograms. No printed record exists for this product yet; see `outputs/drawerforge-agent-handoff/sprints/PRINT_RECORDS.md`.
 ## Plant pot saucer
 
-The third product is a round saucer that matches the base of a plant pot. Open it from the product switcher or at `/products/plant-saucer`.
+The plant pot saucer is a round saucer that matches the base of a plant pot. Open it from the product switcher or at `/products/plant-saucer`.
 
 Measure the base of the pot with a caliper. Set the inner floor diameter to that measurement plus 2 mm. The printer profile's correction reaches the inner floor diameter as the mean of the X and Y corrections; see [Printer profile and calibration](#printer-profile-and-calibration). Set the rim height and the wall taper. The wall opens upward, between 3 and 12 degrees from vertical, so the saucer lifts off the bed cleanly and stacks with another saucer. The inner floor diameter stops at 208 mm, the 220 mm reference bed less 12 mm. The app rejects a saucer whose outside diameter passes the bed less 12 mm, and names the taper. Once you save a printer profile, that rule reads your bed: the smaller of its width and depth, less 12 mm, and the message names your bed. The field limit itself stays at 208 mm.
 
@@ -138,7 +140,7 @@ Print the saucer upright, floor on the bed. Do not use supports. Use three perim
 
 ## Nursery plant pot
 
-The fourth product is a round plant pot with drainage. Open it from the product switcher or at `/products/plant-pot`.
+The nursery plant pot is a round plant pot with drainage. Open it from the product switcher or at `/products/plant-pot`.
 
 Set the outside diameter at the base, the height, and the wall angle. The printer profile's correction reaches the base diameter as the mean of the X and Y corrections, and the flare above it follows. The base diameter is the measurement the saucer must match, so the calculated result shows **Matching saucer floor**: the base diameter plus 2 mm. Enter that number as the saucer's inner floor diameter. The saucer floor is then 2 mm wider than the pot base all round, which is a 1 mm gap on each side.
 
@@ -150,7 +152,7 @@ Print the pot upright, base on the bed. Do not use supports. Each drainage hole 
 
 ## Card and cartridge slot holder
 
-The fifth product is a slab with a slot for every card. Open it from the product switcher or at `/products/card-holder`.
+The card and cartridge slot holder is a slab with a slot for every card. Open it from the product switcher or at `/products/card-holder`.
 
 Measure one card with a caliper. The card thickness plus the slot clearance is the gap the card sits in. The card width is the edge that goes into the slot. Set the slot count, the slot depth, and the tilt.
 
@@ -163,7 +165,7 @@ The presets are typical sizes for memory cards, game cartridges, and cassettes. 
 Print the holder flat on the bed, slots up. Do not use supports. Use three perimeters. A slot is a thin gap, so print a test holder with two slots before a long one.
 ## Marker and brush cup block
 
-The third product is a block with a cup for every marker or brush. Open it from the product switcher or at `/products/marker-cup-block`.
+The marker and brush cup block has a cup for every marker or brush. Open it from the product switcher or at `/products/marker-cup-block`.
 
 Set the outside size, the rows, the cups per row, and one bore diameter for every cup. Every cup shares this diameter. Set a tilt from 0 to 15 degrees. A tilt leans every cup back, away from the user, about the block's X axis. Row 1 is at the front.
 
@@ -177,7 +179,7 @@ Print the block flat on the bed, cups up. Do not use supports. A tilt past 15 de
 
 ## Battery organizer
 
-The fourth product is an organizer with a well for every cell. Open it from the product switcher or at `/products/battery-organizer`.
+The battery organizer has a well for every cell. Open it from the product switcher or at `/products/battery-organizer`.
 
 Set the outside size, the rows, the cells per row, the cell diameter, and the cell length. Pick a cell shape: round for a cell that stands upright in a bore, or coin cell for a cell that stands on edge in a slot. A coin cell's diameter runs vertical and its length is its thickness. Set how much of the cell's standing length stays exposed above the well; the app derives the well depth from the rest. Set a clearance per side, and turn the finger relief on or off: a wider, 3 mm deep counterbore at the top of every well, so a fingertip can reach the cell.
 
@@ -191,7 +193,7 @@ Print the organizer flat on the bed, wells up. Do not use supports. No printed r
 
 ## Tool fin rack
 
-The fifth product is a base slab with a row of fins standing up, for pliers, files, and wrenches to stand between. Open it from the product switcher or at `/products/tool-fin-rack`.
+The tool fin rack is a base slab with a row of fins standing up, for pliers, files, and wrenches to stand between. Open it from the product switcher or at `/products/tool-fin-rack`.
 
 Set the outside size, the fin count, the fin thickness, and the fin height. Every fin shares the same thickness and height. The app solves the fin pitch from the rack width, the fin count, and the fin thickness, keeping at least a 12 mm gap between two fins so a tool blade fits. Fin height cannot exceed 15 times the fin thickness, so a tall, thin fin does not snap. Every fin gets a filleted foot, wider than the fin itself, so it does not meet the base at a sharp corner; the gap between two fins is narrower there than at the top, by twice the fillet's own width (4 mm). The derived values show both gaps. The base slab is at least 3 mm thick.
 
@@ -205,7 +207,7 @@ Print the rack flat on the bed, fins up. Do not use supports. No printed record 
 
 ## Wall hook rail
 
-The first bracket product is a rail that screws to a wall, with hooks along its bottom edge and an optional shelf along its top. Open it from the product switcher or at `/products/wall-hook-rail`.
+The wall hook rail screws to a wall, with hooks along its bottom edge and an optional shelf along its top. Open it from the product switcher or at `/products/wall-hook-rail`.
 
 Set the rail length, the hook count, and the screw spacing that matches the wall. The app centers the screws on the rail and keeps 8 mm of plate between every countersink and any edge, any hook, and any gusset. It names the largest spacing that fits when yours does not.
 
@@ -221,7 +223,7 @@ Print the fit-test coupon first: it is one hook on a short plate with two screws
 
 ## Headphone and controller mount
 
-The second bracket product is a wall plate with one wide hook for a headset and an optional pocket above it for a controller. Open it from the product switcher or at `/products/headphone-mount`.
+The headphone and controller mount is a wall plate with one wide hook for a headset and an optional pocket above it for a controller. Open it from the product switcher or at `/products/headphone-mount`.
 
 Measure the headband where it rests on the hook, and enter that as the headband thickness. The opening between the plate and the hook lip must be at least that plus 2 mm, and the app names the projection that clears it. The hook is at least 20 mm wide, and the same root rule as the hook rail applies: projection at most 2.5 times the root, never over 60 mm.
 
@@ -233,7 +235,7 @@ Print the mount with the plate flat on the bed and the hook and the pocket point
 
 ## Shelf riser
 
-The third bracket product is a deck on four legs, for a second level on a shelf or a closet floor. Open it from the product switcher or at `/products/shelf-riser`.
+The shelf riser is a deck on four legs, for a second level on a shelf or a closet floor. Open it from the product switcher or at `/products/shelf-riser`.
 
 Set the deck size and the clear height under it. The leg rule from the drawer riser applies: the clear height is at most 12 times the leg section, the section is at least 8 mm, and every leg flares into the deck with a gusset. A rib stands under the deck wherever the span between two legs passes 150 mm. The deck underside is lightened with pockets inside the leg pads, each pocket ceiling at most 40 mm, and you can turn the pockets off.
 
@@ -245,7 +247,7 @@ The preview shows the riser as it prints: the deck top on the bed, the pockets o
 
 ## Entryway valet
 
-The fourth product in this group is a tray with wells for keys and a watch along the front, and an angled phone rest along the back. Open it from the product switcher or at `/products/entryway-valet`.
+The entryway valet is a tray with wells for keys and a watch along the front, and an angled phone rest along the back. Open it from the product switcher or at `/products/entryway-valet`.
 
 Give every well its own width; the last well takes the width that is left, exactly as in the remote caddy. Set how deep the well row is from front to back. The rest is a solid wedge whose face leans back by the rest angle, 8 to 25 degrees from vertical. A lip in front of the wedge forms the slot for the phone's bottom edge, and the slot width is yours to set. The wedge thins toward its top, so the app keeps at least 4 mm of material there and names the deepest well row that allows it.
 
@@ -332,7 +334,7 @@ The app also shows an error when a correction takes a value past its limit. The 
 - `app/components/ParameterControls.tsx` — number, boolean, and enum controls driven by specs.
 - `app/components/ModelViewer.tsx` — the Three.js preview.
 
-To add a product, create a folder under `lib/products/`, export a `ProductDefinition`, and add it to the registry. `tests/products.test.ts` checks every registered product.
+To add a product, create a folder under `lib/products/`, export a `ProductDefinition`, and add it to `lib/products/registry.ts`. Register its lazy geometry loader in `lib/products/geometry-registry.ts` under the same product id, including its coupon builder if it has one. Route the definition's `generate` and optional `coupon` through `loadGeometry()` so the page and worker share that loader. Keep definition imports separate from solid builders. `tests/products.test.ts` checks every registered product, matching geometry loaders, and these import boundaries.
 
 ## Geometry and export
 
@@ -360,13 +362,13 @@ CI deploys a preview on every pull request and production on every push to `main
 
 See [`outputs/drawerforge-agent-handoff/26_CLOUDFLARE_MIGRATION_NOTES.md`](outputs/drawerforge-agent-handoff/26_CLOUDFLARE_MIGRATION_NOTES.md) for the rollback plan and the deployed-origin acceptance checklist.
 
-## v1 limitations
+## Current limitations
 
-- Rectangular, evenly divided compartment grids only
-- One organizer per design; no automatic multi-piece splitting
+- Layouts follow each product's parameters: tray grids, individual wells, bores, slots, fins, hooks, and revolved forms
+- One product per design; automatic splitting is supported for shelf-riser legs, but there is no general-purpose splitting for other products
 - No arbitrary divider drawing, slicer settings, or multi-model projects
-- The last valid design persists in the current browser’s local storage; use a design file to move it
-- The front finger scoop has an automatically constrained size and position
+- The last valid design for each product persists in the current browser’s local storage; use a design file to move it
+- The drawer tray's front finger scoop has an automatically constrained size and position
 
 ## Engineering handoff
 
