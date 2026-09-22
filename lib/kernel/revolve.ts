@@ -1,3 +1,4 @@
+import { ResourceScope } from "./ownership";
 import type { ManifoldToplevel } from "manifold-3d";
 import type { Solid } from "./manifold";
 import { polygon } from "./profiles";
@@ -23,10 +24,15 @@ export function revolveProfile(
   segments: number,
   revolveDegrees = 360,
 ): Solid {
-  const section = polygon(kernel, points);
-  const solid = section.revolve(segments, revolveDegrees);
-  section.delete();
-  return solid;
+  const scope = new ResourceScope();
+  try {
+    const section = scope.own(polygon(kernel, points));
+    const solid = scope.own(section.revolve(segments, revolveDegrees));
+    scope.delete(section);
+    return scope.take(solid);
+  } finally {
+    scope.dispose();
+  }
 }
 
 /** The three solids a revolved shell build produces. The caller deletes all three. */
@@ -49,8 +55,13 @@ export function revolveShell(
   profile: VesselProfile,
   segments: number,
 ): RevolvedShell {
-  const outer = revolveProfile(kernel, profile.outer, segments);
-  const cavity = revolveProfile(kernel, profile.inner, segments);
-  const shell = outer.subtract(cavity);
-  return { outer, cavity, shell };
+  const scope = new ResourceScope();
+  try {
+    const outer = scope.own(revolveProfile(kernel, profile.outer, segments));
+    const cavity = scope.own(revolveProfile(kernel, profile.inner, segments));
+    const shell = scope.own(outer.subtract(cavity));
+    return { outer: scope.take(outer), cavity: scope.take(cavity), shell: scope.take(shell) };
+  } finally {
+    scope.dispose();
+  }
 }

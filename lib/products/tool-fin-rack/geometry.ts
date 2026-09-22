@@ -1,3 +1,4 @@
+import { ResourceScope } from "../../kernel/ownership";
 import { cutterArray, unionSolids } from "../../kernel/arrays";
 import { getKernel, type Solid } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
@@ -32,23 +33,28 @@ function filletedFin(
   kernel: Kernel,
   options: { thickness: number; length: number; height: number },
 ): Solid {
-  const { thickness, length, height } = options;
-  const finAtOrigin = kernel.Manifold.cube([thickness, length, height], true);
-  const fin = finAtOrigin.translate([0, 0, height / 2]);
-  finAtOrigin.delete();
+  const scope = new ResourceScope();
+  try {
+    const { thickness, length, height } = options;
+    const finAtOrigin = scope.own(kernel.Manifold.cube([thickness, length, height], true));
+    const fin = scope.own(finAtOrigin.translate([0, 0, height / 2]));
+    scope.delete(finAtOrigin);
 
-  const stripHeight = FIN_FILLET_HEIGHT_MM + BOOLEAN_OVERLAP;
-  const stripAtOrigin = kernel.Manifold.cube(
-    [thickness + FIN_FILLET_WIDTH_MM * 2, length, stripHeight],
-    true,
-  );
-  const strip = stripAtOrigin.translate([0, 0, stripHeight / 2 - BOOLEAN_OVERLAP]);
-  stripAtOrigin.delete();
+    const stripHeight = FIN_FILLET_HEIGHT_MM + BOOLEAN_OVERLAP;
+    const stripAtOrigin = scope.own(kernel.Manifold.cube(
+      [thickness + FIN_FILLET_WIDTH_MM * 2, length, stripHeight],
+      true,
+    ));
+    const strip = scope.own(stripAtOrigin.translate([0, 0, stripHeight / 2 - BOOLEAN_OVERLAP]));
+    scope.delete(stripAtOrigin);
 
-  const hulled = kernel.Manifold.hull([fin, strip]);
-  fin.delete();
-  strip.delete();
-  return hulled;
+    const hulled = scope.own(kernel.Manifold.hull([fin, strip]));
+    scope.delete(fin);
+    scope.delete(strip);
+    return scope.take(hulled);
+  } finally {
+    scope.dispose();
+  }
 }
 
 /**
@@ -60,42 +66,47 @@ function filletedFin(
 export async function generateToolFinRack(
   parameters: ToolFinRackParameters,
 ): Promise<GeneratedModel<ToolFinRackParameters>> {
-  const validation = validateToolFinRack(parameters);
-  if (!validation.valid) {
-    throw new Error(validation.issues.map((issue) => issue.message).join(" "));
+  const scope = new ResourceScope();
+  try {
+    const validation = validateToolFinRack(parameters);
+    if (!validation.valid) {
+      throw new Error(validation.issues.map((issue) => issue.message).join(" "));
+    }
+
+    const kernel = await getKernel();
+    const layout = deriveLayout(parameters);
+    const segments = QUALITY_SEGMENTS[parameters.meshQuality];
+    const finLayout = layout.finLayout;
+    if (!finLayout.ok) throw new Error("The fins do not fit the rack width.");
+
+    const slab = scope.own(roundedSlab(kernel, {
+      width: parameters.rackWidth,
+      depth: parameters.rackDepth,
+      height: parameters.baseThickness,
+      cornerRadius: parameters.cornerRadius,
+      segments,
+    }));
+
+    const fins = scope.own(cutterArray(
+      kernel,
+      () =>
+        filletedFin(kernel, {
+          thickness: parameters.finThickness,
+          length: layout.finLength,
+          height: parameters.finHeight,
+        }),
+      {
+        pitchX: finLayout.pitch,
+        pitchY: 0,
+        countX: parameters.finCount,
+        countY: 1,
+        origin: [finLayout.firstCenter, 0, parameters.baseThickness],
+      },
+    ));
+
+    const solid = scope.own(unionSolids(kernel, scope.takeAll([slab, fins])));
+    return finishSolid(scope.take(solid), parameters, "rack");
+  } finally {
+    scope.dispose();
   }
-
-  const kernel = await getKernel();
-  const layout = deriveLayout(parameters);
-  const segments = QUALITY_SEGMENTS[parameters.meshQuality];
-  const finLayout = layout.finLayout;
-  if (!finLayout.ok) throw new Error("The fins do not fit the rack width.");
-
-  const slab = roundedSlab(kernel, {
-    width: parameters.rackWidth,
-    depth: parameters.rackDepth,
-    height: parameters.baseThickness,
-    cornerRadius: parameters.cornerRadius,
-    segments,
-  });
-
-  const fins = cutterArray(
-    kernel,
-    () =>
-      filletedFin(kernel, {
-        thickness: parameters.finThickness,
-        length: layout.finLength,
-        height: parameters.finHeight,
-      }),
-    {
-      pitchX: finLayout.pitch,
-      pitchY: 0,
-      countX: parameters.finCount,
-      countY: 1,
-      origin: [finLayout.firstCenter, 0, parameters.baseThickness],
-    },
-  );
-
-  const solid = unionSolids(kernel, [slab, fins]);
-  return finishSolid(solid, parameters, "rack");
 }

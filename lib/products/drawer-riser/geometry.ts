@@ -1,3 +1,4 @@
+import { ResourceScope } from "../../kernel/ownership";
 import { dividerArrayAtPositions, unionSolids } from "../../kernel/arrays";
 import { legPosts } from "../../kernel/legs";
 import { getKernel, type Solid } from "../../kernel/manifold";
@@ -21,65 +22,72 @@ import { validateDrawerRiser } from "./validate";
 export async function generateDrawerRiser(
   parameters: DrawerRiserParameters,
 ): Promise<GeneratedModel<DrawerRiserParameters>> {
-  const validation = validateDrawerRiser(parameters);
-  if (!validation.valid) {
-    throw new Error(validation.issues.map((issue) => issue.message).join(" "));
-  }
+  const scope = new ResourceScope();
+  try {
+    const validation = validateDrawerRiser(parameters);
+    if (!validation.valid) {
+      throw new Error(validation.issues.map((issue) => issue.message).join(" "));
+    }
 
-  const kernel = await getKernel();
-  const layout = deriveLayout(parameters);
-  if (!layout.legs.ok) throw new Error("The legs do not fit under the deck.");
-  const segments = QUALITY_SEGMENTS[parameters.meshQuality];
+    const kernel = await getKernel();
+    const layout = deriveLayout(parameters);
+    if (!layout.legs.ok) throw new Error("The legs do not fit under the deck.");
+    const segments = QUALITY_SEGMENTS[parameters.meshQuality];
 
-  const deckHeight = parameters.baseThickness + parameters.trayHeight;
-  const { outer: deckOuterAtOrigin, shell: shellAtOrigin } = roundedShell(kernel, {
-    width: layout.outsideWidth,
-    depth: layout.outsideDepth,
-    height: deckHeight,
-    cornerRadius: parameters.cornerRadius,
-    wallThickness: parameters.wallThickness,
-    baseThickness: parameters.baseThickness,
-    segments,
-  });
-  const deckOuter = deckOuterAtOrigin.translate([0, 0, layout.deckZ]);
-  deckOuterAtOrigin.delete();
-  const shell = shellAtOrigin.translate([0, 0, layout.deckZ]);
-  shellAtOrigin.delete();
-
-  const parts: Solid[] = [shell];
-  const dividerHeight = parameters.trayHeight + BOOLEAN_OVERLAP * 2;
-  const dividerCenterZ =
-    layout.deckZ + parameters.baseThickness + parameters.trayHeight / 2;
-  const columns = dividerArrayAtPositions(kernel, deckOuter, {
-    positions: layout.columnPositions,
-    thickness: parameters.dividerThickness,
-    length: layout.outsideDepth + BOOLEAN_OVERLAP * 2,
-    height: dividerHeight,
-    centerZ: dividerCenterZ,
-    axis: "x",
-  });
-  if (columns) parts.push(columns);
-  const rows = dividerArrayAtPositions(kernel, deckOuter, {
-    positions: layout.rowPositions,
-    thickness: parameters.dividerThickness,
-    length: layout.outsideWidth + BOOLEAN_OVERLAP * 2,
-    height: dividerHeight,
-    centerZ: dividerCenterZ,
-    axis: "y",
-  });
-  if (rows) parts.push(rows);
-  deckOuter.delete();
-
-  parts.push(
-    legPosts(kernel, {
-      centers: layout.legs.centers,
-      section: parameters.legSection,
-      cornerRadius: Math.min(LEG_CORNER_RADIUS_MM, parameters.legSection / 4),
-      height: layout.deckZ,
-      gusset: layout.legGusset,
+    const deckHeight = parameters.baseThickness + parameters.trayHeight;
+    const { outer: deckOuterAtOrigin, shell: shellAtOrigin } = roundedShell(kernel, {
+      width: layout.outsideWidth,
+      depth: layout.outsideDepth,
+      height: deckHeight,
+      cornerRadius: parameters.cornerRadius,
+      wallThickness: parameters.wallThickness,
+      baseThickness: parameters.baseThickness,
       segments,
-    }),
-  );
+    });
+    scope.own(deckOuterAtOrigin);
+    scope.own(shellAtOrigin);
+    const deckOuter = scope.own(deckOuterAtOrigin.translate([0, 0, layout.deckZ]));
+    scope.delete(deckOuterAtOrigin);
+    const shell = scope.own(shellAtOrigin.translate([0, 0, layout.deckZ]));
+    scope.delete(shellAtOrigin);
 
-  return finishSolid(unionSolids(kernel, parts), parameters, "riser");
+    const parts: Solid[] = [shell];
+    const dividerHeight = parameters.trayHeight + BOOLEAN_OVERLAP * 2;
+    const dividerCenterZ =
+      layout.deckZ + parameters.baseThickness + parameters.trayHeight / 2;
+    const columns = scope.own(dividerArrayAtPositions(kernel, deckOuter, {
+      positions: layout.columnPositions,
+      thickness: parameters.dividerThickness,
+      length: layout.outsideDepth + BOOLEAN_OVERLAP * 2,
+      height: dividerHeight,
+      centerZ: dividerCenterZ,
+      axis: "x",
+    }));
+    if (columns) parts.push(columns);
+    const rows = scope.own(dividerArrayAtPositions(kernel, deckOuter, {
+      positions: layout.rowPositions,
+      thickness: parameters.dividerThickness,
+      length: layout.outsideWidth + BOOLEAN_OVERLAP * 2,
+      height: dividerHeight,
+      centerZ: dividerCenterZ,
+      axis: "y",
+    }));
+    if (rows) parts.push(rows);
+    scope.delete(deckOuter);
+
+    parts.push(
+      scope.own(legPosts(kernel, {
+        centers: layout.legs.centers,
+        section: parameters.legSection,
+        cornerRadius: Math.min(LEG_CORNER_RADIUS_MM, parameters.legSection / 4),
+        height: layout.deckZ,
+        gusset: layout.legGusset,
+        segments,
+      })),
+    );
+
+    return finishSolid(unionSolids(kernel, scope.takeAll(parts)), parameters, "riser");
+  } finally {
+    scope.dispose();
+  }
 }

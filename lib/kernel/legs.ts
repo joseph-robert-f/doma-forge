@@ -1,3 +1,4 @@
+import { ResourceScope } from "./ownership";
 import type { ManifoldToplevel } from "manifold-3d";
 import { unionSolids } from "./arrays";
 import type { Solid } from "./manifold";
@@ -36,53 +37,58 @@ export function legPost(
   kernel: ManifoldToplevel,
   options: LegPostOptions,
 ): Solid {
-  const { section, cornerRadius, height, gusset, segments } = options;
-  if (
-    ![section, cornerRadius, height, gusset].every((value) =>
-      Number.isFinite(value),
-    ) ||
-    section <= 0 ||
-    height <= 0 ||
-    gusset < 0
-  ) {
-    throw new Error("legPost needs a finite, positive section and height.");
+  const scope = new ResourceScope();
+  try {
+    const { section, cornerRadius, height, gusset, segments } = options;
+    if (
+      ![section, cornerRadius, height, gusset].every((value) =>
+        Number.isFinite(value),
+      ) ||
+      section <= 0 ||
+      height <= 0 ||
+      gusset < 0
+    ) {
+      throw new Error("legPost needs a finite, positive section and height.");
+    }
+    const top = height + BOOLEAN_OVERLAP;
+    const profile = scope.own(roundedRectangle(
+      kernel,
+      section,
+      section,
+      cornerRadius,
+      segments,
+    ));
+    const shaft = scope.own(profile.extrude(top));
+    if (gusset <= 0) {
+      scope.delete(profile);
+      return scope.take(shaft);
+    }
+    // The gusset is the convex hull of the post section low down and the wider
+    // pad at the deck. Hull, not a scaled extrusion, so the flare keeps the
+    // rounded section at both ends.
+    const plate = 0.01;
+    const lowAtOrigin = scope.own(profile.extrude(plate));
+    const low = scope.own(lowAtOrigin.translate([0, 0, Math.max(0, height - gusset)]));
+    scope.delete(lowAtOrigin);
+    scope.delete(profile);
+    const padProfile = scope.own(roundedRectangle(
+      kernel,
+      section + gusset * 2,
+      section + gusset * 2,
+      cornerRadius + gusset,
+      segments,
+    ));
+    const padAtOrigin = scope.own(padProfile.extrude(plate));
+    scope.delete(padProfile);
+    const pad = scope.own(padAtOrigin.translate([0, 0, top - plate]));
+    scope.delete(padAtOrigin);
+    const flare = scope.own(kernel.Manifold.hull([low, pad]));
+    scope.delete(low);
+    scope.delete(pad);
+    return unionSolids(kernel, scope.takeAll([shaft, flare]));
+  } finally {
+    scope.dispose();
   }
-  const top = height + BOOLEAN_OVERLAP;
-  const profile = roundedRectangle(
-    kernel,
-    section,
-    section,
-    cornerRadius,
-    segments,
-  );
-  const shaft = profile.extrude(top);
-  if (gusset <= 0) {
-    profile.delete();
-    return shaft;
-  }
-  // The gusset is the convex hull of the post section low down and the wider
-  // pad at the deck. Hull, not a scaled extrusion, so the flare keeps the
-  // rounded section at both ends.
-  const plate = 0.01;
-  const lowAtOrigin = profile.extrude(plate);
-  const low = lowAtOrigin.translate([0, 0, Math.max(0, height - gusset)]);
-  lowAtOrigin.delete();
-  profile.delete();
-  const padProfile = roundedRectangle(
-    kernel,
-    section + gusset * 2,
-    section + gusset * 2,
-    cornerRadius + gusset,
-    segments,
-  );
-  const padAtOrigin = padProfile.extrude(plate);
-  padProfile.delete();
-  const pad = padAtOrigin.translate([0, 0, top - plate]);
-  padAtOrigin.delete();
-  const flare = kernel.Manifold.hull([low, pad]);
-  low.delete();
-  pad.delete();
-  return unionSolids(kernel, [shaft, flare]);
 }
 
 /**
@@ -93,11 +99,16 @@ export function legPosts(
   kernel: ManifoldToplevel,
   options: LegPostOptions,
 ): Solid {
-  if (options.centers.length === 0) {
-    throw new Error("legPosts needs at least one post center.");
+  const scope = new ResourceScope();
+  try {
+    if (options.centers.length === 0) {
+      throw new Error("legPosts needs at least one post center.");
+    }
+    const template = scope.own(legPost(kernel, options));
+    const placed = options.centers.map(([x, y]) => scope.own(template.translate([x, y, 0])));
+    scope.delete(template);
+    return unionSolids(kernel, scope.takeAll(placed));
+  } finally {
+    scope.dispose();
   }
-  const template = legPost(kernel, options);
-  const placed = options.centers.map(([x, y]) => template.translate([x, y, 0]));
-  template.delete();
-  return unionSolids(kernel, placed);
 }
