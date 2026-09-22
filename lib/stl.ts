@@ -3,6 +3,30 @@ import * as THREE from "three";
 const STL_HEADER_BYTES = 80;
 const STL_TRIANGLE_BYTES = 50;
 
+/** Borrows geometry: its owner keeps it for preview or disposes it afterwards. */
+export function serializeCheckedBinaryStl(
+  geometry: THREE.BufferGeometry,
+  expectedTriangleCount: number,
+  failureMessage: string,
+): ArrayBuffer {
+  const data = serializeBinaryStl(geometry);
+  const inspection = inspectBinaryStl(data);
+  geometry.computeBoundingBox();
+  const bounds = geometry.boundingBox;
+  if (
+    !inspection.finite ||
+    inspection.minimumTriangleArea <= 0 ||
+    inspection.minimumNormalAlignment < 0.99999 ||
+    inspection.triangleCount !== expectedTriangleCount ||
+    !bounds ||
+    !(inspection.bounds.min.distanceTo(bounds.min) <= 1e-4) ||
+    !(inspection.bounds.max.distanceTo(bounds.max) <= 1e-4)
+  ) {
+    throw new Error(failureMessage);
+  }
+  return data;
+}
+
 function writeVector(view: DataView, offset: number, vector: THREE.Vector3) {
   view.setFloat32(offset, vector.x, true);
   view.setFloat32(offset + 4, vector.y, true);

@@ -1,11 +1,29 @@
 import * as THREE from "three";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { drawerTray } from "../lib/products/drawer-tray";
-import { inspectBinaryStl, serializeBinaryStl } from "../lib/stl";
+import { inspectBinaryStl, serializeBinaryStl, serializeCheckedBinaryStl } from "../lib/stl";
 import { modelToBufferGeometry } from "../lib/three-geometry";
 
 describe("binary STL export", () => {
+  it("checks exported triangles without disposing the borrowed preview", () => {
+    const source = new THREE.BoxGeometry(10, 20, 30);
+    const geometry = source.toNonIndexed();
+    source.dispose();
+    const disposed = vi.fn();
+    geometry.addEventListener("dispose", disposed);
+    try {
+      const data = serializeCheckedBinaryStl(geometry, 12, "Preview mismatch");
+      expect(inspectBinaryStl(data).triangleCount).toBe(12);
+      expect(() => serializeCheckedBinaryStl(geometry, 11, "Preview mismatch"))
+        .toThrow("Preview mismatch");
+      expect(disposed).not.toHaveBeenCalled();
+    } finally {
+      geometry.dispose();
+    }
+    expect(disposed).toHaveBeenCalledOnce();
+  });
+
   it("serializes the exact preview triangles with matching bounds", async () => {
     const parameters = drawerTray.normalize(drawerTray.defaults);
     const model = await drawerTray.generate(parameters);
