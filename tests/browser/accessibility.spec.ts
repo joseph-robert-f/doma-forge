@@ -10,6 +10,13 @@ import { gotoReady } from "./support";
 test.describe("accessibility", () => {
   test("the default page has no serious or critical axe violations", async ({ page }) => {
     await gotoReady(page, "/");
+    const download = page.getByTestId("download-stl-button");
+    await expect(download).toBeEnabled();
+    // Ready starts the disabled-to-enabled color transition. Audit the settled
+    // button, not an intermediate color sampled during its 160 ms transition.
+    await download.evaluate(async (button) => {
+      await Promise.all(button.getAnimations().map((animation) => animation.finished));
+    });
 
     const results = await new AxeBuilder({ page }).analyze();
     const blocking = results.violations.filter(
