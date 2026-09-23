@@ -1,3 +1,4 @@
+import { defaultSurfaceTreatments, surfaceTreatmentSpec } from "../../surface-patterns";
 import type { BedLimit, PrintContext } from "../../printer-profile";
 import {
   REVOLVE_SEGMENTS,
@@ -127,6 +128,10 @@ export const PLANT_POT_SPECS = {
     ],
     hint: "Standard gives 96 segments around the pot.",
   } satisfies EnumSpec<MeshQuality>,
+  surfaceTreatments: surfaceTreatmentSpec([
+      { id: "wall", label: "Sidewall", description: "Open the curved sidewall." },
+      { id: "base", label: "Base", description: "Open free base areas around the drain holes." },
+    ]),
 } as const;
 
 export type PlantPotSpecs = typeof PLANT_POT_SPECS;
@@ -143,6 +148,7 @@ export const PLANT_POT_DEFAULTS: PlantPotParameters = {
   wallThickness: 2.2,
   baseThickness: 3,
   meshQuality: "standard",
+  surfaceTreatments: defaultSurfaceTreatments(PLANT_POT_SPECS.surfaceTreatments),
 };
 
 export const PLANT_POT_GROUPS: ParameterGroup<PlantPotKey>[] = [
@@ -168,6 +174,13 @@ export const PLANT_POT_GROUPS: ParameterGroup<PlantPotKey>[] = [
     title: "Construction",
     description: "The wall, the base, and the mesh.",
     keys: ["wallThickness", "baseThickness", "meshQuality"],
+  },
+  {
+    id: "surface",
+    index: "04",
+    title: "Surface",
+    description: "Choose solid, holed, or mesh regions for this print.",
+    keys: ["surfaceTreatments"],
   },
 ];
 

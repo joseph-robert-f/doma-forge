@@ -1,3 +1,5 @@
+import { isSurfacePatternActive } from "../../surface-patterns";
+import { surfaceZones } from "./surface-zones";
 import {
   filenameNumber,
   formatMillimeters,
@@ -72,7 +74,9 @@ function derive(parameters: BatteryOrganizerParameters): DerivedValue[] {
     label: "Underside pockets",
     value: layout.lightening
       ? `${layout.lightening.countX} × ${layout.lightening.countY}, ${formatMillimeters(layout.lightening.pocketDepth)} mm deep`
-      : "none",
+      : isSurfacePatternActive(parameters.surfaceTreatments, "base")
+        ? "none, base pattern replaces underside pockets"
+        : "none",
   });
   return values;
 }
@@ -86,6 +90,7 @@ export const batteryOrganizer: ProductDefinition<BatteryOrganizerSpecs> = {
   specs: BATTERY_ORGANIZER_SPECS,
   groups: BATTERY_ORGANIZER_GROUPS,
   defaults: BATTERY_ORGANIZER_DEFAULTS,
+  surfaceZones,
   presets: BATTERY_ORGANIZER_PRESETS,
   normalize: (input) =>
     normalizeFromSpecs(

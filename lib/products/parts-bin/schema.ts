@@ -1,3 +1,4 @@
+import { defaultSurfaceTreatments, surfaceTreatmentSpec } from "../../surface-patterns";
 import type {
   BooleanSpec,
   EnumSpec,
@@ -144,6 +145,10 @@ export const PARTS_BIN_SPECS = {
     ],
     hint: "Standard balances round corners with quick regeneration.",
   } satisfies EnumSpec<MeshQuality>,
+  surfaceTreatments: surfaceTreatmentSpec([
+      { id: "floor", label: "Floor", description: "Open the bin floor." },
+      { id: "walls", label: "Walls", description: "Open usable body wall panels." },
+    ]),
 } as const;
 
 export type PartsBinSpecs = typeof PARTS_BIN_SPECS;
@@ -164,6 +169,7 @@ export const PARTS_BIN_DEFAULTS: PartsBinParameters = {
   baseThickness: 3,
   cornerRadius: 3,
   meshQuality: "standard",
+  surfaceTreatments: defaultSurfaceTreatments(PARTS_BIN_SPECS.surfaceTreatments),
 };
 
 export const PARTS_BIN_GROUPS: ParameterGroup<PartsBinKey>[] = [
@@ -196,6 +202,13 @@ export const PARTS_BIN_GROUPS: ParameterGroup<PartsBinKey>[] = [
     title: "Construction",
     description: "The walls, the base, the corners, and the curve detail.",
     keys: ["wallThickness", "baseThickness", "cornerRadius", "meshQuality"],
+  },
+  {
+    id: "surface",
+    index: "05",
+    title: "Surface",
+    description: "Choose solid, holed, or mesh regions for this print.",
+    keys: ["surfaceTreatments"],
   },
 ];
 

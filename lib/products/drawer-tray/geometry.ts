@@ -1,7 +1,9 @@
+import { drawerTraySurfaceZones, getFingerScoopRadius } from "./surface-zones";
 import { ResourceScope } from "../../kernel/ownership";
 import { getKernel, type Solid } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
 import { BOOLEAN_OVERLAP, roundedShell } from "../../kernel/shell";
+import { applySurfacePatterns } from "../../kernel/surface-pattern";
 import {
   QUALITY_SEGMENTS,
   deriveDimensions,
@@ -9,15 +11,6 @@ import {
 } from "./schema";
 import { validateDrawerTray } from "./validate";
 
-export function getFingerScoopRadius(parameters: DrawerTrayParameters): number {
-  const derived = deriveDimensions(parameters);
-  const availableWallHeight =
-    parameters.organizerHeight - parameters.baseThickness;
-  return Math.max(
-    1.5,
-    Math.min(12, derived.outsideWidth * 0.075, availableWallHeight - 2),
-  );
-}
 
 /**
  * Builds the tray as one solid: the rounded shell from the kernel's shell
@@ -136,8 +129,11 @@ export async function generateDrawerTray(
       solid = scooped;
     }
 
+    solid = applySurfacePatterns(kernel, scope, solid, parameters.surfaceTreatments, drawerTraySurfaceZones(parameters));
     return finishSolid(scope.take(solid), parameters, "organizer");
   } finally {
     scope.dispose();
   }
 }
+
+export { getFingerScoopRadius };

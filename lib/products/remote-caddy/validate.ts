@@ -1,3 +1,4 @@
+import type { PrintContext } from "../../printer-profile";
 import { IssueCollector, formatMillimeters, validateAgainstSpecs } from "../shared";
 import type { ValidationResult } from "../types";
 import {
@@ -50,6 +51,7 @@ function solvedWellMessage(
 
 export function validateRemoteCaddy(
   parameters: RemoteCaddyParameters,
+  context?: PrintContext,
 ): ValidationResult<RemoteCaddyKey> {
   const collector = new IssueCollector<RemoteCaddyKey>();
   const add = collector.add.bind(collector);
@@ -77,7 +79,7 @@ export function validateRemoteCaddy(
     if (message) add("wellWidths", message);
   }
 
-  validateAgainstSpecs(REMOTE_CADDY_SPECS, parameters, collector);
+  validateAgainstSpecs(REMOTE_CADDY_SPECS, parameters, collector, context);
   if (!numbersOk) return collector.result();
 
   const deepestWell = parameters.caddyHeight - parameters.baseThickness;

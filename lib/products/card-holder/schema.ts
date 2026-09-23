@@ -1,3 +1,4 @@
+import { defaultSurfaceTreatments, surfaceTreatmentSpec } from "../../surface-patterns";
 import { solvePitch, type PitchResult } from "../../kernel/pitch";
 import type {
   EnumSpec,
@@ -136,6 +137,9 @@ export const CARD_HOLDER_SPECS = {
     ],
     hint: "Standard balances round corners with quick regeneration.",
   } satisfies EnumSpec<MeshQuality>,
+  surfaceTreatments: surfaceTreatmentSpec([
+      { id: "base", label: "Base", description: "Spare material around the card slots." },
+    ]),
 } as const;
 
 export type CardHolderSpecs = typeof CARD_HOLDER_SPECS;
@@ -156,6 +160,7 @@ export const CARD_HOLDER_DEFAULTS: CardHolderParameters = {
   baseThickness: 2.4,
   cornerRadius: 3,
   meshQuality: "standard",
+  surfaceTreatments: defaultSurfaceTreatments(CARD_HOLDER_SPECS.surfaceTreatments),
 };
 
 export const CARD_HOLDER_GROUPS: ParameterGroup<CardHolderKey>[] = [
@@ -188,6 +193,13 @@ export const CARD_HOLDER_GROUPS: ParameterGroup<CardHolderKey>[] = [
     title: "Construction",
     description: "The rim, the base, the corners, and the mesh.",
     keys: ["wallThickness", "baseThickness", "cornerRadius", "meshQuality"],
+  },
+  {
+    id: "surface",
+    index: "05",
+    title: "Surface",
+    description: "Choose solid, holed, or mesh regions for this print.",
+    keys: ["surfaceTreatments"],
   },
 ];
 

@@ -1,6 +1,15 @@
 "use client";
 
 import type { ChangeEvent } from "react";
+import type { SuggestedSurfacePattern } from "../../lib/surface-availability";
+import {
+  DEFAULT_ZONE_SETTING,
+  SURFACE_LIMITS,
+  type SurfaceMode,
+  type SurfaceTreatments,
+  type SurfaceTreatmentsSpec,
+  type SurfaceZoneSetting,
+} from "../../lib/surface-patterns";
 import { parameterSlug } from "../../lib/products/shared";
 import type {
   BooleanSpec,
@@ -310,18 +319,164 @@ export function EnumControl({
   );
 }
 
+export function SurfaceTreatmentsControl({
+  parameterKey,
+  spec,
+  value,
+  errors,
+  availability,
+  suggestedPattern,
+  onChange,
+}: ControlProps<SurfaceTreatmentsSpec, SurfaceTreatments> & {
+  availability?: Record<string, string>;
+  suggestedPattern?: SuggestedSurfacePattern | null;
+}) {
+  const slug = parameterSlug(parameterKey);
+  const selected: SurfaceTreatments = value && typeof value === "object"
+    ? value : { enabled: false, zones: {} };
+  const unavailableMessages = Object.values(availability ?? {});
+  const globalErrors = errors?.filter((message) =>
+    !unavailableMessages.includes(message) &&
+    !spec.zones.some((zone) => message.startsWith(zone.label))
+  );
+  const updateZone = (id: string, change: Partial<SurfaceZoneSetting>) => {
+    onChange(parameterKey, {
+      enabled: selected.enabled,
+      zones: {
+        ...selected.zones,
+        [id]: { ...(selected.zones[id] ?? DEFAULT_ZONE_SETTING), ...change },
+      },
+    });
+  };
+  const toggle = (enabled: boolean) => {
+    if (!enabled || spec.zones.some((zone) => (selected.zones[zone.id] ?? DEFAULT_ZONE_SETTING).mode !== "solid")) {
+      onChange(parameterKey, { ...selected, enabled });
+      return;
+    }
+    const first = spec.zones.find((zone) => zone.id === suggestedPattern?.zoneId) ?? spec.zones[0];
+    onChange(parameterKey, {
+      enabled,
+      zones: {
+        ...selected.zones,
+        [first.id]: suggestedPattern?.setting ?? { ...(selected.zones[first.id] ?? DEFAULT_ZONE_SETTING), mode: "holes" },
+      },
+    });
+  };
+  return (
+    <div className="surface-control" role="group" aria-label={spec.label}>
+      <label className="toggle-row surface-toggle">
+        <span>
+          <strong>{spec.label}</strong>
+          <small>{spec.description}</small>
+        </span>
+        <input
+          type="checkbox"
+          role="switch"
+          data-testid={`param-${slug}-toggle`}
+          checked={selected.enabled}
+          aria-invalid={Boolean(errors?.length) || undefined}
+          aria-errormessage={errors?.length ? `${slug}-error` : undefined}
+          onChange={(event) => toggle(event.target.checked)}
+        />
+      </label>
+      {selected.enabled ? (
+        <div className="surface-zones">
+          {spec.zones.map((zone) => {
+            const setting = selected.zones[zone.id] ?? DEFAULT_ZONE_SETTING;
+            const zoneSlug = parameterSlug(zone.id);
+            const zoneError = errors?.find((message) => message.startsWith(zone.label) && !unavailableMessages.includes(message));
+            const unavailable = availability?.[zone.id];
+            const unavailableId = `${slug}-${zoneSlug}-unavailable`;
+            const zoneErrorId = `${slug}-${zoneSlug}-error`;
+            const describedBy = [zoneError ? zoneErrorId : null, unavailable ? unavailableId : null]
+              .filter(Boolean).join(" ") || undefined;
+            return (
+              <fieldset
+                className="surface-zone"
+                key={zone.id}
+                aria-invalid={zoneError || unavailable ? true : undefined}
+                aria-describedby={describedBy}
+              >
+                <legend>{zone.label}</legend>
+                {zone.description ? <p className="quality-hint">{zone.description}</p> : null}
+                <div className="quality-options">
+                  {(["solid", "holes", "mesh"] as SurfaceMode[]).map((mode) => (
+                    <label className={`quality-option${setting.mode === mode ? " quality-option--active" : ""}`} key={mode}>
+                      <input
+                        type="radio"
+                        name={`${slug}-${zoneSlug}`}
+                        value={mode}
+                        data-testid={`param-${slug}-${zoneSlug}-${mode}`}
+                        checked={setting.mode === mode}
+                        onChange={() => updateZone(zone.id, { mode })}
+                      />
+                      <span>{mode === "solid" ? "Solid" : mode === "holes" ? "Holes" : "Mesh"}</span>
+                    </label>
+                  ))}
+                </div>
+                {setting.mode !== "solid" ? (
+                  <div className="surface-measures">
+                    {(["opening", "web", "margin"] as const).map((field) => (
+                      <label className="surface-measure" key={field}>
+                        <span>{field === "opening" ? "Opening" : field === "web" ? "Material between" : "Solid border"}</span>
+                        <div className="number-input-wrap">
+                          <input
+                            className="parameter-number"
+                            type="number"
+                            inputMode="decimal"
+                            data-testid={`param-${slug}-${zoneSlug}-${field}`}
+                            min={SURFACE_LIMITS[field].min}
+                            max={SURFACE_LIMITS[field].max}
+                            step={SURFACE_LIMITS[field].step}
+                            value={Number.isFinite(setting[field]) ? setting[field] : ""}
+                            aria-invalid={Boolean(zoneError || unavailable) || undefined}
+                            aria-describedby={describedBy}
+                            onChange={(event) => updateZone(zone.id, {
+                              [field]: event.target.value === "" ? Number.NaN : Number(event.target.value),
+                            })}
+                          />
+                          <span className="number-unit">mm</span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                ) : null}
+                {zoneError ? (
+                  <p className="field-error" id={zoneErrorId} data-testid={`param-${slug}-${zoneSlug}-error`}>
+                    {zoneError}
+                  </p>
+                ) : null}
+                {unavailable ? (
+                  <p className="field-error" id={unavailableId} data-testid={`param-${slug}-${zoneSlug}-unavailable`}>
+                    {unavailable}
+                  </p>
+                ) : null}
+              </fieldset>
+            );
+          })}
+        </div>
+      ) : null}
+      <FieldError slug={slug} errors={globalErrors} />
+    </div>
+  );
+}
+
 /** Picks the control for a spec kind. Values are typed by the caller. */
 export function ParameterControl({
   parameterKey,
   spec,
   value,
   errors,
+  surfaceAvailability,
+  suggestedSurfacePattern,
   onChange,
 }: {
   parameterKey: string;
   spec: ParameterSpec;
   value: unknown;
   errors?: string[];
+  surfaceAvailability?: Record<string, string>;
+  suggestedSurfacePattern?: SuggestedSurfacePattern | null;
   onChange: (key: string, value: unknown) => void;
 }) {
   switch (spec.kind) {
@@ -362,6 +517,18 @@ export function ParameterControl({
           spec={spec}
           value={value as string}
           errors={errors}
+          onChange={onChange}
+        />
+      );
+    case "surfaceTreatments":
+      return (
+        <SurfaceTreatmentsControl
+          parameterKey={parameterKey}
+          spec={spec}
+          value={value as SurfaceTreatments}
+          errors={errors}
+          availability={surfaceAvailability}
+          suggestedPattern={suggestedSurfacePattern}
           onChange={onChange}
         />
       );

@@ -177,7 +177,7 @@ describe("DrawerForge printer profile", () => {
       WORKSPACE_KEY,
       JSON.stringify({
         format: "drawerforge-workspace",
-        version: 2,
+        version: 3,
         updatedAt: "2026-09-02T12:00:00.000Z",
         designs: {},
         printer: {

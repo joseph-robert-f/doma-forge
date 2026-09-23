@@ -1,4 +1,11 @@
 import type { GeneratedModel } from "../kernel/mesh";
+import type { PrintContext } from "../printer-profile";
+import {
+  normalizeSurfaceTreatments,
+  surfaceTreatmentIssues,
+  surfaceTreatmentsSignature,
+  type SurfaceTreatments,
+} from "../surface-patterns";
 import type {
   LayoutSpec,
   ParameterSpec,
@@ -64,6 +71,8 @@ export function normalizeFromSpecs<Specs extends Record<string, ParameterSpec>>(
       // share it with every normalized parameter set.
       if (spec.kind === "layout") {
         result[key] = normalizeLayout(spec, result[key], []);
+      } else if (spec.kind === "surfaceTreatments") {
+        result[key] = normalizeSurfaceTreatments(spec, undefined, result[key] as SurfaceTreatments);
       }
       continue;
     }
@@ -92,6 +101,9 @@ export function normalizeFromSpecs<Specs extends Record<string, ParameterSpec>>(
         ) {
           result[key] = value;
         }
+        break;
+      case "surfaceTreatments":
+        result[key] = normalizeSurfaceTreatments(spec, value, defaults[key] as SurfaceTreatments);
         break;
     }
   }
@@ -126,6 +138,7 @@ export function validateAgainstSpecs<Specs extends Record<string, ParameterSpec>
   specs: Specs,
   parameters: ParametersOf<Specs>,
   collector: IssueCollector<keyof Specs & string>,
+  context?: PrintContext,
 ) {
   for (const key of Object.keys(specs) as Array<keyof Specs & string>) {
     const spec = specs[key];
@@ -184,6 +197,11 @@ export function validateAgainstSpecs<Specs extends Record<string, ParameterSpec>
           );
         }
         break;
+      case "surfaceTreatments":
+        for (const message of surfaceTreatmentIssues(spec, value, context?.nozzleDiameter)) {
+          collector.add(key, message);
+        }
+        break;
     }
   }
 }
@@ -203,6 +221,10 @@ export function signatureFromSpecs<Specs extends Record<string, ParameterSpec>>(
 ): string {
   const values = Object.keys(specs).map((key) => {
     const value = parameters[key];
+    const spec = specs[key];
+    if (spec.kind === "surfaceTreatments") {
+      return surfaceTreatmentsSignature(spec, value as SurfaceTreatments);
+    }
     if (Array.isArray(value)) {
       return `[${value.map((entry) => String(entry)).join(",")}]`;
     }

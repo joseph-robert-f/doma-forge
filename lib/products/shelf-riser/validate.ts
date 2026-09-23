@@ -21,7 +21,7 @@ export function validateShelfRiser(
   context?: PrintContext,
 ): ValidationResult<ShelfRiserKey> {
   const collector = new IssueCollector<ShelfRiserKey>();
-  validateAgainstSpecs(SHELF_RISER_SPECS, parameters, collector);
+  validateAgainstSpecs(SHELF_RISER_SPECS, parameters, collector, context);
   const add = collector.add.bind(collector);
   const layout = deriveLayout(parameters);
   if (!layout.numbersOk) return collector.result();

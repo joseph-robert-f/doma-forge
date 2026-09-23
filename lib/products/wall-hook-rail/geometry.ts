@@ -5,6 +5,8 @@ import { getKernel, type Solid } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
 import { roundedRectangle } from "../../kernel/profiles";
 import { BOOLEAN_OVERLAP } from "../../kernel/shell";
+import { applySurfacePatterns } from "../../kernel/surface-pattern";
+import { surfaceZones } from "./surface-zones";
 import {
   HOOK_FILLET_MM,
   LIP_THICKNESS_MM,
@@ -53,6 +55,13 @@ export async function buildWallHookRail(
     const T = parameters.plateThickness;
     const L = parameters.railLength;
     const H = parameters.railHeight;
+    const zones = surfaceZones(parameters, layout);
+    if (
+      !parameters.keyShelf && parameters.surfaceTreatments.enabled &&
+      parameters.surfaceTreatments.zones.shelf.mode !== "solid"
+    ) {
+      throw new Error("Enable the key shelf before adding a shelf pattern.");
+    }
 
     // The plate outline in the X-Z plane, extruded along Y. The same outline,
     // extruded deep, clips every front feature so the shelf and the gussets
@@ -67,8 +76,12 @@ export async function buildWallHookRail(
     const plateFlat = scope.own(outline.extrude(T));
     const plateTurned = scope.own(plateFlat.rotate([90, 0, 0]));
     scope.delete(plateFlat);
-    const plate = scope.own(plateTurned.translate([0, T, H / 2]));
+    let plate = scope.own(plateTurned.translate([0, T, H / 2]));
     scope.delete(plateTurned);
+    plate = applySurfacePatterns(kernel, scope, plate, {
+      enabled: parameters.surfaceTreatments.enabled,
+      zones: { plate: parameters.surfaceTreatments.zones.plate },
+    }, zones.filter((zone) => zone.id === "plate"));
     const clipDepth = layout.outsideDepth + BOOLEAN_OVERLAP * 2;
     const clipFlat = scope.own(outline.extrude(clipDepth));
     scope.delete(outline);
@@ -98,14 +111,17 @@ export async function buildWallHookRail(
         [L, parameters.shelfDepth + BOOLEAN_OVERLAP, layout.shelfThickness],
         true,
       ));
-      front.push(
-        scope.own(shelfAtOrigin.translate([
+      let shelf = scope.own(shelfAtOrigin.translate([
           0,
           T + (parameters.shelfDepth - BOOLEAN_OVERLAP) / 2,
           layout.shelfUnderside + layout.shelfThickness / 2,
-        ])),
-      );
+        ]));
       scope.delete(shelfAtOrigin);
+      shelf = applySurfacePatterns(kernel, scope, shelf, {
+        enabled: parameters.surfaceTreatments.enabled,
+        zones: { shelf: parameters.surfaceTreatments.zones.shelf },
+      }, zones.filter((zone) => zone.id === "shelf"));
+      front.push(shelf);
       const gussetTemplate = scope.own(hullGusset(kernel, {
         thickness: T,
         rise: layout.gussetRise,
@@ -161,5 +177,8 @@ export async function generateWallHookRailCoupon(
   if (!validation.valid) {
     throw new Error(validation.issues.map((issue) => issue.message).join(" "));
   }
-  return buildWallHookRail(couponParameters(parameters));
+  return buildWallHookRail({
+    ...couponParameters(parameters),
+    surfaceTreatments: { ...parameters.surfaceTreatments, enabled: false },
+  });
 }

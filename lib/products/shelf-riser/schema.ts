@@ -1,3 +1,4 @@
+import { defaultSurfaceTreatments, isSurfacePatternActive, surfaceTreatmentSpec } from "../../surface-patterns";
 import {
   ONE_PIECE_HEIGHT_MM,
   RIB_SPAN_MM,
@@ -103,7 +104,7 @@ export const SHELF_RISER_SPECS = {
     kind: "boolean",
     label: "Lighten the deck",
     description:
-      "Pockets in the deck underside, inside the leg pads, with ceilings at most 40 mm.",
+      "Pockets in the deck underside, inside the leg pads, with ceilings at most 40 mm. A patterned deck omits these pockets.",
   } satisfies BooleanSpec,
   cornerRadius: {
     kind: "number",
@@ -124,6 +125,9 @@ export const SHELF_RISER_SPECS = {
     ],
     hint: "Standard balances smooth corners with quick regeneration.",
   } satisfies EnumSpec<MeshQuality>,
+  surfaceTreatments: surfaceTreatmentSpec([
+      { id: "deck", label: "Deck", description: "Open the central deck away from legs and joints. A pattern omits underside pockets." },
+    ]),
 } as const;
 
 export type ShelfRiserSpecs = typeof SHELF_RISER_SPECS;
@@ -140,6 +144,7 @@ export const SHELF_RISER_DEFAULTS: ShelfRiserParameters = {
   lightenDeck: true,
   cornerRadius: 6,
   meshQuality: "standard",
+  surfaceTreatments: defaultSurfaceTreatments(SHELF_RISER_SPECS.surfaceTreatments),
 };
 
 export const SHELF_RISER_GROUPS: ParameterGroup<ShelfRiserKey>[] = [
@@ -164,6 +169,13 @@ export const SHELF_RISER_GROUPS: ParameterGroup<ShelfRiserKey>[] = [
     title: "Construction",
     description: "The deck underside, the corners, and the curve detail.",
     keys: ["lightenDeck", "cornerRadius", "meshQuality"],
+  },
+  {
+    id: "surface",
+    index: "04",
+    title: "Surface",
+    description: "Choose solid, holed, or mesh regions for this print.",
+    keys: ["surfaceTreatments"],
   },
 ];
 
@@ -274,7 +286,7 @@ export function deriveLayout(
   const pocketDepth =
     deckThickness - Math.max(DECK_MINIMUM_SKIN_MM, deckThickness / 2);
   const lightening =
-    parameters.lightenDeck && numbersOk
+    parameters.lightenDeck && !isSurfacePatternActive(parameters.surfaceTreatments, "deck") && numbersOk
       ? planLightening(
           lighteningOptions(
             parameters,

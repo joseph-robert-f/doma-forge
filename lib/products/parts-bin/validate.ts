@@ -1,3 +1,4 @@
+import type { PrintContext } from "../../printer-profile";
 import {
   IssueCollector,
   formatMillimeters,
@@ -18,9 +19,10 @@ const mm = (value: number) => formatMillimeters(value, 2);
 
 export function validatePartsBin(
   parameters: PartsBinParameters,
+  context?: PrintContext,
 ): ValidationResult<PartsBinKey> {
   const collector = new IssueCollector<PartsBinKey>();
-  validateAgainstSpecs(PARTS_BIN_SPECS, parameters, collector);
+  validateAgainstSpecs(PARTS_BIN_SPECS, parameters, collector, context);
   const add = collector.add.bind(collector);
   const numbersOk = (
     [

@@ -1,3 +1,4 @@
+import { surfaceZones } from "./surface-zones";
 import { cantileverLoadNewtons, loadNote } from "../../kernel/bracket-rules";
 import {
   filenameNumber,
@@ -101,6 +102,7 @@ export const wallHookRail: ProductDefinition<WallHookRailSpecs> = {
   specs: WALL_HOOK_RAIL_SPECS,
   groups: WALL_HOOK_RAIL_GROUPS,
   defaults: WALL_HOOK_RAIL_DEFAULTS,
+  surfaceZones,
   presets: WALL_HOOK_RAIL_PRESETS,
   normalize: (input) =>
     normalizeFromSpecs(WALL_HOOK_RAIL_SPECS, WALL_HOOK_RAIL_DEFAULTS, input),

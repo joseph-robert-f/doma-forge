@@ -1,3 +1,4 @@
+import { drawerRiserSurfaceZones } from "./surface-zones";
 import {
   filenameNumber,
   formatMillimeters,
@@ -81,6 +82,7 @@ export const drawerRiser: ProductDefinition<DrawerRiserSpecs> = {
   specs: DRAWER_RISER_SPECS,
   groups: DRAWER_RISER_GROUPS,
   defaults: DRAWER_RISER_DEFAULTS,
+  surfaceZones: drawerRiserSurfaceZones,
   presets: DRAWER_RISER_PRESETS,
   normalize: (input) =>
     normalizeFromSpecs(DRAWER_RISER_SPECS, DRAWER_RISER_DEFAULTS, input),

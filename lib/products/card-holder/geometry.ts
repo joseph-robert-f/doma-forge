@@ -5,6 +5,8 @@ import { getKernel, type Solid } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
 import { polygon } from "../../kernel/profiles";
 import { BOOLEAN_OVERLAP, roundedSlab } from "../../kernel/shell";
+import { applySurfacePatterns } from "../../kernel/surface-pattern";
+import { surfaceZones } from "./surface-zones";
 import {
   QUALITY_SEGMENTS,
   deriveCardHolderLayout,
@@ -117,9 +119,12 @@ export async function generateCardHolder(
         origin: [firstPivotX, 0, 0],
       },
     ));
-    const solid = scope.own(slab.subtract(slots));
+    let solid = scope.own(slab.subtract(slots));
     scope.delete(slots);
     scope.delete(slab);
+
+    solid = applySurfacePatterns(kernel, scope, solid, parameters.surfaceTreatments,
+      surfaceZones(parameters, layout));
 
     return finishSolid(scope.take(solid), parameters, "holder");
   } finally {

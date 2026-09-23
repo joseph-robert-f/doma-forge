@@ -1,3 +1,4 @@
+import { plantPotSurfaceZones } from "./surface-zones";
 import {
   filenameNumber,
   formatMillimeters,
@@ -110,6 +111,7 @@ export const plantPot: ProductDefinition<PlantPotSpecs> = {
   specs: PLANT_POT_SPECS,
   groups: PLANT_POT_GROUPS,
   defaults: PLANT_POT_DEFAULTS,
+  surfaceZones: plantPotSurfaceZones,
   presets: PLANT_POT_PRESETS,
   normalize: (input) =>
     normalizeFromSpecs(PLANT_POT_SPECS, PLANT_POT_DEFAULTS, input),

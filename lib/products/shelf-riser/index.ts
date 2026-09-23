@@ -1,3 +1,5 @@
+import { isSurfacePatternActive } from "../../surface-patterns";
+import { surfaceZones } from "./surface-zones";
 import { beamLoadNewtons, loadNote } from "../../kernel/bracket-rules";
 import {
   filenameNumber,
@@ -75,9 +77,11 @@ function derive(parameters: ShelfRiserParameters): DerivedValue[] {
       label: "Deck pockets",
       value: layout.lightening
         ? `${layout.lightening.countX} × ${layout.lightening.countY}, ${formatMillimeters(layout.pocketDepth)} mm deep`
-        : parameters.lightenDeck
-          ? "none, the deck is too small inside the leg pads"
-          : "none",
+        : isSurfacePatternActive(parameters.surfaceTreatments, "deck")
+          ? "none, deck pattern replaces underside pockets"
+          : parameters.lightenDeck
+            ? "none, the deck is too small inside the leg pads"
+            : "none",
     },
     {
       id: "pieces",
@@ -105,6 +109,7 @@ export const shelfRiser: ProductDefinition<ShelfRiserSpecs> = {
   specs: SHELF_RISER_SPECS,
   groups: SHELF_RISER_GROUPS,
   defaults: SHELF_RISER_DEFAULTS,
+  surfaceZones,
   presets: SHELF_RISER_PRESETS,
   normalize: (input) =>
     normalizeFromSpecs(SHELF_RISER_SPECS, SHELF_RISER_DEFAULTS, input),

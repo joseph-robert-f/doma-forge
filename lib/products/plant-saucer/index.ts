@@ -1,3 +1,4 @@
+import { plantSaucerSurfaceZones } from "./surface-zones";
 import {
   filenameNumber,
   formatMillimeters,
@@ -133,6 +134,7 @@ export const plantSaucer: ProductDefinition<PlantSaucerSpecs> = {
   specs: PLANT_SAUCER_SPECS,
   groups: PLANT_SAUCER_GROUPS,
   defaults: PLANT_SAUCER_DEFAULTS,
+  surfaceZones: plantSaucerSurfaceZones,
   presets: PLANT_SAUCER_PRESETS,
   normalize: (input) =>
     normalizeFromSpecs(PLANT_SAUCER_SPECS, PLANT_SAUCER_DEFAULTS, input),

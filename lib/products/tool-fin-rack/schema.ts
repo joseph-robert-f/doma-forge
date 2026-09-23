@@ -1,3 +1,4 @@
+import { defaultSurfaceTreatments, surfaceTreatmentSpec } from "../../surface-patterns";
 import { solvePitch, type PitchResult } from "../../kernel/pitch";
 import type {
   EnumSpec,
@@ -106,6 +107,9 @@ export const TOOL_FIN_RACK_SPECS = {
     ],
     hint: "Standard balances round corners with quick regeneration.",
   } satisfies EnumSpec<MeshQuality>,
+  surfaceTreatments: surfaceTreatmentSpec([
+      { id: "base", label: "Base", description: "Open base corridors between fin roots." },
+    ]),
 } as const;
 
 export type ToolFinRackSpecs = typeof TOOL_FIN_RACK_SPECS;
@@ -122,6 +126,7 @@ export const TOOL_FIN_RACK_DEFAULTS: ToolFinRackParameters = {
   baseThickness: 4,
   cornerRadius: 4,
   meshQuality: "standard",
+  surfaceTreatments: defaultSurfaceTreatments(TOOL_FIN_RACK_SPECS.surfaceTreatments),
 };
 
 export const TOOL_FIN_RACK_GROUPS: ParameterGroup<ToolFinRackKey>[] = [
@@ -147,6 +152,13 @@ export const TOOL_FIN_RACK_GROUPS: ParameterGroup<ToolFinRackKey>[] = [
     title: "Construction",
     description: "The edge margin, the base, the corners, and the mesh.",
     keys: ["wallThickness", "baseThickness", "cornerRadius", "meshQuality"],
+  },
+  {
+    id: "surface",
+    index: "04",
+    title: "Surface",
+    description: "Choose solid, holed, or mesh regions for this print.",
+    keys: ["surfaceTreatments"],
   },
 ];
 

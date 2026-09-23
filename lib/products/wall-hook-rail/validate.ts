@@ -1,3 +1,4 @@
+import type { PrintContext } from "../../printer-profile";
 import {
   HOOK_MAXIMUM_PROJECTION_RATIO,
   SCREW_MINIMUM_EDGE_MM,
@@ -21,9 +22,10 @@ const mm = (value: number) => formatMillimeters(value, 1);
 
 export function validateWallHookRail(
   parameters: WallHookRailParameters,
+  context?: PrintContext,
 ): ValidationResult<WallHookRailKey> {
   const collector = new IssueCollector<WallHookRailKey>();
-  validateAgainstSpecs(WALL_HOOK_RAIL_SPECS, parameters, collector);
+  validateAgainstSpecs(WALL_HOOK_RAIL_SPECS, parameters, collector, context);
   const add = collector.add.bind(collector);
   const layout = deriveLayout(parameters);
   if (!layout.numbersOk) return collector.result();

@@ -1,3 +1,4 @@
+import { surfaceZones } from "./surface-zones";
 import {
   beamLoadNewtons,
   cantileverLoadNewtons,
@@ -106,6 +107,7 @@ export const headphoneMount: ProductDefinition<HeadphoneMountSpecs> = {
   specs: HEADPHONE_MOUNT_SPECS,
   groups: HEADPHONE_MOUNT_GROUPS,
   defaults: HEADPHONE_MOUNT_DEFAULTS,
+  surfaceZones,
   presets: HEADPHONE_MOUNT_PRESETS,
   normalize: (input) =>
     normalizeFromSpecs(HEADPHONE_MOUNT_SPECS, HEADPHONE_MOUNT_DEFAULTS, input),

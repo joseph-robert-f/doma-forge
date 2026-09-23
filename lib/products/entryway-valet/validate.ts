@@ -1,3 +1,4 @@
+import type { PrintContext } from "../../printer-profile";
 import { IssueCollector, formatMillimeters, validateAgainstSpecs } from "../shared";
 import type { ValidationResult } from "../types";
 import {
@@ -47,6 +48,7 @@ function solvedWellMessage(
 
 export function validateEntrywayValet(
   parameters: EntrywayValetParameters,
+  context?: PrintContext,
 ): ValidationResult<EntrywayValetKey> {
   const collector = new IssueCollector<EntrywayValetKey>();
   const add = collector.add.bind(collector);
@@ -56,7 +58,7 @@ export function validateEntrywayValet(
     const message = solvedWellMessage(parameters, layout);
     if (message) add("wellWidths", message);
   }
-  validateAgainstSpecs(ENTRYWAY_VALET_SPECS, parameters, collector);
+  validateAgainstSpecs(ENTRYWAY_VALET_SPECS, parameters, collector, context);
   if (!layout.numbersOk) return collector.result();
 
   if (parameters.baseThickness > parameters.valetHeight - SLOT_LIP_HEIGHT_MM + 1e-9) {

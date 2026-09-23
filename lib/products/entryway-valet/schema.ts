@@ -1,3 +1,4 @@
+import { defaultSurfaceTreatments, surfaceTreatmentSpec } from "../../surface-patterns";
 import type {
   EnumSpec,
   LayoutSpec,
@@ -139,6 +140,11 @@ export const ENTRYWAY_VALET_SPECS = {
     ],
     hint: "Standard balances smooth corners with quick regeneration.",
   } satisfies EnumSpec<MeshQuality>,
+  surfaceTreatments: surfaceTreatmentSpec([
+      { id: "floor", label: "Well floor", description: "Open the well floors around the phone rest." },
+      { id: "walls", label: "Outer walls", description: "Open usable outer wall panels." },
+      { id: "dividers", label: "Dividers", description: "Open the well dividers." },
+    ]),
 } as const;
 
 export type EntrywayValetSpecs = typeof ENTRYWAY_VALET_SPECS;
@@ -159,6 +165,7 @@ export const ENTRYWAY_VALET_DEFAULTS: EntrywayValetParameters = {
   dividerThickness: 2,
   cornerRadius: 6,
   meshQuality: "standard",
+  surfaceTreatments: defaultSurfaceTreatments(ENTRYWAY_VALET_SPECS.surfaceTreatments),
 };
 
 export const ENTRYWAY_VALET_GROUPS: ParameterGroup<EntrywayValetKey>[] = [
@@ -191,6 +198,13 @@ export const ENTRYWAY_VALET_GROUPS: ParameterGroup<EntrywayValetKey>[] = [
     title: "Construction",
     description: "The walls, the base, the dividers, and the corners.",
     keys: ["wallThickness", "baseThickness", "dividerThickness", "cornerRadius", "meshQuality"],
+  },
+  {
+    id: "surface",
+    index: "05",
+    title: "Surface",
+    description: "Choose solid, holed, or mesh regions for this print.",
+    keys: ["surfaceTreatments"],
   },
 ];
 

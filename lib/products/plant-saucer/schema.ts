@@ -1,3 +1,4 @@
+import { defaultSurfaceTreatments, surfaceTreatmentSpec } from "../../surface-patterns";
 import type { BedLimit, PrintContext } from "../../printer-profile";
 import {
   REVOLVE_SEGMENTS,
@@ -138,6 +139,11 @@ export const PLANT_SAUCER_SPECS = {
     ],
     hint: "Standard gives 96 segments around the saucer.",
   } satisfies EnumSpec<MeshQuality>,
+  surfaceTreatments: surfaceTreatmentSpec([
+      { id: "floor", label: "Floor", description: "Open the saucer floor. Water will drain through it." },
+      { id: "wall", label: "Sloped wall", description: "Open the sloped sidewall. The saucer will no longer retain water." },
+    ],
+    "Patterns are real openings. The saucer will no longer retain water."),
 } as const;
 
 export type PlantSaucerSpecs = typeof PLANT_SAUCER_SPECS;
@@ -155,6 +161,7 @@ export const PLANT_SAUCER_DEFAULTS: PlantSaucerParameters = {
   wallThickness: 2,
   baseThickness: 2.4,
   meshQuality: "standard",
+  surfaceTreatments: defaultSurfaceTreatments(PLANT_SAUCER_SPECS.surfaceTreatments),
 };
 
 export const PLANT_SAUCER_GROUPS: ParameterGroup<PlantSaucerKey>[] = [
@@ -187,6 +194,13 @@ export const PLANT_SAUCER_GROUPS: ParameterGroup<PlantSaucerKey>[] = [
     title: "Construction",
     description: "The wall, the floor, and the mesh.",
     keys: ["wallThickness", "baseThickness", "meshQuality"],
+  },
+  {
+    id: "surface",
+    index: "05",
+    title: "Surface",
+    description: "Choose solid, holed, or mesh regions for this print.",
+    keys: ["surfaceTreatments"],
   },
 ];
 

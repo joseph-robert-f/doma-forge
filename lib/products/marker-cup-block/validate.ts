@@ -1,3 +1,4 @@
+import type { PrintContext } from "../../printer-profile";
 import { IssueCollector, formatMillimeters, validateAgainstSpecs } from "../shared";
 import type { ValidationResult } from "../types";
 import {
@@ -15,9 +16,10 @@ const DEGREES_TO_RADIANS = Math.PI / 180;
 
 export function validateMarkerCupBlock(
   parameters: MarkerCupBlockParameters,
+  context?: PrintContext,
 ): ValidationResult<MarkerCupBlockKey> {
   const collector = new IssueCollector<MarkerCupBlockKey>();
-  validateAgainstSpecs(MARKER_CUP_BLOCK_SPECS, parameters, collector);
+  validateAgainstSpecs(MARKER_CUP_BLOCK_SPECS, parameters, collector, context);
   const add = collector.add.bind(collector);
   const numbersOk = (
     [

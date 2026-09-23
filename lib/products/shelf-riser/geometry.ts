@@ -6,6 +6,8 @@ import { getKernel, type Solid } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
 import { roundedRectangle } from "../../kernel/profiles";
 import { BOOLEAN_OVERLAP, roundedSlab } from "../../kernel/shell";
+import { applySurfacePatterns } from "../../kernel/surface-pattern";
+import { surfaceZones } from "./surface-zones";
 import {
   LEG_CORNER_RADIUS_MM,
   QUALITY_SEGMENTS,
@@ -51,14 +53,19 @@ export async function generateShelfRiser(
       segments,
     }));
     let lightened = slab;
-    if (parameters.lightenDeck) {
+    const patterningDeck = parameters.surfaceTreatments.enabled &&
+      parameters.surfaceTreatments.zones.deck.mode !== "solid";
+    if (parameters.lightenDeck && !patterningDeck) {
       const options = lighteningOptions(parameters, layout.lighteningRim, layout.pocketDepth, segments);
       lightened = scope.own(lightenUnderside(kernel, scope.take(slab), options).solid);
     }
     const flipped = scope.own(lightened.rotate([180, 0, 0]));
     scope.delete(lightened);
-    const deck = scope.own(flipped.translate([0, 0, deckThickness]));
+    let deck = scope.own(flipped.translate([0, 0, deckThickness]));
     scope.delete(flipped);
+
+    deck = applySurfacePatterns(kernel, scope, deck, parameters.surfaceTreatments,
+      surfaceZones(parameters, layout));
 
     const parts: Solid[] = [deck];
 

@@ -213,6 +213,7 @@ function fixturesFor(product: AnyProduct, plan: Plan) {
   };
 
   for (const [key, spec] of Object.entries(product.specs)) {
+    if (spec.kind === "surfaceTreatments") continue;
     if (spec.kind === "number" || spec.kind === "boolean") {
       const values = endpoints(product, key);
       for (const [i, end] of ["min", "max"].entries()) {

@@ -1,3 +1,4 @@
+import { surfaceZones } from "./surface-zones";
 import {
   filenameNumber,
   formatMillimeters,
@@ -79,6 +80,7 @@ export const toolFinRack: ProductDefinition<ToolFinRackSpecs> = {
   specs: TOOL_FIN_RACK_SPECS,
   groups: TOOL_FIN_RACK_GROUPS,
   defaults: TOOL_FIN_RACK_DEFAULTS,
+  surfaceZones,
   presets: TOOL_FIN_RACK_PRESETS,
   normalize: (input) =>
     normalizeFromSpecs(TOOL_FIN_RACK_SPECS, TOOL_FIN_RACK_DEFAULTS, input),

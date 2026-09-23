@@ -1,3 +1,4 @@
+import { defaultSurfaceTreatments, surfaceTreatmentSpec } from "../../surface-patterns";
 import type {
   BooleanSpec,
   EnumSpec,
@@ -115,6 +116,11 @@ export const DRAWER_TRAY_SPECS = {
     label: "Front finger scoop",
     description: "A shallow notch that stays safely above the base.",
   } satisfies BooleanSpec,
+  surfaceTreatments: surfaceTreatmentSpec([
+      { id: "floor", label: "Floor", description: "Open the tray floor inside the compartments." },
+      { id: "walls", label: "Outer walls", description: "Open usable outer wall panels." },
+      { id: "dividers", label: "Dividers", description: "Open divider panels while keeping their joints solid." },
+    ]),
 } as const;
 
 export type DrawerTraySpecs = typeof DRAWER_TRAY_SPECS;
@@ -134,6 +140,7 @@ export const DRAWER_TRAY_DEFAULTS: DrawerTrayParameters = {
   columns: 3,
   meshQuality: "standard",
   fingerScoop: true,
+  surfaceTreatments: defaultSurfaceTreatments(DRAWER_TRAY_SPECS.surfaceTreatments),
 };
 
 export const DRAWER_TRAY_GROUPS: ParameterGroup<DrawerTrayKey>[] = [
@@ -164,6 +171,13 @@ export const DRAWER_TRAY_GROUPS: ParameterGroup<DrawerTrayKey>[] = [
     title: "Finish",
     description: "Choose curve detail and an optional front access notch.",
     keys: ["meshQuality", "fingerScoop"],
+  },
+  {
+    id: "surface",
+    index: "05",
+    title: "Surface",
+    description: "Choose solid, holed, or mesh regions for this print.",
+    keys: ["surfaceTreatments"],
   },
 ];
 

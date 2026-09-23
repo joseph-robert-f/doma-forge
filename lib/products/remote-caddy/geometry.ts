@@ -1,8 +1,10 @@
+import { remoteCaddySurfaceZones } from "./surface-zones";
 import { ResourceScope } from "../../kernel/ownership";
 import { dividerArrayAtPositions, unionSolids } from "../../kernel/arrays";
 import { getKernel, type Solid } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
 import { BOOLEAN_OVERLAP, roundedShell } from "../../kernel/shell";
+import { applySurfacePatterns } from "../../kernel/surface-pattern";
 import {
   QUALITY_SEGMENTS,
   deriveLayout,
@@ -76,6 +78,7 @@ export async function generateRemoteCaddy(
       solid = lowered;
     }
 
+    solid = applySurfacePatterns(kernel, scope, solid, parameters.surfaceTreatments, remoteCaddySurfaceZones(parameters));
     return finishSolid(scope.take(solid), parameters, "caddy");
   } finally {
     scope.dispose();

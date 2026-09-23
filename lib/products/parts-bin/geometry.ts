@@ -1,3 +1,4 @@
+import { partsBinSurfaceZones } from "./surface-zones";
 import { ResourceScope } from "../../kernel/ownership";
 import type { ManifoldToplevel } from "manifold-3d";
 import { unionSolids } from "../../kernel/arrays";
@@ -5,6 +6,7 @@ import { getKernel, type Solid } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
 import { roundedRectangle } from "../../kernel/profiles";
 import { BOOLEAN_OVERLAP, roundedShell } from "../../kernel/shell";
+import { applySurfacePatterns } from "../../kernel/surface-pattern";
 import {
   LABEL_LEDGE_HEIGHT_MM,
   LABEL_LEDGE_PROJECTION_MM,
@@ -205,6 +207,7 @@ export function buildPartsBinSolid(
       scope.delete(solid);
       solid = cut;
     }
+    solid = applySurfacePatterns(kernel, scope, solid, parameters.surfaceTreatments, partsBinSurfaceZones(parameters));
     return scope.take(solid);
   } finally {
     scope.dispose();

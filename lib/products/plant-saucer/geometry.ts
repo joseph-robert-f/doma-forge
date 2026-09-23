@@ -1,3 +1,4 @@
+import { saucerPatternZones } from "./surface-zones";
 import { ResourceScope } from "../../kernel/ownership";
 import { unionSolids } from "../../kernel/arrays";
 import { getKernel, type Solid } from "../../kernel/manifold";
@@ -5,6 +6,7 @@ import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
 import { type ProfilePoint } from "../../kernel/vessel-profile";
 import { revolveProfile, revolveShell } from "../../kernel/revolve";
 import { BOOLEAN_OVERLAP } from "../../kernel/shell";
+import { applySurfacePatterns } from "../../kernel/surface-pattern";
 import {
   NOTCH_WIDTH_MM,
   QUALITY_SEGMENTS,
@@ -99,8 +101,17 @@ export async function generatePlantSaucer(
       solid = notched;
     }
 
+    solid = applySurfacePatterns(
+      kernel,
+      scope,
+      solid,
+      parameters.surfaceTreatments,
+      saucerPatternZones(parameters, layout, profile),
+    );
     return finishSolid(scope.take(solid), parameters, "saucer");
   } finally {
     scope.dispose();
   }
 }
+
+export { saucerPatternZones };

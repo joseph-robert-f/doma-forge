@@ -9,11 +9,10 @@ import { getProduct } from "./products/registry";
 import type { AnyParameters, AnyProduct } from "./products/types";
 
 /**
- * The local workspace: everything this browser origin remembers. Version 2
- * keeps one current design per product under one key, so a second product
- * cannot overwrite the first. Version 1 was a single design under
- * `drawerforge-design-v1`; it is read once, migrated, marked, and left in
- * place so an older build of the app still finds it.
+ * The local workspace: everything this browser origin remembers. Version 3
+ * has its own key so an old open tab cannot overwrite pattern settings. The
+ * version 2 envelope and version 1 single-design record migrate on first
+ * load and remain in place for an older build of the app.
  */
 export interface StoredDesign {
   productId: string;
@@ -23,23 +22,21 @@ export interface StoredDesign {
   updatedAt: string;
 }
 
-export interface WorkspaceV2 {
+export interface WorkspaceV3 {
   format: typeof WORKSPACE_FORMAT;
-  version: 2;
+  version: 3;
   updatedAt: string;
   designs: Record<string, StoredDesign>;
   /**
-   * The printer profile for this device. Optional: a version 2 envelope
-   * written before printer profiles existed has no `printer` field, and a
-   * reader that finds none uses the defaults. The version stays 2 because
-   * absence is valid in both directions.
+   * The printer profile for this device. Older envelopes may have none.
    */
   printer?: PrinterProfileV1;
 }
 
 export const WORKSPACE_FORMAT = "drawerforge-workspace";
-export const WORKSPACE_VERSION = 2;
-export const WORKSPACE_KEY = "drawerforge-workspace-v2";
+export const WORKSPACE_VERSION = 3;
+export const WORKSPACE_KEY = "drawerforge-workspace-v3";
+export const LEGACY_WORKSPACE_KEY = "drawerforge-workspace-v2";
 export const LEGACY_DESIGN_KEY = "drawerforge-design-v1";
 /** Written into the version 1 record once it has been migrated. */
 export const LEGACY_MIGRATED_MARKER = "migratedTo";
@@ -59,13 +56,13 @@ export type ResolveProduct = (id: string) => AnyProduct;
  * writing in either case could destroy data.
  */
 export type WorkspaceRead =
-  | { state: "ok"; workspace: WorkspaceV2 }
+  | { state: "ok"; workspace: WorkspaceV3 }
   | { state: "absent" }
   | { state: "unreadable" }
   | { state: "newer" };
 
 interface LoadedWorkspace {
-  workspace: WorkspaceV2;
+  workspace: WorkspaceV3;
   writable: boolean;
 }
 
@@ -73,7 +70,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function emptyWorkspace(now: () => Date): WorkspaceV2 {
+function emptyWorkspace(now: () => Date): WorkspaceV3 {
   return {
     format: WORKSPACE_FORMAT,
     version: WORKSPACE_VERSION,
@@ -94,6 +91,12 @@ function setDesign(designs: Record<string, StoredDesign>, id: string, design: St
 
 function ownDesign(designs: Record<string, StoredDesign>, id: string): unknown {
   return Object.prototype.hasOwnProperty.call(designs, id) ? designs[id] : undefined;
+}
+
+/** Earlier workspace versions had no patterned surfaces. */
+function legacyParameters(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  return Object.fromEntries(Object.entries(value).filter(([key]) => key !== "surfaceTreatments"));
 }
 
 /**
@@ -117,7 +120,7 @@ export function readWorkspace(storage: StorageLike): WorkspaceRead {
   }
   if (isRecord(parsed) && parsed.format === WORKSPACE_FORMAT) {
     if (parsed.version === WORKSPACE_VERSION && isRecord(parsed.designs)) {
-      const workspace: WorkspaceV2 = {
+      const workspace: WorkspaceV3 = {
         format: WORKSPACE_FORMAT,
         version: WORKSPACE_VERSION,
         updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
@@ -142,8 +145,45 @@ export function readWorkspace(storage: StorageLike): WorkspaceRead {
   return { state: "absent" };
 }
 
+/** Reads the previous envelope without changing it. */
+function readLegacyWorkspace(storage: StorageLike, resolveProduct: ResolveProduct): WorkspaceRead {
+  let text: string | null;
+  try {
+    text = storage.getItem(LEGACY_WORKSPACE_KEY);
+  } catch {
+    return { state: "unreadable" };
+  }
+  if (!text) return { state: "absent" };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { state: "absent" };
+  }
+  if (!isRecord(parsed) || parsed.format !== WORKSPACE_FORMAT) return { state: "absent" };
+  if (typeof parsed.version === "number" && parsed.version > 2) return { state: "newer" };
+  if (parsed.version !== 2 || !isRecord(parsed.designs)) return { state: "absent" };
+  const workspace: WorkspaceV3 = {
+    format: WORKSPACE_FORMAT,
+    version: WORKSPACE_VERSION,
+    updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
+    designs: {},
+  };
+  if (isRecord(parsed.printer)) workspace.printer = normalizePrinterProfile(parsed.printer);
+  // Validate each entry independently. A damaged design cannot hide the
+  // other products, and normalization gives all migrated designs solid zones.
+  for (const [id, entry] of Object.entries(parsed.designs)) {
+    const checked = validateStoredDesign(
+      isRecord(entry) ? { ...entry, parameters: legacyParameters(entry.parameters) } : entry,
+      resolveProduct,
+    );
+    if (checked && checked.product.id === id) setDesign(workspace.designs, id, checked.design);
+  }
+  return { state: "ok", workspace };
+}
+
 /** Writes the envelope. Returns false when storage refuses, e.g. on quota. */
-export function writeWorkspace(storage: StorageLike, workspace: WorkspaceV2): boolean {
+export function writeWorkspace(storage: StorageLike, workspace: WorkspaceV3): boolean {
   try {
     storage.setItem(WORKSPACE_KEY, JSON.stringify(workspace));
     return true;
@@ -209,7 +249,7 @@ export function readLegacyDesign(
       {
         productId: parsed.productId ?? DRAWER_TRAY_ID,
         name: parsed.name,
-        parameters: parsed.parameters,
+        parameters: legacyParameters(parsed.parameters),
       },
       resolveProduct,
     );
@@ -246,6 +286,12 @@ export function loadWorkspace(
   const read = readWorkspace(storage);
   if (read.state === "ok") return { workspace: read.workspace, writable: true };
   if (read.state !== "absent") return { workspace: emptyWorkspace(now), writable: false };
+  const previous = readLegacyWorkspace(storage, resolveProduct);
+  if (previous.state === "ok") {
+    const writable = writeWorkspace(storage, previous.workspace);
+    return { workspace: previous.workspace, writable };
+  }
+  if (previous.state !== "absent") return { workspace: emptyWorkspace(now), writable: false };
   const workspace = emptyWorkspace(now);
   const legacy = readLegacyDesign(storage, resolveProduct);
   if (legacy) {

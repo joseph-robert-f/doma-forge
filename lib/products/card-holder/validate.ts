@@ -1,3 +1,4 @@
+import type { PrintContext } from "../../printer-profile";
 import { IssueCollector, formatMillimeters, validateAgainstSpecs } from "../shared";
 import type { ValidationResult } from "../types";
 import {
@@ -12,9 +13,10 @@ const mm = (value: number) => formatMillimeters(value, 1);
 
 export function validateCardHolder(
   parameters: CardHolderParameters,
+  context?: PrintContext,
 ): ValidationResult<CardHolderKey> {
   const collector = new IssueCollector<CardHolderKey>();
-  validateAgainstSpecs(CARD_HOLDER_SPECS, parameters, collector);
+  validateAgainstSpecs(CARD_HOLDER_SPECS, parameters, collector, context);
   const add = collector.add.bind(collector);
   const numbersOk = (
     [

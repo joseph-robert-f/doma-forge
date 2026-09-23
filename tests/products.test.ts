@@ -65,6 +65,8 @@ describe("product registry", () => {
                   ? (current as number[]).map((width, index) =>
                       index === 0 ? width + spec.step : width,
                     )
+                  : spec.kind === "surfaceTreatments"
+                    ? { ...(current as { enabled: boolean }), enabled: !(current as { enabled: boolean }).enabled }
                   : spec.options.find((option) => option.value !== current)
                       ?.value;
           expect(product.signature(product.normalize(changed))).not.toBe(base);
@@ -158,7 +160,7 @@ describe("drawer tray product", () => {
       columns: 3,
     });
     expect(drawerTray.filename(parameters)).toBe(
-      "drawerforge-drawer-tray-299p5x199x47p5-2x3-d2bd1f.stl",
+      "drawerforge-drawer-tray-299p5x199x47p5-2x3-8f3b69.stl",
     );
   });
 

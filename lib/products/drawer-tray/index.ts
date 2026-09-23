@@ -1,3 +1,4 @@
+import { drawerTraySurfaceZones } from "./surface-zones";
 import {
   filenameNumber,
   formatMillimeters,
@@ -45,6 +46,7 @@ export const drawerTray: ProductDefinition<DrawerTraySpecs> = {
   specs: DRAWER_TRAY_SPECS,
   groups: DRAWER_TRAY_GROUPS,
   defaults: DRAWER_TRAY_DEFAULTS,
+  surfaceZones: drawerTraySurfaceZones,
   presets: DRAWER_TRAY_PRESETS,
   normalize: (input) =>
     normalizeFromSpecs(DRAWER_TRAY_SPECS, DRAWER_TRAY_DEFAULTS, input),

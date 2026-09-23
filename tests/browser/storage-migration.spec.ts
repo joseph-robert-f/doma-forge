@@ -4,7 +4,7 @@ import { collectPageErrors, gotoReady, waitForReady, waitForStatusPrefix } from 
 /**
  * Ported from the scratch harness's `migrate.js` (14_WORKSPACE_STORAGE_NOTES.md).
  * Covers: a version 1 `drawerforge-design-v1` record migrating in place into
- * the version 2 workspace envelope on first load, the legacy record staying
+ * the version 3 workspace envelope on first load, the legacy record staying
  * present with a `migratedTo` marker, and the envelope becoming the source
  * of truth for a later edit and rename.
  */
@@ -48,19 +48,19 @@ test.describe("storage migration", () => {
     await page.waitForTimeout(400);
     const keys = await page.evaluate(() => Object.keys(localStorage).sort());
     expect(keys).toContain("drawerforge-design-v1");
-    expect(keys).toContain("drawerforge-workspace-v2");
+    expect(keys).toContain("drawerforge-workspace-v3");
 
     const envelope = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem("drawerforge-workspace-v2") ?? "null"),
+      JSON.parse(localStorage.getItem("drawerforge-workspace-v3") ?? "null"),
     );
     expect(envelope?.format).toBe("drawerforge-workspace");
-    expect(envelope?.version).toBe(2);
+    expect(envelope?.version).toBe(3);
     expect(Object.keys(envelope?.designs ?? {})).toEqual(["drawer-tray"]);
 
     const legacyAfter = await page.evaluate(() =>
       JSON.parse(localStorage.getItem("drawerforge-design-v1") ?? "null"),
     );
-    expect(legacyAfter?.migratedTo).toBe("drawerforge-workspace-v2");
+    expect(legacyAfter?.migratedTo).toBe("drawerforge-workspace-v3");
     expect(legacyAfter?.parameters?.drawerDepth).toBe(260);
     expect(legacyAfter?.name).toBe("From v1");
 

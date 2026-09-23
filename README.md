@@ -38,6 +38,12 @@ DrawerForge rejects non-finite or out-of-range values and applies each product's
 
 Draft, Standard, and Fine change curved-feature tessellation only. Standard is the recommended balance for editing and export.
 
+### Permeable surfaces
+
+Every catalogue product has a **Permeable surfaces** control. Turn it on, then choose **Solid**, **Holes** (round openings), or **Mesh** (diamond openings) for each listed surface. Opening size, material between openings, and solid border are adjustable per surface. The preview and downloaded STL contain the same through-openings. Rims, joints, bores, mounting points, and other functional areas stay solid. If an opening cannot fit safely, the control explains which surface needs a larger area or smaller pattern. On slab and deck surfaces, through-openings replace the optional blind underside lightening pockets so the remaining pocket webs cannot be cut away.
+
+Perforating a plant saucer floor or wall makes it unable to retain water. Large round openings in upright walls or bracket shelves may need bridging or supports; diamond Mesh openings have sloped sides. Print a small sample if the barrier's load or flow matters.
+
 ## Design files
 
 A design file holds one product's settings in millimeters. Use it to move a design between devices or to keep more than one design.
@@ -46,7 +52,7 @@ A design file holds one product's settings in millimeters. Use it to move a desi
 2. Select **Save design file**. The browser downloads `<name>-<product-id>-<hash>.drawerforge.json`.
 3. On any device, select **Open design file** and choose the file. The design replaces the current settings only after every check passes.
 
-A file with an unknown format, an unsupported version, a missing parameter, or an out-of-range value is refused with a message. The current design does not change. A file saved by a different app version loads with a warning that the mesh may differ.
+A file with an unknown format, an unsupported version, a missing parameter, or an out-of-range value is refused with a message. The current design does not change. Version 2 files retain each surface pattern; version 1 files still open with every surface solid. A file saved by a different app version loads with a warning that the mesh may differ.
 
 The design file never holds printer data. Printer corrections belong to a local printer profile.
 
@@ -344,7 +350,7 @@ Automated geometry checks cover representative 1×1, 1×3, 2×3, and 4×4 organi
 
 The socket tray starts as a rounded slab. One batched union of every bore cutter is subtracted in one Boolean, then the underside pockets. Its tests slice the mesh above the base and count one outer contour and one hole per bore, and slice through the pockets and count the pocket grid.
 
-The card holder starts as the same rounded slab and subtracts one batched union of tilted slot cutters. The plant pot and the plant pot saucer are revolved forms: a two-dimensional profile in the radius-height plane is revolved about the Z axis, and a second revolved profile is subtracted as the cavity. Mesh quality sets the segments in one revolution, 48, 96, or 192. Their tests slice the mesh at many heights and check that the part is one closed solid at every level, that the saucer floor has no hole in it, and that the pot's drainage holes never reach the wall.
+The card holder starts as the same rounded slab and subtracts one batched union of tilted slot cutters. The plant pot and the plant pot saucer are revolved forms: a two-dimensional profile in the radius-height plane is revolved about the Z axis, and a second revolved profile is subtracted as the cavity. Mesh quality sets the segments in one revolution, 48, 96, or 192. Their solid-default tests slice the mesh at many heights and check that the part is one closed solid at every level, that the saucer floor has no hole in it, and that the pot's drainage holes never reach the wall.
 
 The bracket products model the wall as the plane Y = 0: the plate fills Y from minus its thickness to zero, and every hook, pocket, and shelf projects toward −Y, the side the viewer's camera faces, so the hooks show in the default view. A print pose test turns each product's mesh exactly as the viewer's **Print pose** toggle does and checks every face normal: no face may point down more steeply than 45 degrees unless it lies on the bed. The hook lip ramp is the one face at that limit.
 

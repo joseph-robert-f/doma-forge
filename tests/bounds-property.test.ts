@@ -69,6 +69,7 @@ function randomCandidate(random: () => number): DrawerTrayParameters {
     // while still exercising every quality level.
     meshQuality: MESH_QUALITIES[random() < 0.2 ? 2 : randomInt(random, 0, 1)],
     fingerScoop: random() < 0.5,
+    surfaceTreatments: drawerTray.defaults.surfaceTreatments,
   };
 }
 

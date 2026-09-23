@@ -1,3 +1,4 @@
+import { surfaceZones } from "./surface-zones";
 import {
   filenameNumber,
   formatMillimeters,
@@ -80,6 +81,7 @@ export const cardHolder: ProductDefinition<CardHolderSpecs> = {
   specs: CARD_HOLDER_SPECS,
   groups: CARD_HOLDER_GROUPS,
   defaults: CARD_HOLDER_DEFAULTS,
+  surfaceZones,
   presets: CARD_HOLDER_PRESETS,
   normalize: (input) =>
     normalizeFromSpecs(CARD_HOLDER_SPECS, CARD_HOLDER_DEFAULTS, input),

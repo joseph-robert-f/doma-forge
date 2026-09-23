@@ -1,3 +1,4 @@
+import { defaultSurfaceTreatments, surfaceTreatmentSpec } from "../../surface-patterns";
 import {
   LEG_MAXIMUM_SLENDERNESS,
   LEG_MINIMUM_SECTION_MM,
@@ -153,6 +154,11 @@ export const DRAWER_RISER_SPECS = {
     ],
     hint: "Standard balances smooth corners with quick regeneration.",
   } satisfies EnumSpec<MeshQuality>,
+  surfaceTreatments: surfaceTreatmentSpec([
+      { id: "floor", label: "Tray floor", description: "Open the tray floor between protected joints." },
+      { id: "walls", label: "Tray walls", description: "Open usable wall panels." },
+      { id: "dividers", label: "Dividers", description: "Open divider panels while keeping their joints solid." },
+    ]),
 } as const;
 
 export type DrawerRiserSpecs = typeof DRAWER_RISER_SPECS;
@@ -174,6 +180,7 @@ export const DRAWER_RISER_DEFAULTS: DrawerRiserParameters = {
   dividerThickness: 2,
   cornerRadius: 4,
   meshQuality: "standard",
+  surfaceTreatments: defaultSurfaceTreatments(DRAWER_RISER_SPECS.surfaceTreatments),
 };
 
 export const DRAWER_RISER_GROUPS: ParameterGroup<DrawerRiserKey>[] = [
@@ -211,6 +218,13 @@ export const DRAWER_RISER_GROUPS: ParameterGroup<DrawerRiserKey>[] = [
     title: "Construction",
     description: "The walls, the deck, the corners, and the curve detail.",
     keys: ["wallThickness", "baseThickness", "cornerRadius", "meshQuality"],
+  },
+  {
+    id: "surface",
+    index: "05",
+    title: "Surface",
+    description: "Choose solid, holed, or mesh regions for this print.",
+    keys: ["surfaceTreatments"],
   },
 ];
 

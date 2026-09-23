@@ -1,3 +1,4 @@
+import { defaultSurfaceTreatments, isSurfacePatternActive, surfaceTreatmentSpec } from "../../surface-patterns";
 import {
   planLightening,
   type LighteningPlan,
@@ -153,7 +154,7 @@ export const BATTERY_ORGANIZER_SPECS = {
   lightenUnderside: {
     kind: "boolean",
     label: "Underside pockets",
-    description: `Pockets under the base save material. Each pocket ceiling bridges at most ${LIGHTENING_MAXIMUM_SPAN_MM} mm.`,
+    description: `Pockets under the base save material. Each pocket ceiling bridges at most ${LIGHTENING_MAXIMUM_SPAN_MM} mm. A patterned base omits these pockets.`,
   } satisfies BooleanSpec,
   meshQuality: {
     kind: "enum",
@@ -165,6 +166,9 @@ export const BATTERY_ORGANIZER_SPECS = {
     ],
     hint: "Standard balances round wells with quick regeneration.",
   } satisfies EnumSpec<MeshQuality>,
+  surfaceTreatments: surfaceTreatmentSpec([
+      { id: "base", label: "Base", description: "Spare material between the cell wells. A pattern omits underside pockets." },
+    ]),
 } as const;
 
 export type BatteryOrganizerSpecs = typeof BATTERY_ORGANIZER_SPECS;
@@ -188,6 +192,7 @@ export const BATTERY_ORGANIZER_DEFAULTS: BatteryOrganizerParameters = {
   cornerRadius: 4,
   lightenUnderside: true,
   meshQuality: "standard",
+  surfaceTreatments: defaultSurfaceTreatments(BATTERY_ORGANIZER_SPECS.surfaceTreatments),
 };
 
 export const BATTERY_ORGANIZER_GROUPS: ParameterGroup<BatteryOrganizerKey>[] = [
@@ -228,6 +233,13 @@ export const BATTERY_ORGANIZER_GROUPS: ParameterGroup<BatteryOrganizerKey>[] = [
       "lightenUnderside",
       "meshQuality",
     ],
+  },
+  {
+    id: "surface",
+    index: "04",
+    title: "Surface",
+    description: "Choose solid, holed, or mesh regions for this print.",
+    keys: ["surfaceTreatments"],
   },
 ];
 
@@ -430,7 +442,7 @@ export function deriveLayout(
     standingLength(parameters.cellShape, diameter, length) -
       parameters.exposedHeight,
   );
-  const lightening = parameters.lightenUnderside
+  const lightening = parameters.lightenUnderside && !isSurfacePatternActive(parameters.surfaceTreatments, "base")
     ? planLightening(lighteningOptions(parameters, QUALITY_SEGMENTS.standard))
     : null;
 

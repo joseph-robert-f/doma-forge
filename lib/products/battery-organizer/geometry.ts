@@ -5,6 +5,8 @@ import { getKernel, type Solid } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
 import { polygon } from "../../kernel/profiles";
 import { BOOLEAN_OVERLAP, roundedSlab } from "../../kernel/shell";
+import { applySurfacePatterns } from "../../kernel/surface-pattern";
+import { surfaceZones } from "./surface-zones";
 import {
   FINGER_RELIEF_DEPTH_MM,
   FINGER_RELIEF_WIDEN_MM,
@@ -153,10 +155,15 @@ export async function generateBatteryOrganizer(
     scope.delete(wells);
     scope.delete(slab);
 
-    if (parameters.lightenUnderside) {
+    const patterningBase = parameters.surfaceTreatments.enabled &&
+      parameters.surfaceTreatments.zones.base.mode !== "solid";
+    if (parameters.lightenUnderside && !patterningBase) {
       const options = lighteningOptions(parameters, segments);
       solid = scope.own(lightenUnderside(kernel, scope.take(solid), options).solid);
     }
+
+    solid = applySurfacePatterns(kernel, scope, solid, parameters.surfaceTreatments,
+      surfaceZones(parameters, layout));
 
     return finishSolid(scope.take(solid), parameters, "organizer");
   } finally {
