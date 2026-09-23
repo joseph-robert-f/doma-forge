@@ -1,13 +1,15 @@
 /** @vitest-environment jsdom */
 import { useState } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { SurfaceTreatmentsControl } from "../app/components/ParameterControls";
 import { drawerTray } from "../lib/products/drawer-tray";
 import type { SuggestedSurfacePattern } from "../lib/surface-availability";
 import type { SurfaceTreatments } from "../lib/surface-patterns";
 
 const spec = drawerTray.specs.surfaceTreatments;
+
+afterEach(() => cleanup());
 
 function Form({
   suggestion,
