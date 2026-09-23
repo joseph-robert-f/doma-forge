@@ -74,7 +74,7 @@ describe("generation protocol", () => {
     expect(response.type).toBe("result");
     expect(response.id).toBe(7);
     if (response.type !== "result") throw new Error("unreachable");
-    expect(response.model.mesh.triVerts.length / 3).toBe(362);
+    expect(response.model.mesh.triVerts.length / 3).toBe(360);
     const buffers = transferablesOf(response);
     expect(buffers).toHaveLength(2);
     expect(buffers).toContain(response.model.mesh.vertProperties.buffer);
@@ -121,7 +121,7 @@ describe("generation protocol", () => {
       (_, index) => index % 3 === 2,
     );
     expect(Math.max(...zs)).toBeCloseTo(5, 6);
-    expect(response.model.mesh.triVerts.length / 3).toBeLessThan(362);
+    expect(response.model.mesh.triVerts.length / 3).toBeLessThan(360);
   });
 
   it("refuses a coupon request for a product that has no coupon", async () => {
