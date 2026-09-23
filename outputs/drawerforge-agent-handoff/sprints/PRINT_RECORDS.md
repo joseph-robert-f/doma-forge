@@ -438,3 +438,23 @@ holds its load.
 | Fit result | whether a phone stands in the slot and leans on the rest without tipping |
 | Photo | file name |
 | Notes | Print upright, base on the bed, no supports, three perimeters. The wedge is solid in the file; the slicer's infill fills it. Measure the rest angle with a protractor against the face. Stand the phone in the slot and note whether the 12 mm slot is loose or tight for its case. |
+
+## Drawer tray scoop clearance
+
+### Record 19: Small even-column scoop sample (S16)
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Drawer tray, geometry version 3 |
+| Preset or parameters | Custom. drawerWidth 80, drawerDepth 80, clearancePerSide 0, organizerHeight 20, wallThickness 2, baseThickness 2, dividerThickness 2, cornerRadius 4, rows 2, columns 2, meshQuality standard, fingerScoop true, permeable surfaces off |
+| Design file name | drawerforge-drawer-tray-80x80x20-2x2-b5e881.stl |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width x depth x height, mm | 80 × 80 × 20 |
+| Target front scoop | 6 mm radius, center 9 mm left of tray center; 2 mm solid rim before the central divider |
+| Measured front scoop and rim, mm | |
+| Correction applied, X and Y, mm | |
+| Fit result | whether the scoop opens into the left front compartment with a full-height central divider beside it |
+| Photo | file name |
+| Notes | Print base down, without supports, with at least three perimeters. Inspect the front notch and central divider from above. Record any merged plastic or missing 2 mm rim. This is a full small tray because the existing fit-test ring has no scoop. |

@@ -4,6 +4,11 @@ import {
   deriveDimensions,
   drawerTray,
 } from "../lib/products/drawer-tray";
+import {
+  FINGER_SCOOP_SIDE_CLEARANCE,
+  getFingerScoopLayout,
+  drawerTraySurfaceZones,
+} from "../lib/products/drawer-tray/surface-zones";
 
 const { normalize, validate } = drawerTray;
 
@@ -51,6 +56,75 @@ describe("parameter normalization and derivation", () => {
       clearancePerSide: 0.0001,
     });
     expect(normalized.clearancePerSide).toBe(0);
+  });
+});
+
+describe("front finger scoop placement", () => {
+  it("stays inside a central front compartment across valid grid widths", () => {
+    for (const drawerWidth of [80, 86, 98, 120, 300, 600]) {
+      for (const clearancePerSide of [0, 5]) {
+        for (const wallThickness of [1.2, 2, 6]) {
+          for (const dividerThickness of [1.2, 2, 6]) {
+            for (let columns = 1; columns <= 8; columns += 1) {
+              const parameters = normalize({
+                ...DEFAULT_PARAMETERS,
+                drawerWidth,
+                clearancePerSide,
+                wallThickness,
+                dividerThickness,
+                columns,
+              });
+              if (!validate(parameters).valid) continue;
+
+              const derived = deriveDimensions(parameters);
+              const scoop = getFingerScoopLayout(parameters);
+              const selectedColumn = Math.floor((columns - 1) / 2);
+              const left = -derived.outsideWidth / 2 + wallThickness +
+                selectedColumn * (derived.compartmentWidth + dividerThickness);
+              const right = left + derived.compartmentWidth;
+              expect(scoop.centerX - scoop.radius).toBeGreaterThanOrEqual(
+                left + FINGER_SCOOP_SIDE_CLEARANCE - 1e-8,
+              );
+              expect(scoop.centerX + scoop.radius).toBeLessThanOrEqual(
+                right - FINGER_SCOOP_SIDE_CLEARANCE + 1e-8,
+              );
+              if (columns % 2 === 1) expect(scoop.centerX).toBeCloseTo(0, 8);
+              else expect(scoop.centerX).toBeLessThan(0);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it("shrinks the radius to 3 mm in a valid 10 mm front compartment", () => {
+    const parameters = normalize({
+      ...DEFAULT_PARAMETERS,
+      drawerWidth: 86,
+      clearancePerSide: 0,
+      wallThickness: 2,
+      dividerThickness: 2,
+      rows: 1,
+      columns: 7,
+    });
+    expect(validate(parameters).valid).toBe(true);
+    expect(deriveDimensions(parameters).compartmentWidth).toBe(10);
+    expect(getFingerScoopLayout(parameters)).toEqual({ centerX: 0, radius: 3 });
+  });
+
+  it("moves the front-wall pattern keepout with an even-grid scoop", () => {
+    const parameters = normalize({ ...DEFAULT_PARAMETERS, columns: 2 });
+    const scoop = getFingerScoopLayout(parameters);
+    const front = drawerTraySurfaceZones(parameters).find(
+      (zone) => zone.kind === "plane" && zone.id === "walls" &&
+        zone.axis === "y" && zone.center < 0,
+    );
+    if (!front || front.kind !== "plane") throw new Error("Front wall zone missing");
+    expect(front.keepouts?.find((keepout) => keepout.kind === "circle")).toEqual({
+      kind: "circle",
+      center: [scoop.centerX, parameters.organizerHeight],
+      radius: scoop.radius + FINGER_SCOOP_SIDE_CLEARANCE,
+    });
   });
 });
 

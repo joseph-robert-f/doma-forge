@@ -276,8 +276,8 @@ describe("fit-test coupon geometry", () => {
   });
 
   it("matches the fit-test coupon golden record for the defaults", async () => {
-    // Recorded at geometryVersion 1; version 2 changes only patterned floor
-    // openings and leaves this solid fit-test coupon unchanged.
+    // Recorded at geometryVersion 1; versions 2 and 3 change the tray's
+    // patterned floor and scoop, leaving this solid fit-test coupon unchanged.
     const model = await generateFitTestCoupon(normalize(DEFAULT_PARAMETERS));
     expect(model.mesh.triVerts.length / 3).toBe(224);
     expect(Math.abs(model.volume - 9754.816) / 9754.816).toBeLessThan(0.001);
@@ -308,7 +308,7 @@ describe("fit-test coupon geometry", () => {
     const parameters = normalize(DEFAULT_PARAMETERS);
     const model = await generateFitTestCoupon(parameters);
     const name = fitTestCouponFilename(model, drawerTray.signature(parameters));
-    expect(name).toBe("drawerforge-fit-test-drawer-tray-299x199-2cff73.stl");
+    expect(name).toBe("drawerforge-fit-test-drawer-tray-299x199-a629cd.stl");
     expect(drawerTray.filename(parameters)).toContain(drawerTray.id);
     expect(name).toContain(drawerTray.id);
     expect(name).toMatch(/^drawerforge-fit-test-drawer-tray-299x199-[0-9a-f]{6}\.stl$/);

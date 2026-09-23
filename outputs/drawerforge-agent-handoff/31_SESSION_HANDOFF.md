@@ -1,8 +1,9 @@
 # 31. Session Handoff
 
 Date: 2026-09-04
-Status: Current. This document replaces `09_NEXT_AGENT_BRIEF.md`, which
-describes the repository before the sprint program.
+Status: Baseline through S15. This document replaces `09_NEXT_AGENT_BRIEF.md`,
+which describes the repository before the sprint program. For the S16 drawer
+tray scoop change, read `32_FRONT_SCOOP_GRID_NOTES.md` as well.
 Reads with: `README.md`, `15_SPRINT_PLAN.md`, `10_MULTI_PRODUCT_EXPANSION_PLAN.md`
 
 This document gives a new team the state of DrawerForge at the end of

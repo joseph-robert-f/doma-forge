@@ -1,7 +1,7 @@
 # 15. Sprint Plan and Model Routing
 
 Date: 2026-09-02
-Status: Active. Sprint specs are in `sprints/`. S01 to S11 are done; see documents 16 to 26. S12 is ongoing; see document 27 and `sprints/PRINT_RECORDS.md`. S13, the contract follow-ups that the sprint notes accumulated, is done; see document 28. S14, the print context in validation, is done; see document 29. S15, the owed primary reviews of S09 and S13, is done; see document 30.
+Status: Active. Sprint specs are in `sprints/`. S01 to S11 are done; see documents 16 to 26. S12 is ongoing; see document 27 and `sprints/PRINT_RECORDS.md`. S13, the contract follow-ups that the sprint notes accumulated, is done; see document 28. S14, the print context in validation, is done; see document 29. S15, the owed primary reviews of S09 and S13, is done; see document 30. S16 repairs the drawer tray's grid-aware finger scoop; see document 32.
 Reads with: 10_MULTI_PRODUCT_EXPANSION_PLAN.md, documents 11 to 14
 
 This document lists the remaining major sprints, the order to run them, and the
@@ -55,6 +55,7 @@ Effort levels: low, medium, high, max. They map to the effort setting of the age
 | S13 | Contract follow-ups | Fable 5.1, Sonnet 5 for per-product work | high | S01, S04, S05, S09 | M |
 | S14 | Print context in validation | Fable 5.1 | high | S04, S08, S09, S13 | S |
 | S15 | Owed primary reviews | Opus 5 for the reviews, Sonnet 5 and Opus 5 for the fixes | high | S09, S13, S14 | S |
+| S16 | Front scoop and grid clearance | Existing-family geometry work | high | S05, S15 | S |
 
 S01, S02, S03, and S10 have no dependencies and can run in parallel. S06, S07,
 and S08 can run in parallel after S05. S09 is last among the product sprints.
@@ -80,6 +81,7 @@ Size: S is one to two days for one agent. M is three to five. L is one to two we
 - **S13** Geometry loaded per product so the worker's fixed chunk stops growing, the fit-test coupon in the worker, printed walls the product reports to the thin-wall rule, and a diameter axis for the printer correction.
 - **S14** A print context that validation may read: the pots refuse a part wider than the saved bed, and the riser's one-piece height is a setting the bed height checks.
 - **S15** The primary reviews S09 and S13 did not get, run on the merged code and applied: thirteen findings, one blocking.
+- **S16** A front scoop placed and sized within one compartment, clear of the tray's dividers.
 
 ---
 

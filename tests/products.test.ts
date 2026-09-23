@@ -160,7 +160,7 @@ describe("drawer tray product", () => {
       columns: 3,
     });
     expect(drawerTray.filename(parameters)).toBe(
-      "drawerforge-drawer-tray-299p5x199x47p5-2x3-88a2c4.stl",
+      "drawerforge-drawer-tray-299p5x199x47p5-2x3-48ad12.stl",
     );
   });
 

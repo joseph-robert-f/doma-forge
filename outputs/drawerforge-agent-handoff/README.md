@@ -71,9 +71,10 @@ The user has reported that a generated STL imports and slices successfully in Ba
 29. [`28_CONTRACT_FOLLOW_UPS_NOTES.md`](28_CONTRACT_FOLLOW_UPS_NOTES.md) — geometry loaded per product, the worker's fixed chunk, the coupon in the worker, printed walls the product reports, the diameter correction, and decisions from sprint S13.
 30. [`29_PRINT_CONTEXT_NOTES.md`](29_PRINT_CONTEXT_NOTES.md) — the print context that validation may read, the bed-aware pot rules, the riser's one-piece height as a setting, and decisions from sprint S14.
 31. [`30_OWED_REVIEWS_NOTES.md`](30_OWED_REVIEWS_NOTES.md) — the primary reviews of S09 and S13 run on the merged code, every finding and its disposition, and decisions from sprint S15.
-32. [`31_SESSION_HANDOFF.md`](31_SESSION_HANDOFF.md) — the current session handoff: the architecture a new team must know, the decisions that constrain new work and the logic behind them, the open issues, and the priorities. Start here; it supersedes document 09.
-33. [`sprints/`](sprints/) — one spec per sprint, S01 to S15, plus the print records.
-34. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
+32. [`31_SESSION_HANDOFF.md`](31_SESSION_HANDOFF.md) — the architecture handoff through S15: constraints, decisions, open issues, and priorities. Start here with document 32 for the S16 change; it supersedes document 09.
+33. [`32_FRONT_SCOOP_GRID_NOTES.md`](32_FRONT_SCOOP_GRID_NOTES.md) — the S16 drawer tray scoop placement, geometry change, verification, review, and print follow-up.
+34. [`sprints/`](sprints/) — one spec per sprint, S01 to S16, plus the print records.
+35. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
 
 `CHECKSUMS.sha256` contains SHA-256 hashes for every document and the manifest so a copied or extracted package can be verified.
 
