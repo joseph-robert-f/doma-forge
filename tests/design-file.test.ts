@@ -30,7 +30,7 @@ describe("design file export", () => {
       version: 2,
       units: "mm",
       productId: "drawer-tray",
-      geometryVersion: 2,
+      geometryVersion: 3,
       name: "Workshop drawer",
       createdAt: "2026-09-02T12:00:00.000Z",
     });

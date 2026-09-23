@@ -175,23 +175,36 @@ Clipping dividers against the original outer solid before union is deliberate: i
 
 ### 4. Finger scoop
 
-There is one automatic front-center top notch, not one notch per compartment.
+There is one automatic notch in a central front compartment, not one notch per
+compartment. Odd-column grids keep it at X = 0. Even-column grids put it in
+the left central compartment, near the middle divider.
 
 ```text
 availableWallHeight = organizerHeight - baseThickness
 scoopRadius = max(1.5,
                   min(12,
                       outsideWidth × 0.075,
-                      availableWallHeight - 2))
+                      availableWallHeight - 2,
+                      cellWidth / 2 - 2))
+even-column scoopCenterX = -(dividerThickness / 2 + 2 + scoopRadius)
+odd-column scoopCenterX = 0
 ```
 
-The cutter is a cylinder with length `wallThickness + 0.8 mm`, rotated so its axis runs along Y, centered at:
+The 2 mm side clearance leaves solid front rim before each adjacent divider.
+The cutter is a cylinder with its axis along Y. It begins 0.2 mm in front of
+the outer edge and reaches `cornerRadius + wallThickness + 0.2 mm` behind that
+edge, so it still crosses the rim where a large rounded corner curves inward.
+Its center is:
 
 ```text
-(0, -outsideDepth / 2 + wallThickness / 2, organizerHeight)
+(scoopCenterX,
+ -outsideDepth / 2 + (cornerRadius + wallThickness) / 2,
+ organizerHeight)
 ```
 
-Subtracting this after divider union creates a U-shaped notch open at the rim. The notch bottom remains at least 2 mm above the base. The subtraction can also remove divider material where a central divider intersects the cutter.
+The scoop is cut from the shell before divider union. This creates a U-shaped
+notch open at the rim without cutting a column or row divider. The notch
+bottom remains at least 2 mm above the base.
 
 ## Tessellation and mesh representation
 
@@ -297,4 +310,3 @@ These are representative regressions, not exhaustive property tests across the f
 10. Add bed-volume checks before permitting automatic splits; splitting also needs joints, per-part naming, per-part validation, and multi-file/3MF output.
 11. Review every undercut, magnet pocket, label, dovetail, fillet, or stacking feature for upright, support-free printing.
 12. Consider 3MF alongside STL when units, multiple parts, or richer metadata become necessary.
-

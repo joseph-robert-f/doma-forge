@@ -114,7 +114,7 @@ export const DRAWER_TRAY_SPECS = {
   fingerScoop: {
     kind: "boolean",
     label: "Front finger scoop",
-    description: "A shallow notch that stays safely above the base.",
+    description: "A shallow notch inside one front compartment, clear of dividers and the base.",
   } satisfies BooleanSpec,
   surfaceTreatments: surfaceTreatmentSpec([
       { id: "floor", label: "Floor", description: "Open the tray floor inside the compartments." },

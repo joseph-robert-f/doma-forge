@@ -6,6 +6,7 @@ import {
   drawerTray,
   type DrawerTrayParameters,
 } from "../lib/products/drawer-tray";
+import { getFingerScoopLayout } from "../lib/products/drawer-tray/surface-zones";
 import {
   analyzeBufferGeometry,
   modelToBufferGeometry,
@@ -24,7 +25,7 @@ function loadPreset(id: string): DrawerTrayParameters {
   return { ...preset.parameters };
 }
 
-const GOLDEN_TRIANGLES = 362;
+const GOLDEN_TRIANGLES = 360;
 const GOLDEN_VOLUME = 277462.54;
 
 const fixtures: Array<[string, Partial<DrawerTrayParameters>]> = [
@@ -59,6 +60,24 @@ function expectRoundedCornerWallIsContinuous(
       ).toBe(true);
     }
   }
+}
+
+function frontProfileY(width: number, depth: number, radius: number, x: number): number {
+  const safeRadius = Math.max(0, Math.min(radius, width / 2 - 0.01, depth / 2 - 0.01));
+  const beyondStraight = Math.max(0, Math.abs(x) - (width / 2 - safeRadius));
+  return -depth / 2 + safeRadius - Math.sqrt(safeRadius ** 2 - beyondStraight ** 2);
+}
+
+function frontWallMidY(parameters: DrawerTrayParameters, x: number): number {
+  const derived = deriveDimensions(parameters);
+  const outer = frontProfileY(derived.outsideWidth, derived.outsideDepth, parameters.cornerRadius, x);
+  const inner = frontProfileY(
+    derived.outsideWidth - parameters.wallThickness * 2,
+    derived.outsideDepth - parameters.wallThickness * 2,
+    Math.max(0, parameters.cornerRadius - parameters.wallThickness),
+    x,
+  );
+  return (outer + inner) / 2;
 }
 
 describe("organizer geometry", () => {
@@ -102,6 +121,49 @@ describe("organizer geometry", () => {
     expect(scoopedModel.bounds).toEqual(plainModel.bounds);
     expect(scoopedModel.volume).toBeLessThan(plainModel.volume);
   });
+
+  it.each([
+    ["even columns", { drawerWidth: 80, drawerDepth: 80, clearancePerSide: 0, organizerHeight: 20, cornerRadius: 4, rows: 2, columns: 2 }],
+    ["narrow odd columns", { drawerWidth: 86, drawerDepth: 80, clearancePerSide: 0, organizerHeight: 20, cornerRadius: 4, rows: 1, columns: 7 }],
+    ["rounded front", { drawerWidth: 80, drawerDepth: 80, clearancePerSide: 0, organizerHeight: 20, cornerRadius: 40, rows: 2, columns: 2 }],
+  ] satisfies Array<[string, Partial<DrawerTrayParameters>]>) (
+    "opens the scoop without removing a divider in %s",
+    async (_name, changes) => {
+      const parameters = normalize({ ...DEFAULT_PARAMETERS, ...changes, fingerScoop: true });
+      expect(drawerTray.validate(parameters).valid).toBe(true);
+      const scoop = getFingerScoopLayout(parameters);
+      const model = await generate(parameters);
+      const geometry = modelToBufferGeometry(model);
+      expect(connectedComponentCount(model.mesh.triVerts)).toBe(1);
+      for (const edge of closedEdgeCounts(geometry)) {
+        expect(edge.count).toBe(2);
+        expect(edge.balance).toBe(0);
+      }
+      geometry.dispose();
+      const throughNotch = horizontalSliceTopology(model.mesh, parameters.organizerHeight - 1);
+      const scoopWallY = frontWallMidY(parameters, scoop.centerX);
+      expect(throughNotch.containsSolid([scoop.centerX, scoopWallY])).toBe(false);
+
+      const belowNotch = horizontalSliceTopology(
+        model.mesh,
+        parameters.organizerHeight - scoop.radius - 0.731,
+      );
+      expect(belowNotch.containsSolid([scoop.centerX, scoopWallY])).toBe(true);
+
+      const derived = deriveDimensions(parameters);
+      const frontDividerY = -derived.outsideDepth / 2 + parameters.wallThickness +
+        derived.compartmentDepth + parameters.dividerThickness / 2;
+      if (parameters.rows > 1) {
+        expect(throughNotch.containsSolid([scoop.centerX, frontDividerY])).toBe(true);
+      }
+      if (parameters.columns % 2 === 0) {
+        expect(throughNotch.containsSolid([0, frontWallMidY(parameters, 0)])).toBe(true);
+      } else {
+        const dividerX = derived.compartmentWidth / 2 + parameters.dividerThickness / 2;
+        expect(throughNotch.containsSolid([dividerX, frontWallMidY(parameters, dividerX)])).toBe(true);
+      }
+    },
+  );
 
   it("increases round-feature fidelity with mesh quality", async () => {
     const counts: number[] = [];
@@ -162,10 +224,11 @@ describe("organizer geometry", () => {
       expectRoundedCornerWallIsContinuous(model);
     },
   );
-  it("matches the solid-default golden record at geometry version 2", async () => {
-    // Recorded at version 1; version 2 changes only patterned floor openings.
+  it("matches the solid-default golden record at geometry version 3", async () => {
+    // Version 3 changes the Boolean order; the default solid keeps its volume
+    // and bounds, while its triangulation has two fewer faces.
     const model = await generate(normalize(DEFAULT_PARAMETERS));
-    expect(drawerTray.geometryVersion).toBe(2);
+    expect(drawerTray.geometryVersion).toBe(3);
     expect(model.mesh.triVerts.length / 3).toBe(GOLDEN_TRIANGLES);
     expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(
       0.001,

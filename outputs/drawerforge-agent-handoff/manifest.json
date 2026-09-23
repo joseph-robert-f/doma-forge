@@ -158,7 +158,11 @@
     },
     {
       "path": "31_SESSION_HANDOFF.md",
-      "purpose": "Current session handoff: architecture, constraining decisions and their logic, open issues, and priorities; supersedes document 09"
+      "purpose": "Architecture handoff through S15: constraining decisions, open issues, and priorities; supersedes document 09"
+    },
+    {
+      "path": "32_FRONT_SCOOP_GRID_NOTES.md",
+      "purpose": "S16 drawer-tray scoop placement, geometry, verification, review, and physical print follow-up"
     },
     {
       "path": "sprints/S01_FIT_TEST_COUPON.md",
@@ -219,6 +223,10 @@
     {
       "path": "sprints/S15_OWED_REVIEWS.md",
       "purpose": "Sprint spec: owed primary reviews"
+    },
+    {
+      "path": "sprints/S16_FRONT_SCOOP_GRID.md",
+      "purpose": "Sprint spec: front scoop clearance from variable grid dividers"
     },
     {
       "path": "sprints/PRINT_RECORDS.md",

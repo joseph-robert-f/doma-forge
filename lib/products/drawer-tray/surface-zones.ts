@@ -1,18 +1,42 @@
 import type { SurfaceZone } from "../../surface-pattern-plan";
 import { deriveDimensions, type DrawerTrayParameters } from "./schema";
 
-export function getFingerScoopRadius(parameters: DrawerTrayParameters): number {
+/** Solid rim left between the scoop and either side of its front compartment. */
+export const FINGER_SCOOP_SIDE_CLEARANCE = 2;
+
+export interface FingerScoopLayout {
+  centerX: number;
+  radius: number;
+}
+
+export function getFingerScoopLayout(parameters: DrawerTrayParameters): FingerScoopLayout {
   const derived = deriveDimensions(parameters);
   const availableWallHeight =
     parameters.organizerHeight - parameters.baseThickness;
-  return Math.max(
+  const radius = Math.max(
     1.5,
-    Math.min(12, derived.outsideWidth * 0.075, availableWallHeight - 2),
+    Math.min(
+      12,
+      derived.outsideWidth * 0.075,
+      availableWallHeight - 2,
+      derived.compartmentWidth / 2 - FINGER_SCOOP_SIDE_CLEARANCE,
+    ),
   );
+  // An even grid has a divider at X=0. Put the one notch just to the left
+  // of it; the radius cap also leaves the same clearance at the far edge.
+  const centerX = parameters.columns % 2 === 0
+    ? -(parameters.dividerThickness / 2 + FINGER_SCOOP_SIDE_CLEARANCE + radius)
+    : 0;
+  return { centerX, radius };
+}
+
+export function getFingerScoopRadius(parameters: DrawerTrayParameters): number {
+  return getFingerScoopLayout(parameters).radius;
 }
 
 export function drawerTraySurfaceZones(parameters: DrawerTrayParameters): SurfaceZone[] {
   const derived = deriveDimensions(parameters);
+  const scoop = parameters.fingerScoop ? getFingerScoopLayout(parameters) : null;
   // One floor patch per compartment keeps the wall and divider roots intact.
   // Each straight wall is a separate patch so the rounded corners stay solid.
   const zones: SurfaceZone[] = [];
@@ -61,8 +85,8 @@ export function drawerTraySurfaceZones(parameters: DrawerTrayParameters): Surfac
       center: y * (derived.outsideDepth / 2 - parameters.wallThickness / 2),
       u: [-straightX, straightX], v: [wallBottom, wallTop],
       thickness: parameters.wallThickness,
-      keepouts: y < 0 && parameters.fingerScoop
-        ? [...xJoints, { kind: "circle", center: [0, parameters.organizerHeight], radius: getFingerScoopRadius(parameters) + 2 }]
+      keepouts: y < 0 && scoop
+        ? [...xJoints, { kind: "circle", center: [scoop.centerX, parameters.organizerHeight], radius: scoop.radius + 2 }]
         : xJoints,
     });
   }

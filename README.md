@@ -38,6 +38,10 @@ DrawerForge rejects non-finite or out-of-range values and applies each product's
 
 Draft, Standard, and Fine change curved-feature tessellation only. Standard is the recommended balance for editing and export.
 
+The drawer tray's front finger scoop stays within one front compartment. On
+even-column grids it sits just left of the center divider; in narrow grids it
+shrinks to leave solid rim between the notch and neighboring dividers.
+
 ### Permeable surfaces
 
 Every catalogue product has a **Permeable surfaces** control. Turn it on, then choose **Solid**, **Holes** (round openings), or **Mesh** (diamond openings) for each listed surface. Opening size, material between openings, and solid border are adjustable per surface. The preview and downloaded STL contain the same through-openings. Rims, joints, bores, mounting points, and other functional areas stay solid. If an opening cannot fit safely, the control explains which surface needs a larger area or smaller pattern. On slab and deck surfaces, through-openings replace the optional blind underside lightening pockets so the remaining pocket webs cannot be cut away.
@@ -344,7 +348,7 @@ To add a product, create a folder under `lib/products/`, export a `ProductDefini
 
 ## Geometry and export
 
-The drawer tray is constructed as one solid with a rounded outer profile. A manifold-guaranteeing WebAssembly geometry kernel, running in a dedicated Web Worker so the page stays responsive, subtracts one exact inward-offset cavity, clips and unions the row/column dividers into that shell, and then cuts the optional front finger scoop. This keeps the rounded perimeter continuous even at large corner radii. The result is copied once into a Three.js triangle mesh; that same in-memory mesh drives both the preview and the custom binary STL serializer.
+The drawer tray is constructed as one solid with a rounded outer profile. A manifold-guaranteeing WebAssembly geometry kernel, running in a dedicated Web Worker so the page stays responsive, subtracts one exact inward-offset cavity, cuts the optional front finger scoop from the shell, then clips and unions the row/column dividers. This keeps the rounded perimeter continuous even at large corner radii and keeps the scoop clear of divider walls. The result is copied once into a Three.js triangle mesh; that same in-memory mesh drives both the preview and the custom binary STL serializer.
 
 Automated geometry checks cover representative 1×1, 1×3, 2×3, and 4×4 organizers. They verify requested bounds, finite coordinates, positive signed volume, non-degenerate triangles, outward winding, and exactly two oppositely directed faces per mesh edge. Cross-section and point-in-solid regressions also prove that extreme valid radii and the Hand tools preset retain a continuous perimeter around every compartment. Export tests independently parse the binary STL and compare its bounds to the preview mesh.
 

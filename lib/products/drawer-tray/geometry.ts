@@ -1,4 +1,4 @@
-import { drawerTraySurfaceZones, getFingerScoopRadius } from "./surface-zones";
+import { drawerTraySurfaceZones, getFingerScoopLayout } from "./surface-zones";
 import { ResourceScope } from "../../kernel/ownership";
 import { getKernel, type Solid } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
@@ -14,8 +14,8 @@ import { validateDrawerTray } from "./validate";
 
 /**
  * Builds the tray as one solid: the rounded shell from the kernel's shell
- * module, plus dividers clipped to the outer profile, minus the optional
- * front finger scoop. Coordinates are millimeters, X/Y centered on
+ * module, with an optional front finger scoop, plus dividers clipped to the
+ * outer profile. Coordinates are millimeters, X/Y centered on
  * the origin, base at Z = 0.
  */
 export async function generateDrawerTray(
@@ -46,7 +46,37 @@ export async function generateDrawerTray(
     });
     scope.own(outer);
     scope.own(shell);
-    const unionInputs: Solid[] = [shell];
+    let frontShell = shell;
+
+    if (parameters.fingerScoop) {
+      const scoop = getFingerScoopLayout(parameters);
+      // A rounded front edge can recede by the corner radius. Reach through
+      // the complete shell at that X, then add dividers after the cut so a
+      // row wall behind a deep corner can never be trimmed by the cutter.
+      const cutterLength =
+        parameters.cornerRadius + parameters.wallThickness + BOOLEAN_OVERLAP * 2;
+      const cutterAtOrigin = scope.own(kernel.Manifold.cylinder(
+        cutterLength,
+        scoop.radius,
+        scoop.radius,
+        segments,
+        true,
+      ));
+      const rotatedCutter = scope.own(cutterAtOrigin.rotate([90, 0, 0]));
+      scope.delete(cutterAtOrigin);
+      const positionedCutter = scope.own(rotatedCutter.translate([
+        scoop.centerX,
+        -derived.outsideDepth / 2 + (parameters.cornerRadius + parameters.wallThickness) / 2,
+        parameters.organizerHeight,
+      ]));
+      scope.delete(rotatedCutter);
+      const scoopedShell = scope.own(frontShell.subtract(positionedCutter));
+      scope.delete(frontShell);
+      scope.delete(positionedCutter);
+      frontShell = scoopedShell;
+    }
+
+    const unionInputs: Solid[] = [frontShell];
     const dividerHeight =
       parameters.organizerHeight - parameters.baseThickness + BOOLEAN_OVERLAP * 2;
     const dividerCenterZ =
@@ -99,35 +129,12 @@ export async function generateDrawerTray(
 
     let solid: Solid;
     if (unionInputs.length === 1) {
-      solid = shell;
+      solid = frontShell;
     } else {
       solid = scope.own(kernel.Manifold.union(unionInputs));
       for (const input of unionInputs) scope.delete(input);
     }
     scope.delete(outer);
-
-    if (parameters.fingerScoop) {
-      const scoopRadius = getFingerScoopRadius(parameters);
-      const cutterAtOrigin = scope.own(kernel.Manifold.cylinder(
-        parameters.wallThickness + BOOLEAN_OVERLAP * 4,
-        scoopRadius,
-        scoopRadius,
-        segments,
-        true,
-      ));
-      const rotatedCutter = scope.own(cutterAtOrigin.rotate([90, 0, 0]));
-      scope.delete(cutterAtOrigin);
-      const positionedCutter = scope.own(rotatedCutter.translate([
-        0,
-        -derived.outsideDepth / 2 + parameters.wallThickness / 2,
-        parameters.organizerHeight,
-      ]));
-      scope.delete(rotatedCutter);
-      const scooped = scope.own(solid.subtract(positionedCutter));
-      scope.delete(solid);
-      scope.delete(positionedCutter);
-      solid = scooped;
-    }
 
     solid = applySurfacePatterns(kernel, scope, solid, parameters.surfaceTreatments, drawerTraySurfaceZones(parameters));
     return finishSolid(scope.take(solid), parameters, "organizer");
@@ -136,4 +143,4 @@ export async function generateDrawerTray(
   }
 }
 
-export { getFingerScoopRadius };
+export { getFingerScoopRadius } from "./surface-zones";
