@@ -1,4 +1,6 @@
 import type { GeneratedModel } from "../kernel/mesh";
+import type { SurfaceZone } from "../surface-pattern-plan";
+import type { SurfaceTreatments, SurfaceTreatmentsSpec } from "../surface-patterns";
 import type {
   CompensableParameters,
   PrintContext,
@@ -57,10 +59,12 @@ export interface LayoutSpec {
   newValue: number;
 }
 
-export type ParameterSpec = NumberSpec | BooleanSpec | EnumSpec | LayoutSpec;
+export type ParameterSpec = NumberSpec | BooleanSpec | EnumSpec | LayoutSpec | SurfaceTreatmentsSpec;
 
 export type ParameterValue<S extends ParameterSpec> = S extends LayoutSpec
   ? number[]
+  : S extends SurfaceTreatmentsSpec
+    ? SurfaceTreatments
   : S extends NumberSpec
     ? number
     : S extends BooleanSpec
@@ -166,6 +170,8 @@ export interface ProductDefinition<
   specs: Specs;
   groups: ParameterGroup<keyof Specs & string>[];
   defaults: P;
+  /** Pure regions also used by the geometry builder, for form preflight. */
+  surfaceZones?(parameters: P): SurfaceZone[];
   presets: ProductPreset<P>[];
   normalize(input: unknown): P;
   /**

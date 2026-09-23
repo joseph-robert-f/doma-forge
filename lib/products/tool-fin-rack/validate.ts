@@ -1,3 +1,4 @@
+import type { PrintContext } from "../../printer-profile";
 import { IssueCollector, formatMillimeters, validateAgainstSpecs } from "../shared";
 import type { ValidationResult } from "../types";
 import {
@@ -13,9 +14,10 @@ const mm = (value: number) => formatMillimeters(value, 1);
 
 export function validateToolFinRack(
   parameters: ToolFinRackParameters,
+  context?: PrintContext,
 ): ValidationResult<ToolFinRackKey> {
   const collector = new IssueCollector<ToolFinRackKey>();
-  validateAgainstSpecs(TOOL_FIN_RACK_SPECS, parameters, collector);
+  validateAgainstSpecs(TOOL_FIN_RACK_SPECS, parameters, collector, context);
   const add = collector.add.bind(collector);
   const numbersOk = (
     [

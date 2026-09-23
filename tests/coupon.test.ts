@@ -308,7 +308,7 @@ describe("fit-test coupon geometry", () => {
     const parameters = normalize(DEFAULT_PARAMETERS);
     const model = await generateFitTestCoupon(parameters);
     const name = fitTestCouponFilename(model, drawerTray.signature(parameters));
-    expect(name).toBe("drawerforge-fit-test-drawer-tray-299x199-137f96.stl");
+    expect(name).toBe("drawerforge-fit-test-drawer-tray-299x199-e90fc4.stl");
     expect(drawerTray.filename(parameters)).toContain(drawerTray.id);
     expect(name).toContain(drawerTray.id);
     expect(name).toMatch(/^drawerforge-fit-test-drawer-tray-299x199-[0-9a-f]{6}\.stl$/);

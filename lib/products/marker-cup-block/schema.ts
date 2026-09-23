@@ -1,3 +1,4 @@
+import { defaultSurfaceTreatments, isSurfacePatternActive, surfaceTreatmentSpec } from "../../surface-patterns";
 import {
   planLightening,
   type LighteningPlan,
@@ -133,7 +134,7 @@ export const MARKER_CUP_BLOCK_SPECS = {
   lightenUnderside: {
     kind: "boolean",
     label: "Underside pockets",
-    description: `Pockets under the base save material. Each pocket ceiling bridges at most ${LIGHTENING_MAXIMUM_SPAN_MM} mm.`,
+    description: `Pockets under the base save material. Each pocket ceiling bridges at most ${LIGHTENING_MAXIMUM_SPAN_MM} mm. A patterned base omits these pockets.`,
   } satisfies BooleanSpec,
   meshQuality: {
     kind: "enum",
@@ -145,6 +146,9 @@ export const MARKER_CUP_BLOCK_SPECS = {
     ],
     hint: "Standard balances round bores with quick regeneration.",
   } satisfies EnumSpec<MeshQuality>,
+  surfaceTreatments: surfaceTreatmentSpec([
+      { id: "base", label: "Base", description: "Spare material between the tilted bores. A pattern omits underside pockets." },
+    ]),
 } as const;
 
 export type MarkerCupBlockSpecs = typeof MARKER_CUP_BLOCK_SPECS;
@@ -166,6 +170,7 @@ export const MARKER_CUP_BLOCK_DEFAULTS: MarkerCupBlockParameters = {
   cornerRadius: 6,
   lightenUnderside: true,
   meshQuality: "standard",
+  surfaceTreatments: defaultSurfaceTreatments(MARKER_CUP_BLOCK_SPECS.surfaceTreatments),
 };
 
 export const MARKER_CUP_BLOCK_GROUPS: ParameterGroup<MarkerCupBlockKey>[] = [
@@ -203,6 +208,13 @@ export const MARKER_CUP_BLOCK_GROUPS: ParameterGroup<MarkerCupBlockKey>[] = [
       "lightenUnderside",
       "meshQuality",
     ],
+  },
+  {
+    id: "surface",
+    index: "04",
+    title: "Surface",
+    description: "Choose solid, holed, or mesh regions for this print.",
+    keys: ["surfaceTreatments"],
   },
 ];
 
@@ -444,7 +456,7 @@ export function deriveLayout(
       })
     : unsolved();
 
-  const lightening = parameters.lightenUnderside
+  const lightening = parameters.lightenUnderside && !isSurfacePatternActive(parameters.surfaceTreatments, "base")
     ? planLightening(lighteningOptions(parameters, QUALITY_SEGMENTS.standard))
     : null;
 

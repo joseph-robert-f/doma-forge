@@ -5,6 +5,8 @@ import { getKernel, type Solid } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
 import { roundedRectangle } from "../../kernel/profiles";
 import { BOOLEAN_OVERLAP } from "../../kernel/shell";
+import { applySurfacePatterns } from "../../kernel/surface-pattern";
+import { surfaceZones } from "./surface-zones";
 import {
   HOOK_FILLET_MM,
   LIP_THICKNESS_MM,
@@ -42,14 +44,26 @@ export async function generateHeadphoneMount(
     const T = parameters.plateThickness;
     const W = parameters.plateWidth;
     const H = parameters.plateHeight;
+    const zones = surfaceZones(parameters, layout);
+    if (
+      !parameters.controllerPocket && parameters.surfaceTreatments.enabled &&
+      parameters.surfaceTreatments.zones.pocket.mode !== "solid"
+    ) {
+      throw new Error("Enable the controller pocket before adding a pocket pattern.");
+    }
 
     const outline = scope.own(roundedRectangle(kernel, W, H, parameters.cornerRadius, segments));
     const plateFlat = scope.own(outline.extrude(T));
     scope.delete(outline);
     const plateTurned = scope.own(plateFlat.rotate([90, 0, 0]));
     scope.delete(plateFlat);
-    const plate = scope.own(plateTurned.translate([0, T, H / 2]));
+    let plate = scope.own(plateTurned.translate([0, T, H / 2]));
     scope.delete(plateTurned);
+
+    plate = applySurfacePatterns(kernel, scope, plate, {
+      enabled: parameters.surfaceTreatments.enabled,
+      zones: { plate: parameters.surfaceTreatments.zones.plate },
+    }, zones.filter((zone) => zone.id === "plate"));
 
     const parts: Solid[] = [plate];
     const hook = scope.own(jHook(kernel, {
@@ -76,8 +90,13 @@ export async function generateHeadphoneMount(
         overlap: BOOLEAN_OVERLAP,
         segments: filletSegments,
       }));
-      parts.push(scope.own(floor.translate([0, T, layout.pocketZ])));
+      let pocketFloor = scope.own(floor.translate([0, T, layout.pocketZ]));
       scope.delete(floor);
+      pocketFloor = applySurfacePatterns(kernel, scope, pocketFloor, {
+        enabled: parameters.surfaceTreatments.enabled,
+        zones: { pocket: parameters.surfaceTreatments.zones.pocket },
+      }, zones.filter((zone) => zone.id === "pocket"));
+      parts.push(pocketFloor);
       const wallHeight = layout.pocketTop - layout.pocketZ;
       const wallAtOrigin = scope.own(kernel.Manifold.cube(
         [POCKET_WALL_MM, parameters.pocketDepth + BOOLEAN_OVERLAP, wallHeight],

@@ -1,3 +1,4 @@
+import { defaultSurfaceTreatments, surfaceTreatmentSpec } from "../../surface-patterns";
 import type {
   EnumSpec,
   LayoutSpec,
@@ -118,6 +119,11 @@ export const REMOTE_CADDY_SPECS = {
     ],
     hint: "Standard balances smooth corners with quick regeneration.",
   } satisfies EnumSpec<MeshQuality>,
+  surfaceTreatments: surfaceTreatmentSpec([
+      { id: "floor", label: "Well floor", description: "Open the well floors." },
+      { id: "walls", label: "Outer walls", description: "Open usable wall panels." },
+      { id: "dividers", label: "Dividers", description: "Open the well dividers." },
+    ]),
 } as const;
 
 export type RemoteCaddySpecs = typeof REMOTE_CADDY_SPECS;
@@ -136,6 +142,7 @@ export const REMOTE_CADDY_DEFAULTS: RemoteCaddyParameters = {
   dividerThickness: 2,
   cornerRadius: 3,
   meshQuality: "standard",
+  surfaceTreatments: defaultSurfaceTreatments(REMOTE_CADDY_SPECS.surfaceTreatments),
 };
 
 export const REMOTE_CADDY_GROUPS: ParameterGroup<RemoteCaddyKey>[] = [
@@ -166,6 +173,13 @@ export const REMOTE_CADDY_GROUPS: ParameterGroup<RemoteCaddyKey>[] = [
       "cornerRadius",
       "meshQuality",
     ],
+  },
+  {
+    id: "surface",
+    index: "04",
+    title: "Surface",
+    description: "Choose solid, holed, or mesh regions for this print.",
+    keys: ["surfaceTreatments"],
   },
 ];
 

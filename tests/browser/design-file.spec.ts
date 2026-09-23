@@ -27,7 +27,7 @@ test.describe("design file save and open", () => {
     const designText = readFileSync(designPath!, "utf8");
     const saved = JSON.parse(designText);
     expect(saved.format).toBe("drawerforge-design");
-    expect(saved.version).toBe(1);
+    expect(saved.version).toBe(2);
     expect(saved.name).toBe("Left bench");
     expect(saved.parameters.drawerDepth).toBe(245);
 

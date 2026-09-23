@@ -1,3 +1,4 @@
+import { partsBinSurfaceZones } from "./surface-zones";
 import {
   filenameNumber,
   formatMillimeters,
@@ -104,6 +105,7 @@ export const partsBin: ProductDefinition<PartsBinSpecs> = {
   specs: PARTS_BIN_SPECS,
   groups: PARTS_BIN_GROUPS,
   defaults: PARTS_BIN_DEFAULTS,
+  surfaceZones: partsBinSurfaceZones,
   presets: PARTS_BIN_PRESETS,
   normalize: (input) =>
     normalizeFromSpecs(PARTS_BIN_SPECS, PARTS_BIN_DEFAULTS, input),

@@ -3,6 +3,8 @@ import { cutterArray, unionSolids } from "../../kernel/arrays";
 import { getKernel, type Solid } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
 import { BOOLEAN_OVERLAP, roundedSlab } from "../../kernel/shell";
+import { applySurfacePatterns } from "../../kernel/surface-pattern";
+import { surfaceZones } from "./surface-zones";
 import {
   FIN_FILLET_HEIGHT_MM,
   FIN_FILLET_WIDTH_MM,
@@ -79,13 +81,16 @@ export async function generateToolFinRack(
     const finLayout = layout.finLayout;
     if (!finLayout.ok) throw new Error("The fins do not fit the rack width.");
 
-    const slab = scope.own(roundedSlab(kernel, {
+    let slab = scope.own(roundedSlab(kernel, {
       width: parameters.rackWidth,
       depth: parameters.rackDepth,
       height: parameters.baseThickness,
       cornerRadius: parameters.cornerRadius,
       segments,
     }));
+
+    slab = applySurfacePatterns(kernel, scope, slab, parameters.surfaceTreatments,
+      surfaceZones(parameters, layout));
 
     const fins = scope.own(cutterArray(
       kernel,

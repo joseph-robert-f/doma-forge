@@ -353,7 +353,7 @@ describe("wall hook rail geometry", () => {
     const parameters = normalize(WALL_HOOK_RAIL_DEFAULTS);
     const coupon = await wallHookRail.coupon!(parameters);
     const name = fitTestCouponFilename(coupon, wallHookRail.signature(parameters));
-    expect(name).toBe("drawerforge-fit-test-wall-hook-rail-60x25-8da4a7.stl");
+    expect(name).toBe("drawerforge-fit-test-wall-hook-rail-60x25-45fc93.stl");
     expect(name).toContain(wallHookRail.id);
   });
 

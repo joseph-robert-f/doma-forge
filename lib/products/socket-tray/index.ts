@@ -1,3 +1,5 @@
+import { isSurfacePatternActive } from "../../surface-patterns";
+import { surfaceZones } from "./surface-zones";
 import {
   filenameNumber,
   formatMillimeters,
@@ -65,7 +67,9 @@ function derive(parameters: SocketTrayParameters): DerivedValue[] {
     label: "Underside pockets",
     value: layout.lightening
       ? `${layout.lightening.countX} × ${layout.lightening.countY}, ${formatMillimeters(layout.lightening.pocketDepth)} mm deep`
-      : "none",
+      : isSurfacePatternActive(parameters.surfaceTreatments, "base")
+        ? "none, base pattern replaces underside pockets"
+        : "none",
   });
   return values;
 }
@@ -79,6 +83,7 @@ export const socketTray: ProductDefinition<SocketTraySpecs> = {
   specs: SOCKET_TRAY_SPECS,
   groups: SOCKET_TRAY_GROUPS,
   defaults: SOCKET_TRAY_DEFAULTS,
+  surfaceZones,
   presets: SOCKET_TRAY_PRESETS,
   normalize: (input) =>
     normalizeFromSpecs(SOCKET_TRAY_SPECS, SOCKET_TRAY_DEFAULTS, input),

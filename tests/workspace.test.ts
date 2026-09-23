@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { PRINTER_PROFILE_DEFAULTS } from "../lib/printer-profile";
+import type { SurfaceTreatments } from "../lib/surface-patterns";
 import { DRAWER_TRAY_ID } from "../lib/products/drawer-tray";
 import { REMOTE_CADDY_ID } from "../lib/products/remote-caddy";
 import { getProduct } from "../lib/products/registry";
 import {
   LEGACY_DESIGN_KEY,
   LEGACY_MIGRATED_MARKER,
+  LEGACY_WORKSPACE_KEY,
   WORKSPACE_KEY,
   loadWorkspace,
   readDesign,
@@ -54,10 +56,69 @@ function legacyRecord(overrides: Record<string, unknown> = {}) {
 }
 
 describe("workspace envelope", () => {
+  it("migrates the v2 envelope with its designs and printer into the v3 key", () => {
+    const storage = new FakeStorage();
+    const oldParameters = Object.fromEntries(
+      Object.entries(drawerTray.defaults).filter(([key]) => key !== "surfaceTreatments"),
+    );
+    // A stray key in a legacy envelope has no v2 surface semantics.
+    oldParameters.surfaceTreatments = {
+      enabled: true,
+      zones: { floor: { mode: "holes", opening: 12, web: 2.4, margin: 6 } },
+    };
+    const oldRemoteParameters = Object.fromEntries(
+      Object.entries(remoteCaddy.defaults).filter(([key]) => key !== "surfaceTreatments"),
+    );
+    const old = JSON.stringify({
+      format: "drawerforge-workspace",
+      version: 2,
+      updatedAt: "2026-09-01T00:00:00.000Z",
+      designs: {
+        "drawer-tray": {
+          productId: "drawer-tray",
+          geometryVersion: 1,
+          name: "Older tray",
+          parameters: oldParameters,
+          updatedAt: "2026-09-01T00:00:00.000Z",
+        },
+        [REMOTE_CADDY_ID]: {
+          productId: REMOTE_CADDY_ID,
+          geometryVersion: 1,
+          name: "Older caddy",
+          parameters: oldRemoteParameters,
+          updatedAt: "2026-09-01T00:00:00.000Z",
+        },
+      },
+      printer: { ...PRINTER_PROFILE_DEFAULTS, correctionX: 0.5 },
+    });
+    storage.data.set(LEGACY_WORKSPACE_KEY, old);
+
+    const design = readDesign(storage, drawerTray, getProduct, fixedNow);
+    expect(design?.name).toBe("Older tray");
+    const treatment = design?.parameters.surfaceTreatments as SurfaceTreatments;
+    expect(treatment.enabled).toBe(false);
+    expect(treatment.zones.floor.mode).toBe("solid");
+    expect(readDesign(storage, remoteCaddy, getProduct, fixedNow)?.name).toBe("Older caddy");
+    expect(readPrinterEntry(storage, getProduct, fixedNow).profile.correctionX).toBe(0.5);
+    expect(JSON.parse(storage.data.get(WORKSPACE_KEY) ?? "{}").version).toBe(3);
+    expect(storage.data.get(LEGACY_WORKSPACE_KEY)).toBe(old);
+
+    const changed = drawerTray.normalize({
+      ...design?.parameters,
+      surfaceTreatments: {
+        enabled: true,
+        zones: { floor: { mode: "holes", opening: 12, web: 2.4, margin: 6 } },
+      },
+    });
+    expect(writeDesign(storage, drawerTray, { name: "Older tray", parameters: changed }, getProduct, fixedNow)).toBe(true);
+    expect((readDesign(storage, drawerTray, getProduct, fixedNow)?.parameters.surfaceTreatments as SurfaceTreatments).zones.floor.mode).toBe("holes");
+    expect(storage.data.get(LEGACY_WORKSPACE_KEY)).toBe(old);
+  });
+
   it("starts empty when nothing is stored and writes nothing", () => {
     const storage = new FakeStorage();
     const { workspace, writable } = loadWorkspace(storage, getProduct, fixedNow);
-    expect(workspace.version).toBe(2);
+    expect(workspace.version).toBe(3);
     expect(workspace.designs).toEqual({});
     expect(writable).toBe(true);
     expect(storage.data.size).toBe(0);
@@ -78,7 +139,7 @@ describe("workspace envelope", () => {
     expect(stored?.parameters.rows).toBe(3);
     const raw = JSON.parse(storage.data.get(WORKSPACE_KEY) ?? "{}");
     expect(raw.format).toBe("drawerforge-workspace");
-    expect(raw.version).toBe(2);
+    expect(raw.version).toBe(3);
   });
 
   it("renames without touching parameters and is a no-op without a design", () => {
@@ -119,14 +180,14 @@ describe("workspace envelope", () => {
     expect(readWorkspace(storage)).toEqual({ state: "absent" });
     expect(storage.data.has(WORKSPACE_KEY)).toBe(false);
 
-    storage.data.set(WORKSPACE_KEY, JSON.stringify({ format: "something-else", version: 2, designs: {} }));
+    storage.data.set(WORKSPACE_KEY, JSON.stringify({ format: "something-else", version: 3, designs: {} }));
     expect(readWorkspace(storage)).toEqual({ state: "absent" });
     expect(storage.data.has(WORKSPACE_KEY)).toBe(false);
   });
 
   it("leaves a newer envelope alone and refuses to write over it", () => {
     const storage = new FakeStorage();
-    const future = JSON.stringify({ format: "drawerforge-workspace", version: 3, designs: { x: 1 } });
+    const future = JSON.stringify({ format: "drawerforge-workspace", version: 4, designs: { x: 1 } });
     storage.data.set(WORKSPACE_KEY, future);
     expect(readWorkspace(storage)).toEqual({ state: "newer" });
     expect(readDesign(storage, drawerTray, getProduct, fixedNow)).toBeNull();
@@ -198,7 +259,7 @@ describe("workspace envelope", () => {
       WORKSPACE_KEY,
       JSON.stringify({
         format: "drawerforge-workspace",
-        version: 2,
+        version: 3,
         updatedAt: "2026-09-02T12:00:00.000Z",
         designs: {
           [REMOTE_CADDY_ID]: {
@@ -231,7 +292,7 @@ describe("workspace envelope", () => {
       WORKSPACE_KEY,
       JSON.stringify({
         format: "drawerforge-workspace",
-        version: 2,
+        version: 3,
         updatedAt: "",
         designs: {
           "drawer-tray": { productId: "future-product", name: "Wrong", parameters: drawerTray.defaults },
@@ -251,7 +312,7 @@ describe("workspace envelope", () => {
       WORKSPACE_KEY,
       JSON.stringify({
         format: "drawerforge-workspace",
-        version: 2,
+        version: 3,
         updatedAt: "",
         designs: { "drawer-tray": { productId: "drawer-tray", parameters: drawerTray.defaults } },
       }),
@@ -323,7 +384,7 @@ describe("version 1 migration", () => {
   it("ignores an invalid, corrupt, or foreign legacy record", () => {
     for (const text of [
       "{oops",
-      JSON.stringify({ version: 2, parameters: {} }),
+      JSON.stringify({ version: 3, parameters: {} }),
       legacyRecord({ parameters: { drawerWidth: 1 } }),
       legacyRecord({ productId: "toaster" }),
     ]) {
@@ -348,7 +409,7 @@ describe("printer profile in the envelope", () => {
   function envelopeWithoutPrinter() {
     return JSON.stringify({
       format: "drawerforge-workspace",
-      version: 2,
+      version: 3,
       updatedAt: "2026-09-01T00:00:00.000Z",
       designs: {
         "drawer-tray": {
@@ -387,10 +448,10 @@ describe("printer profile in the envelope", () => {
     );
     const stored = JSON.parse(storage.data.get(WORKSPACE_KEY) ?? "{}");
     expect(stored.printer).toBeUndefined();
-    expect(stored.version).toBe(2);
+    expect(stored.version).toBe(3);
   });
 
-  it("keeps the version at 2 and keeps every design when a profile is written", () => {
+  it("keeps the version at 3 and keeps every design when a profile is written", () => {
     const storage = new FakeStorage();
     storage.data.set(WORKSPACE_KEY, envelopeWithoutPrinter());
     expect(
@@ -402,7 +463,7 @@ describe("printer profile in the envelope", () => {
       ),
     ).toBe(true);
     const stored = JSON.parse(storage.data.get(WORKSPACE_KEY) ?? "{}");
-    expect(stored.version).toBe(2);
+    expect(stored.version).toBe(3);
     expect(stored.printer.correctionX).toBe(0.5);
     expect(stored.designs["drawer-tray"].name).toBe("Left bench");
     expect(readDesign(storage, drawerTray, getProduct, fixedNow)?.name).toBe("Left bench");
@@ -435,7 +496,7 @@ describe("printer profile in the envelope", () => {
       WORKSPACE_KEY,
       JSON.stringify({
         format: "drawerforge-workspace",
-        version: 2,
+        version: 3,
         updatedAt: "2026-09-01T00:00:00.000Z",
         designs: {},
         printer: { correctionX: "wide", correctionY: 900, bedWidth: 250 },

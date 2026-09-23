@@ -22,7 +22,7 @@ export function validatePlantPot(
   context?: PrintContext,
 ): ValidationResult<PlantPotKey> {
   const collector = new IssueCollector<PlantPotKey>();
-  validateAgainstSpecs(PLANT_POT_SPECS, parameters, collector);
+  validateAgainstSpecs(PLANT_POT_SPECS, parameters, collector, context);
   const add = collector.add.bind(collector);
   const numbersOk = (
     [

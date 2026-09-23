@@ -1,3 +1,4 @@
+import { defaultSurfaceTreatments, surfaceTreatmentSpec } from "../../surface-patterns";
 import {
   HOOK_MAXIMUM_PROJECTION_MM,
   HOOK_MINIMUM_ROOT_MM,
@@ -173,6 +174,10 @@ export const HEADPHONE_MOUNT_SPECS = {
     ],
     hint: "Standard balances smooth fillets with quick regeneration.",
   } satisfies EnumSpec<MeshQuality>,
+  surfaceTreatments: surfaceTreatmentSpec([
+      { id: "plate", label: "Mounting plate", description: "Open free plate areas away from the screws and hook roots." },
+      { id: "pocket", label: "Pocket", description: "Open free pocket surfaces." },
+    ]),
 } as const;
 
 export type HeadphoneMountSpecs = typeof HEADPHONE_MOUNT_SPECS;
@@ -196,6 +201,7 @@ export const HEADPHONE_MOUNT_DEFAULTS: HeadphoneMountParameters = {
   screwDiameter: 4.5,
   cornerRadius: 4,
   meshQuality: "standard",
+  surfaceTreatments: defaultSurfaceTreatments(HEADPHONE_MOUNT_SPECS.surfaceTreatments),
 };
 
 export const HEADPHONE_MOUNT_GROUPS: ParameterGroup<HeadphoneMountKey>[] = [
@@ -235,6 +241,13 @@ export const HEADPHONE_MOUNT_GROUPS: ParameterGroup<HeadphoneMountKey>[] = [
     title: "Construction",
     description: "The plate corners and the curve detail.",
     keys: ["cornerRadius", "meshQuality"],
+  },
+  {
+    id: "surface",
+    index: "05",
+    title: "Surface",
+    description: "Choose solid, holed, or mesh regions for this print.",
+    keys: ["surfaceTreatments"],
   },
 ];
 

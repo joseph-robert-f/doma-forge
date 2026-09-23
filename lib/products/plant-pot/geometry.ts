@@ -1,9 +1,11 @@
+import { plantPotSurfaceZones } from "./surface-zones";
 import { ResourceScope } from "../../kernel/ownership";
 import { unionSolids } from "../../kernel/arrays";
 import { getKernel, type Solid } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
 import { revolveShell } from "../../kernel/revolve";
 import { BOOLEAN_OVERLAP } from "../../kernel/shell";
+import { applySurfacePatterns } from "../../kernel/surface-pattern";
 import {
   QUALITY_SEGMENTS,
   derivePotLayout,
@@ -58,9 +60,11 @@ export async function generatePlantPot(
       return placed;
     });
     const drains = scope.own(unionSolids(kernel, scope.takeAll(cutters)));
-    const solid = scope.own(built.shell.subtract(drains));
+    let solid = scope.own(built.shell.subtract(drains));
     scope.delete(drains);
     scope.delete(built.shell);
+
+    solid = applySurfacePatterns(kernel, scope, solid, parameters.surfaceTreatments, plantPotSurfaceZones(parameters));
 
     return finishSolid(scope.take(solid), parameters, "pot");
   } finally {

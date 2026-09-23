@@ -1,3 +1,4 @@
+import type { PrintContext } from "../../printer-profile";
 import { IssueCollector, validateAgainstSpecs } from "../shared";
 import type { ValidationResult } from "../types";
 import {
@@ -12,9 +13,10 @@ export const MINIMUM_WALL_ABOVE_BASE_MM = 4;
 
 export function validateDrawerTray(
   parameters: DrawerTrayParameters,
+  context?: PrintContext,
 ): ValidationResult<DrawerTrayKey> {
   const collector = new IssueCollector<DrawerTrayKey>();
-  validateAgainstSpecs(DRAWER_TRAY_SPECS, parameters, collector);
+  validateAgainstSpecs(DRAWER_TRAY_SPECS, parameters, collector, context);
   const derived = deriveDimensions(parameters);
   const add = collector.add.bind(collector);
 

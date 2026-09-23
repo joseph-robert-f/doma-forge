@@ -1,3 +1,5 @@
+import { isSurfacePatternActive } from "../../surface-patterns";
+import { surfaceZones } from "./surface-zones";
 import {
   filenameNumber,
   formatMillimeters,
@@ -65,7 +67,9 @@ function derive(parameters: MarkerCupBlockParameters): DerivedValue[] {
     label: "Underside pockets",
     value: layout.lightening
       ? `${layout.lightening.countX} × ${layout.lightening.countY}, ${formatMillimeters(layout.lightening.pocketDepth)} mm deep`
-      : "none",
+      : isSurfacePatternActive(parameters.surfaceTreatments, "base")
+        ? "none, base pattern replaces underside pockets"
+        : "none",
   });
   return values;
 }
@@ -79,6 +83,7 @@ export const markerCupBlock: ProductDefinition<MarkerCupBlockSpecs> = {
   specs: MARKER_CUP_BLOCK_SPECS,
   groups: MARKER_CUP_BLOCK_GROUPS,
   defaults: MARKER_CUP_BLOCK_DEFAULTS,
+  surfaceZones,
   presets: MARKER_CUP_BLOCK_PRESETS,
   normalize: (input) =>
     normalizeFromSpecs(

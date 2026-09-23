@@ -1,3 +1,4 @@
+import { defaultSurfaceTreatments, surfaceTreatmentSpec } from "../../surface-patterns";
 import { solvePitch, type PitchResult } from "../../kernel/pitch";
 import {
   HOOK_MAXIMUM_PROJECTION_MM,
@@ -170,6 +171,10 @@ export const WALL_HOOK_RAIL_SPECS = {
     ],
     hint: "Standard balances smooth fillets with quick regeneration.",
   } satisfies EnumSpec<MeshQuality>,
+  surfaceTreatments: surfaceTreatmentSpec([
+      { id: "plate", label: "Wall plate", description: "Open free plate areas away from screws and hook roots." },
+      { id: "shelf", label: "Shelf", description: "Open free shelf areas." },
+    ]),
 } as const;
 
 export type WallHookRailSpecs = typeof WALL_HOOK_RAIL_SPECS;
@@ -192,6 +197,7 @@ export const WALL_HOOK_RAIL_DEFAULTS: WallHookRailParameters = {
   shelfDepth: 40,
   cornerRadius: 4,
   meshQuality: "standard",
+  surfaceTreatments: defaultSurfaceTreatments(WALL_HOOK_RAIL_SPECS.surfaceTreatments),
 };
 
 export const WALL_HOOK_RAIL_GROUPS: ParameterGroup<WallHookRailKey>[] = [
@@ -231,6 +237,13 @@ export const WALL_HOOK_RAIL_GROUPS: ParameterGroup<WallHookRailKey>[] = [
     title: "Construction",
     description: "The plate corners and the curve detail.",
     keys: ["cornerRadius", "meshQuality"],
+  },
+  {
+    id: "surface",
+    index: "06",
+    title: "Surface",
+    description: "Choose solid, holed, or mesh regions for this print.",
+    keys: ["surfaceTreatments"],
   },
 ];
 

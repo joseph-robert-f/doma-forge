@@ -1,16 +1,16 @@
 import { getProduct } from "./products/registry";
 import { parameterSlug, shortHash } from "./products/shared";
+import { surfaceTreatmentFileIssue } from "./surface-patterns";
 import type { AnyParameters, AnyProduct } from "./products/types";
 
 /**
- * The portable design file. Version 1 carries one product's parameters and a
- * name. It never carries machine-specific data such as printer corrections.
- * Unknown fields are ignored on import so a newer minor field cannot break an
- * older app; a changed `version` is rejected.
+ * The portable design file. Version 2 adds per-surface pattern settings to
+ * each product. Version 1 imports with every surface solid. Machine-specific
+ * data such as printer corrections stays in the local workspace.
  */
-export interface DesignFileV1 {
+export interface DesignFileV2 {
   format: typeof DESIGN_FILE_FORMAT;
-  version: 1;
+  version: 2;
   name: string;
   units: "mm";
   productId: string;
@@ -20,12 +20,12 @@ export interface DesignFileV1 {
 }
 
 export const DESIGN_FILE_FORMAT = "drawerforge-design";
-export const DESIGN_FILE_VERSION = 1;
+export const DESIGN_FILE_VERSION = 2;
 export const DESIGN_FILE_EXTENSION = ".drawerforge.json";
 export const DESIGN_NAME_MAX_LENGTH = 60;
 
 export type DesignFileImport =
-  | { ok: true; design: DesignFileV1; product: AnyProduct; warnings: string[] }
+  | { ok: true; design: DesignFileV2; product: AnyProduct; warnings: string[] }
   | { ok: false; error: string };
 
 /** Trims, collapses whitespace, and caps the design name. */
@@ -63,7 +63,7 @@ export function createDesignFile(
   parameters: AnyParameters,
   name: string,
   now: () => Date = () => new Date(),
-): DesignFileV1 {
+): DesignFileV2 {
   const normalized = product.normalize(parameters);
   const validation = product.validate(normalized);
   if (!validation.valid) {
@@ -81,13 +81,13 @@ export function createDesignFile(
   };
 }
 
-export function serializeDesignFile(design: DesignFileV1): string {
+export function serializeDesignFile(design: DesignFileV2): string {
   return `${JSON.stringify(design, null, 2)}\n`;
 }
 
 /** `<name-slug>-<product>-<hash>.drawerforge.json`, name omitted when empty. */
 export function designFilename(
-  design: DesignFileV1,
+  design: DesignFileV2,
   resolveProduct: (id: string) => AnyProduct = getProduct,
 ): string {
   const product = resolveProduct(design.productId);
@@ -157,10 +157,10 @@ function parseDesignFileUnsafe(
       error: `The file format is not "${DESIGN_FILE_FORMAT}". Choose a file saved by DrawerForge.`,
     };
   }
-  if (data.version !== DESIGN_FILE_VERSION) {
+  if (data.version !== 1 && data.version !== DESIGN_FILE_VERSION) {
     return {
       ok: false,
-      error: `Design file version ${shown(data.version)} is not supported. This app reads version ${DESIGN_FILE_VERSION}.`,
+      error: `Design file version ${shown(data.version)} is not supported. This app reads versions 1 and ${DESIGN_FILE_VERSION}.`,
     };
   }
   if (data.units !== "mm") {
@@ -181,13 +181,27 @@ function parseDesignFileUnsafe(
 
   const parameters = data.parameters as Record<string, unknown>;
   const missing = Object.keys(product.specs).filter(
-    (key) => !Object.prototype.hasOwnProperty.call(parameters, key),
+    (key) =>
+      !(data.version === 1 && product.specs[key].kind === "surfaceTreatments") &&
+      !Object.prototype.hasOwnProperty.call(parameters, key),
   );
   if (missing.length > 0) {
     return { ok: false, error: `The file is missing required parameters: ${fieldList(missing)}.` };
   }
+  if (data.version === 2) {
+    const spec = product.specs.surfaceTreatments;
+    if (spec?.kind === "surfaceTreatments") {
+      const issue = surfaceTreatmentFileIssue(spec, parameters.surfaceTreatments);
+      if (issue) return { ok: false, error: issue };
+    }
+  }
 
-  const normalized = product.normalize(parameters);
+  // Version 1 had no surface semantics. Treat even an unknown field with this
+  // name as absent, so a v1 file always opens with solid surfaces.
+  const migratedParameters = data.version === 1
+    ? Object.fromEntries(Object.entries(parameters).filter(([key]) => key !== "surfaceTreatments"))
+    : parameters;
+  const normalized = product.normalize(migratedParameters);
   const validation = product.validate(normalized);
   if (!validation.valid) {
     return {

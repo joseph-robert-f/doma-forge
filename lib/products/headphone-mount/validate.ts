@@ -1,3 +1,4 @@
+import type { PrintContext } from "../../printer-profile";
 import { HOOK_MAXIMUM_PROJECTION_RATIO } from "../../kernel/bracket-rules";
 import {
   IssueCollector,
@@ -20,9 +21,10 @@ const mm = (value: number) => formatMillimeters(value, 1);
 
 export function validateHeadphoneMount(
   parameters: HeadphoneMountParameters,
+  context?: PrintContext,
 ): ValidationResult<HeadphoneMountKey> {
   const collector = new IssueCollector<HeadphoneMountKey>();
-  validateAgainstSpecs(HEADPHONE_MOUNT_SPECS, parameters, collector);
+  validateAgainstSpecs(HEADPHONE_MOUNT_SPECS, parameters, collector, context);
   const add = collector.add.bind(collector);
   const layout = deriveLayout(parameters);
   if (!layout.numbersOk) return collector.result();

@@ -1,3 +1,4 @@
+import type { PrintContext } from "../../printer-profile";
 import { IssueCollector, formatMillimeters, validateAgainstSpecs } from "../shared";
 import type { ValidationResult } from "../types";
 import {
@@ -24,9 +25,10 @@ const RELIEF_MINIMUM_WEB_MM = MINIMUM_WEB_MM + FINGER_RELIEF_WIDEN_MM;
 
 export function validateBatteryOrganizer(
   parameters: BatteryOrganizerParameters,
+  context?: PrintContext,
 ): ValidationResult<BatteryOrganizerKey> {
   const collector = new IssueCollector<BatteryOrganizerKey>();
-  validateAgainstSpecs(BATTERY_ORGANIZER_SPECS, parameters, collector);
+  validateAgainstSpecs(BATTERY_ORGANIZER_SPECS, parameters, collector, context);
   const add = collector.add.bind(collector);
   const numbersOk = (
     [

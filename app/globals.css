@@ -741,6 +741,62 @@ button:disabled {
   transform: translateX(18px);
 }
 
+.surface-control {
+  min-width: 0;
+}
+
+.surface-toggle {
+  margin-top: 0;
+}
+
+.surface-zones {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.surface-zone {
+  background: var(--panel-bright);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.surface-zone legend {
+  font-size: 12px;
+  font-weight: 650;
+  padding: 0 4px;
+}
+
+.surface-zone .quality-hint {
+  margin: 0 0 9px;
+}
+
+.surface-measures {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 11px;
+}
+
+.surface-measure {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.surface-measure > span {
+  color: var(--ink-soft);
+  font-size: 10px;
+}
+
+@media (max-width: 480px) {
+  .surface-measures {
+    grid-template-columns: 1fr;
+  }
+}
+
 .validation-summary {
   align-items: flex-start;
   background: var(--error-soft);

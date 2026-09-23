@@ -34,6 +34,8 @@ import {
   type PrinterProfileV1,
 } from "../../lib/printer-profile";
 import { getProduct } from "../../lib/products/registry";
+import { surfaceAvailability, suggestSurfacePattern } from "../../lib/surface-availability";
+import { isSurfacePatternActive, type SurfaceTreatments } from "../../lib/surface-patterns";
 import { formatMillimeters } from "../../lib/products/shared";
 import type {
   AnyParameters,
@@ -167,9 +169,7 @@ function PrinterNumberInput({
 
 export function ProductApp({ productId }: { productId: string }) {
   const product = useMemo(() => getProduct(productId), [productId]);
-  const [parameters, setParameters] = useState<Parameters>(() => ({
-    ...product.defaults,
-  }));
+  const [parameters, setParameters] = useState<Parameters>(() => product.normalize(product.defaults));
   const [selectedPreset, setSelectedPreset] = useState(CUSTOM_PRESET_ID);
   const [hasLoadedStorage, setHasLoadedStorage] = useState(false);
   const [saveMessage, setSaveMessage] = useState("Saved on this device");
@@ -215,7 +215,7 @@ export function ProductApp({ productId }: { productId: string }) {
     () => printContextOf(printer, printerSaved),
     [printer, printerSaved],
   );
-  const validation = useMemo(
+  const baseValidation = useMemo(
     () => product.validate(parameters, printContext),
     [product, parameters, printContext],
   );
@@ -256,6 +256,53 @@ export function ProductApp({ productId }: { productId: string }) {
     () => product.validate(compensatedParameters, printContext),
     [product, compensatedParameters, printContext],
   );
+  const patternAvailability = useMemo(() => {
+    const treatment = compensatedParameters.surfaceTreatments as SurfaceTreatments;
+    const unavailable: Record<string, string> = {};
+    if (!treatment?.enabled || !product.surfaceZones || !baseValidation.valid || !compensatedValidation.valid) {
+      return unavailable;
+    }
+    try {
+      return surfaceAvailability(treatment, product.surfaceZones(compensatedParameters)).unavailable;
+    } catch {
+      for (const zone of product.specs.surfaceTreatments?.kind === "surfaceTreatments"
+        ? product.specs.surfaceTreatments.zones : []) {
+        if (isSurfacePatternActive(treatment, zone.id)) {
+          unavailable[zone.id] = `${zone.label} cannot be patterned with these dimensions.`;
+        }
+      }
+      return unavailable;
+    }
+  }, [product, compensatedParameters, baseValidation.valid, compensatedValidation.valid]);
+  const suggestedPattern = useMemo(() => {
+    const spec = product.specs.surfaceTreatments;
+    const treatment = compensatedParameters.surfaceTreatments as SurfaceTreatments;
+    if (
+      spec?.kind !== "surfaceTreatments" || !product.surfaceZones ||
+      !baseValidation.valid || !compensatedValidation.valid || treatment.enabled ||
+      spec.zones.some((zone) => isSurfacePatternActive({ ...treatment, enabled: true }, zone.id))
+    ) return null;
+    try {
+      return suggestSurfacePattern(spec, product.surfaceZones(compensatedParameters), printContext.nozzleDiameter);
+    } catch {
+      return null;
+    }
+  }, [product, compensatedParameters, baseValidation.valid, compensatedValidation.valid, printContext.nozzleDiameter]);
+  const validation = useMemo(() => {
+    const messages = [...new Set(Object.values(patternAvailability))];
+    if (messages.length === 0) return baseValidation;
+    return {
+      valid: false,
+      issues: [
+        ...baseValidation.issues,
+        ...messages.map((message) => ({ field: "surfaceTreatments" as const, message })),
+      ],
+      byField: {
+        ...baseValidation.byField,
+        surfaceTreatments: [...(baseValidation.byField.surfaceTreatments ?? []), ...messages],
+      },
+    };
+  }, [baseValidation, patternAvailability]);
   const correctionMessages = useMemo(() => {
     if (!validation.valid || compensatedValidation.valid) return [];
     const named = correctionRangeMessages(
@@ -403,7 +450,7 @@ export function ProductApp({ productId }: { productId: string }) {
       try {
         const stored = readDesign(window.localStorage, product);
         if (stored) {
-          setParameters({ ...stored.parameters });
+          setParameters(product.normalize(stored.parameters));
           setDesignName(stored.name);
           savedDesignRef.current = designKey(stored.name, stored.parameters);
           setSaveMessage("Restored your last valid design");
@@ -536,7 +583,7 @@ export function ProductApp({ productId }: { productId: string }) {
       return;
     }
     setSelectedPreset(CUSTOM_PRESET_ID);
-    setParameters({ ...result.design.parameters });
+    setParameters(product.normalize(result.design.parameters));
     setDesignName(result.design.name);
     const loaded = result.design.name
       ? `Loaded "${result.design.name}" from ${file.name}.`
@@ -969,6 +1016,8 @@ export function ProductApp({ productId }: { productId: string }) {
                     spec={product.specs[key]}
                     value={parameters[key]}
                     errors={validation.byField[key]}
+                    surfaceAvailability={key === "surfaceTreatments" ? patternAvailability : undefined}
+                    suggestedSurfacePattern={key === "surfaceTreatments" ? suggestedPattern : undefined}
                     onChange={updateParameter}
                   />
                 ))}

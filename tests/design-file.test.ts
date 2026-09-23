@@ -11,6 +11,7 @@ import {
 } from "../lib/design-file";
 import { DRAWER_TRAY_ID } from "../lib/products/drawer-tray";
 import { getProduct } from "../lib/products/registry";
+import type { SurfaceTreatments } from "../lib/surface-patterns";
 
 const drawerTray = getProduct(DRAWER_TRAY_ID);
 
@@ -26,7 +27,7 @@ describe("design file export", () => {
     );
     expect(design).toMatchObject({
       format: DESIGN_FILE_FORMAT,
-      version: 1,
+      version: 2,
       units: "mm",
       productId: "drawer-tray",
       geometryVersion: 1,
@@ -83,6 +84,52 @@ describe("design file import", () => {
     );
   });
 
+  it("imports a v1 design with every surface solid", () => {
+    const data = JSON.parse(good);
+    data.version = 1;
+    data.parameters.surfaceTreatments.enabled = true;
+    data.parameters.surfaceTreatments.zones.floor.mode = "holes";
+    const result = parseDesignFile(JSON.stringify(data));
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+    expect(result.design.version).toBe(2);
+    const treatment = result.design.parameters.surfaceTreatments as SurfaceTreatments;
+    expect(treatment.enabled).toBe(false);
+    expect(treatment.zones.floor.mode).toBe("solid");
+  });
+
+  it("rejects unknown v2 surface zones and modes before normalization", () => {
+    const unknownZone = JSON.parse(good);
+    unknownZone.parameters.surfaceTreatments.zones.future = {
+      mode: "holes", opening: 10, web: 2.4, margin: 6,
+    };
+    const zoneResult = parseDesignFile(JSON.stringify(unknownZone));
+    expect(zoneResult.ok).toBe(false);
+    if (!zoneResult.ok) expect(zoneResult.error).toMatch(/unknown surface zone: future/);
+
+    const unknownMode = JSON.parse(good);
+    unknownMode.parameters.surfaceTreatments.zones.floor.mode = "magic";
+    const modeResult = parseDesignFile(JSON.stringify(unknownMode));
+    expect(modeResult.ok).toBe(false);
+    if (!modeResult.ok) expect(modeResult.error).toMatch(/unknown Floor surface mode/);
+  });
+
+  it("round-trips a patterned v2 design", () => {
+    const parameters = drawerTray.normalize({
+      ...drawerTray.defaults,
+      surfaceTreatments: {
+        enabled: true,
+        zones: { floor: { mode: "holes", opening: 10, web: 2.4, margin: 6 } },
+      },
+    });
+    const design = createDesignFile(drawerTray, parameters, "Permeable", fixedNow);
+    const imported = parseDesignFile(serializeDesignFile(design));
+    expect(imported.ok).toBe(true);
+    if (!imported.ok) throw new Error("unreachable");
+    expect((imported.design.parameters.surfaceTreatments as SurfaceTreatments).zones.floor.mode).toBe("holes");
+    expect(drawerTray.signature(imported.design.parameters)).toBe(drawerTray.signature(parameters));
+  });
+
   it("ignores unknown fields and unknown parameters", () => {
     const data = JSON.parse(good);
     data.extra = { nested: true };
@@ -97,7 +144,7 @@ describe("design file import", () => {
     ["not JSON", "{oops", /not valid JSON/],
     ["an array", "[]", /design object/],
     ["wrong format", JSON.stringify({ format: "other", version: 1 }), /file format/],
-    ["wrong version", JSON.stringify({ format: DESIGN_FILE_FORMAT, version: 2 }), /version 2 is not supported/],
+    ["wrong version", JSON.stringify({ format: DESIGN_FILE_FORMAT, version: 3 }), /version 3 is not supported/],
     ["wrong units", JSON.stringify({ format: DESIGN_FILE_FORMAT, version: 1, units: "in" }), /Only millimeters/],
     ["no product", JSON.stringify({ format: DESIGN_FILE_FORMAT, version: 1, units: "mm" }), /name a product/],
     [

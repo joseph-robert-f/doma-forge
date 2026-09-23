@@ -19,10 +19,9 @@ export interface GeneratedModel<P> {
 }
 
 /**
- * Copies a parameter object one level deep, and copies every array value
- * inside it. A layout parameter holds an array, so a shallow copy alone
- * would leave the result sharing that array with the caller. A value that is
- * not an object is returned as it is.
+ * Copies parameters for a generated model, including layout arrays and the
+ * nested per-zone surface settings. A returned model never shares editable
+ * parameter containers with its caller.
  */
 function copyParameters<P>(parameters: P): P {
   if (!parameters || typeof parameters !== "object") return parameters;
@@ -30,6 +29,15 @@ function copyParameters<P>(parameters: P): P {
   for (const key of Object.keys(copy)) {
     const value = copy[key];
     if (Array.isArray(value)) copy[key] = [...value];
+    if (key === "surfaceTreatments" && value && typeof value === "object") {
+      const treatment = value as { enabled: boolean; zones: Record<string, Record<string, unknown>> };
+      copy[key] = {
+        enabled: treatment.enabled,
+        zones: Object.fromEntries(
+          Object.entries(treatment.zones).map(([id, setting]) => [id, { ...setting }]),
+        ),
+      };
+    }
   }
   return copy as P;
 }

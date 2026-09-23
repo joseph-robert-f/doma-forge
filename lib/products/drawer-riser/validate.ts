@@ -1,3 +1,4 @@
+import type { PrintContext } from "../../printer-profile";
 import { IssueCollector, formatMillimeters, validateAgainstSpecs } from "../shared";
 import type { ValidationResult } from "../types";
 import {
@@ -14,9 +15,10 @@ const mm = (value: number) => formatMillimeters(value, 1);
 
 export function validateDrawerRiser(
   parameters: DrawerRiserParameters,
+  context?: PrintContext,
 ): ValidationResult<DrawerRiserKey> {
   const collector = new IssueCollector<DrawerRiserKey>();
-  validateAgainstSpecs(DRAWER_RISER_SPECS, parameters, collector);
+  validateAgainstSpecs(DRAWER_RISER_SPECS, parameters, collector, context);
   const add = collector.add.bind(collector);
   const numbersOk = (
     [

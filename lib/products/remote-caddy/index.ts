@@ -1,3 +1,4 @@
+import { remoteCaddySurfaceZones } from "./surface-zones";
 import {
   filenameNumber,
   formatMillimeters,
@@ -74,6 +75,7 @@ export const remoteCaddy: ProductDefinition<RemoteCaddySpecs> = {
   specs: REMOTE_CADDY_SPECS,
   groups: REMOTE_CADDY_GROUPS,
   defaults: REMOTE_CADDY_DEFAULTS,
+  surfaceZones: remoteCaddySurfaceZones,
   presets: REMOTE_CADDY_PRESETS,
   // The last well is solved from the inside width, and normalization writes
   // that width back into the list, so the field, the signature, the file

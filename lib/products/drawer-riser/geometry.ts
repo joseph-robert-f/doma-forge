@@ -1,9 +1,11 @@
+import { drawerRiserSurfaceZones } from "./surface-zones";
 import { ResourceScope } from "../../kernel/ownership";
 import { dividerArrayAtPositions, unionSolids } from "../../kernel/arrays";
 import { legPosts } from "../../kernel/legs";
 import { getKernel, type Solid } from "../../kernel/manifold";
 import { finishSolid, type GeneratedModel } from "../../kernel/mesh";
 import { BOOLEAN_OVERLAP, roundedShell } from "../../kernel/shell";
+import { applySurfacePatterns } from "../../kernel/surface-pattern";
 import {
   LEG_CORNER_RADIUS_MM,
   QUALITY_SEGMENTS,
@@ -86,7 +88,9 @@ export async function generateDrawerRiser(
       })),
     );
 
-    return finishSolid(unionSolids(kernel, scope.takeAll(parts)), parameters, "riser");
+    let solid = scope.own(unionSolids(kernel, scope.takeAll(parts)));
+    solid = applySurfacePatterns(kernel, scope, solid, parameters.surfaceTreatments, drawerRiserSurfaceZones(parameters));
+    return finishSolid(scope.take(solid), parameters, "riser");
   } finally {
     scope.dispose();
   }

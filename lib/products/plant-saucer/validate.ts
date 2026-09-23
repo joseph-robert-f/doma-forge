@@ -23,7 +23,7 @@ export function validatePlantSaucer(
   context?: PrintContext,
 ): ValidationResult<PlantSaucerKey> {
   const collector = new IssueCollector<PlantSaucerKey>();
-  validateAgainstSpecs(PLANT_SAUCER_SPECS, parameters, collector);
+  validateAgainstSpecs(PLANT_SAUCER_SPECS, parameters, collector, context);
   const add = collector.add.bind(collector);
   const numbersOk = (
     [

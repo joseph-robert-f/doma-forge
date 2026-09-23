@@ -1,3 +1,4 @@
+import type { PrintContext } from "../../printer-profile";
 import { IssueCollector, formatMillimeters, validateAgainstSpecs } from "../shared";
 import type { ValidationResult } from "../types";
 import {
@@ -12,9 +13,10 @@ const mm = (value: number) => formatMillimeters(value, 1);
 
 export function validateSocketTray(
   parameters: SocketTrayParameters,
+  context?: PrintContext,
 ): ValidationResult<SocketTrayKey> {
   const collector = new IssueCollector<SocketTrayKey>();
-  validateAgainstSpecs(SOCKET_TRAY_SPECS, parameters, collector);
+  validateAgainstSpecs(SOCKET_TRAY_SPECS, parameters, collector, context);
   const add = collector.add.bind(collector);
   const numbersOk = (
     [

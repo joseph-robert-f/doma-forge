@@ -15,7 +15,7 @@ describe("DrawerForge workspace and design files", () => {
       WORKSPACE_KEY,
       JSON.stringify({
         format: "drawerforge-workspace",
-        version: 2,
+        version: 3,
         updatedAt: "",
         designs: {
           "some-other-product": {
@@ -49,7 +49,7 @@ describe("DrawerForge workspace and design files", () => {
       WORKSPACE_KEY,
       JSON.stringify({
         format: "drawerforge-workspace",
-        version: 2,
+        version: 3,
         updatedAt: "",
         designs: {
           "drawer-tray": {
@@ -91,7 +91,7 @@ describe("DrawerForge workspace and design files", () => {
     const design = JSON.parse(text);
     expect(design).toMatchObject({
       format: "drawerforge-design",
-      version: 1,
+      version: 2,
       units: "mm",
       productId: "drawer-tray",
       name: "Left bench",

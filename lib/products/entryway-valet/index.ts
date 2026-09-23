@@ -1,3 +1,4 @@
+import { entrywayValetSurfaceZones } from "./surface-zones";
 import { cantileverLoadNewtons, loadNote } from "../../kernel/bracket-rules";
 import {
   filenameNumber,
@@ -85,6 +86,7 @@ export const entrywayValet: ProductDefinition<EntrywayValetSpecs> = {
   specs: ENTRYWAY_VALET_SPECS,
   groups: ENTRYWAY_VALET_GROUPS,
   defaults: ENTRYWAY_VALET_DEFAULTS,
+  surfaceZones: entrywayValetSurfaceZones,
   presets: ENTRYWAY_VALET_PRESETS,
   // The solved width is written into the last well, so the field, the
   // signature, and the mesh carry one number (D-1415).
