@@ -27,10 +27,11 @@ import { validateEntrywayValet } from "./validate";
 /**
  * Geometry version 1 is the first entryway valet algorithm: the rounded
  * shell with uneven wells along the front, a slot lip, and an angled rest
- * wedge along the back, clipped to the shell. Increase it whenever equal
- * parameters would produce a different mesh, and re-record the golden test.
+ * wedge along the back, clipped to the shell. Version 2 keeps patterned floor
+ * openings inside the rounded cavity. Increase it whenever equal parameters
+ * would produce a different mesh.
  */
-export const ENTRYWAY_VALET_GEOMETRY_VERSION = 1;
+export const ENTRYWAY_VALET_GEOMETRY_VERSION = 2;
 
 function signature(parameters: EntrywayValetParameters): string {
   return signatureFromSpecs(

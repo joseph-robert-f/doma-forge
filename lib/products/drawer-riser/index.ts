@@ -23,11 +23,11 @@ import { validateDrawerRiser } from "./validate";
 
 /**
  * Geometry version 1 is the first drawer riser algorithm: four gusseted leg
- * posts under a rounded shell with an even divider grid. Increase it
- * whenever equal parameters would produce a different mesh, and re-record
- * the golden test.
+ * posts under a rounded shell with an even divider grid. Version 2 keeps
+ * patterned floor openings inside the rounded cavity. Increase it whenever
+ * equal parameters would produce a different mesh.
  */
-export const DRAWER_RISER_GEOMETRY_VERSION = 1;
+export const DRAWER_RISER_GEOMETRY_VERSION = 2;
 
 function signature(parameters: DrawerRiserParameters): string {
   return signatureFromSpecs(

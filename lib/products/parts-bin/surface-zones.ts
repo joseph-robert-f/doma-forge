@@ -15,6 +15,12 @@ export function partsBinSurfaceZones(parameters: PartsBinParameters): SurfaceZon
     u: [-layout.insideWidth / 2, layout.insideWidth / 2],
     v: [-layout.insideDepth / 2, layout.insideDepth / 2],
     thickness: parameters.baseThickness,
+    boundary: {
+      kind: "roundedRect",
+      min: [-layout.insideWidth / 2, -layout.insideDepth / 2],
+      max: [layout.insideWidth / 2, layout.insideDepth / 2],
+      radius: Math.max(0, parameters.cornerRadius - parameters.wallThickness),
+    },
   }];
   for (const side of [-1, 1]) {
     zones.push({

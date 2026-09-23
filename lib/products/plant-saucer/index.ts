@@ -26,11 +26,11 @@ import { validatePlantSaucer } from "./validate";
 
 /**
  * Geometry version 1 is the first saucer algorithm: a revolved shell with a
- * rolled rim, lift ribs, and an optional overflow notch. Increase it whenever
- * equal parameters would produce a different mesh, and re-record the golden
- * test.
+ * rolled rim, lift ribs, and an optional overflow notch. Version 2 keeps
+ * enough material between patterned wall openings on the inner face. Increase
+ * it whenever equal parameters would produce a different mesh.
  */
-export const PLANT_SAUCER_GEOMETRY_VERSION = 1;
+export const PLANT_SAUCER_GEOMETRY_VERSION = 2;
 
 function signature(parameters: PlantSaucerParameters): string {
   return signatureFromSpecs(

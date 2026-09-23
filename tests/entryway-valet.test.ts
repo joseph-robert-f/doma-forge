@@ -23,8 +23,8 @@ import { describeOverhangs, overhangFaces } from "./helpers/print-pose";
 
 const { normalize, validate, generate } = entrywayValet;
 
-// Recorded at geometryVersion 1 for the defaults. A change here is a
-// geometry change: bump ENTRYWAY_VALET_GEOMETRY_VERSION and re-record on purpose.
+// Recorded at geometryVersion 1 for the defaults; version 2 changes only
+// patterned floor openings, so the solid-default mesh remains the same.
 const GOLDEN_TRIANGLES = 266;
 const GOLDEN_VOLUME = 1006792.52;
 
@@ -254,9 +254,9 @@ describe("entryway valet geometry", () => {
     expect(performance.now() - started).toBeLessThan(2_000);
   });
 
-  it("matches the geometry version 1 golden record for the defaults", async () => {
+  it("matches the solid-default golden record at geometry version 2", async () => {
     const model = await generate(normalize(ENTRYWAY_VALET_DEFAULTS));
-    expect(entrywayValet.geometryVersion).toBe(1);
+    expect(entrywayValet.geometryVersion).toBe(2);
     expect(model.mesh.triVerts.length / 3).toBe(GOLDEN_TRIANGLES);
     expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(0.001);
     expect(model.bounds).toEqual([

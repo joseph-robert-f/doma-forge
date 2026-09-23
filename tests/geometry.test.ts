@@ -162,11 +162,10 @@ describe("organizer geometry", () => {
       expectRoundedCornerWallIsContinuous(model);
     },
   );
-  it("matches the geometry version 1 golden record for the defaults", async () => {
-    // Recorded at geometryVersion 1. A change here is a geometry change:
-    // bump DRAWER_TRAY_GEOMETRY_VERSION and re-record on purpose.
+  it("matches the solid-default golden record at geometry version 2", async () => {
+    // Recorded at version 1; version 2 changes only patterned floor openings.
     const model = await generate(normalize(DEFAULT_PARAMETERS));
-    expect(drawerTray.geometryVersion).toBe(1);
+    expect(drawerTray.geometryVersion).toBe(2);
     expect(model.mesh.triVerts.length / 3).toBe(GOLDEN_TRIANGLES);
     expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(
       0.001,

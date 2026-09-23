@@ -132,7 +132,7 @@ describe("workspace envelope", () => {
     const stored = readDesign(storage, drawerTray, getProduct, fixedNow);
     expect(stored).toMatchObject({
       productId: "drawer-tray",
-      geometryVersion: 1,
+      geometryVersion: 2,
       name: "Left bench",
       updatedAt: "2026-09-02T12:00:00.000Z",
     });

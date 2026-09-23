@@ -28,8 +28,8 @@ import {
 
 const { normalize, validate, generate } = drawerRiser;
 
-// Recorded at geometryVersion 1 for the defaults. A change here is a
-// geometry change: bump DRAWER_RISER_GEOMETRY_VERSION and re-record on purpose.
+// Recorded at geometryVersion 1 for the defaults; version 2 changes only
+// patterned floor openings, so the solid-default mesh remains the same.
 const GOLDEN_TRIANGLES = 1184;
 const GOLDEN_VOLUME = 280931.83;
 
@@ -428,9 +428,9 @@ describe("drawer riser geometry", () => {
     geometry.dispose();
   });
 
-  it("matches the geometry version 1 golden record for the defaults", async () => {
+  it("matches the solid-default golden record at geometry version 2", async () => {
     const model = await generate(normalize(DRAWER_RISER_DEFAULTS));
-    expect(drawerRiser.geometryVersion).toBe(1);
+    expect(drawerRiser.geometryVersion).toBe(2);
     expect(model.mesh.triVerts.length / 3).toBe(GOLDEN_TRIANGLES);
     expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(
       0.001,

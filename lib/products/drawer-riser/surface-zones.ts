@@ -8,6 +8,12 @@ export function drawerRiserSurfaceZones(parameters: DrawerRiserParameters): Surf
   const zones: SurfaceZone[] = [];
   const innerLeft = -layout.outsideWidth / 2 + parameters.wallThickness;
   const innerFront = -layout.outsideDepth / 2 + parameters.wallThickness;
+  const floorBoundary = {
+    kind: "roundedRect" as const,
+    min: [innerLeft, innerFront] as const,
+    max: [-innerLeft, -innerFront] as const,
+    radius: Math.max(0, parameters.cornerRadius - parameters.wallThickness),
+  };
   const columnCenters = Array.from({ length: parameters.columns }, (_, column) =>
     innerLeft + column * (layout.compartmentWidth + parameters.dividerThickness) +
     layout.compartmentWidth / 2,
@@ -28,6 +34,7 @@ export function drawerRiserSurfaceZones(parameters: DrawerRiserParameters): Surf
         u: [x - layout.compartmentWidth / 2, x + layout.compartmentWidth / 2],
         v: [y - layout.compartmentDepth / 2, y + layout.compartmentDepth / 2],
         thickness: parameters.baseThickness, keepouts: legKeepouts,
+        boundary: floorBoundary,
       });
     }
   }

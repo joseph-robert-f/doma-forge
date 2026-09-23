@@ -32,8 +32,8 @@ import {
 
 const { normalize, validate, generate } = plantPot;
 
-// Recorded at geometryVersion 1 for the defaults. A change here is a geometry
-// change: bump PLANT_POT_GEOMETRY_VERSION and re-record on purpose.
+// Recorded at geometryVersion 1 for the defaults; version 2 changes only
+// patterned wall spacing, so the solid-default mesh remains the same.
 const GOLDEN_TRIANGLES = 3472;
 const GOLDEN_VOLUME = 149662.25;
 const GOLDEN_RADIUS = 73.5584;
@@ -344,9 +344,9 @@ describe("plant pot geometry", () => {
     geometry.dispose();
   });
 
-  it("matches the geometry version 1 golden record for the defaults", async () => {
+  it("matches the solid-default golden record at geometry version 2", async () => {
     const model = await generate(normalize(PLANT_POT_DEFAULTS));
-    expect(plantPot.geometryVersion).toBe(1);
+    expect(plantPot.geometryVersion).toBe(2);
     expect(model.mesh.triVerts.length / 3).toBe(GOLDEN_TRIANGLES);
     expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(0.001);
     expect(model.bounds[0][0]).toBeCloseTo(-GOLDEN_RADIUS, 3);

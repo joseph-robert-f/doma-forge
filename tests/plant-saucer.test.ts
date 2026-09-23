@@ -29,8 +29,8 @@ import {
 
 const { normalize, validate, generate } = plantSaucer;
 
-// Recorded at geometryVersion 1 for the defaults. A change here is a geometry
-// change: bump PLANT_SAUCER_GEOMETRY_VERSION and re-record on purpose.
+// Recorded at geometryVersion 1 for the defaults; version 2 changes only
+// patterned wall spacing, so the solid-default mesh remains the same.
 const GOLDEN_TRIANGLES = 3168;
 const GOLDEN_VOLUME = 66133.06;
 const GOLDEN_RADIUS = 83.2302;
@@ -380,9 +380,9 @@ describe("plant saucer geometry", () => {
     geometry.dispose();
   });
 
-  it("matches the geometry version 1 golden record for the defaults", async () => {
+  it("matches the solid-default golden record at geometry version 2", async () => {
     const model = await generate(normalize(PLANT_SAUCER_DEFAULTS));
-    expect(plantSaucer.geometryVersion).toBe(1);
+    expect(plantSaucer.geometryVersion).toBe(2);
     expect(model.mesh.triVerts.length / 3).toBe(GOLDEN_TRIANGLES);
     expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(0.001);
     expect(model.bounds[0][0]).toBeCloseTo(-GOLDEN_RADIUS, 3);

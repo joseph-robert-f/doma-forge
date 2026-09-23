@@ -23,11 +23,11 @@ import { validateRemoteCaddy } from "./validate";
 
 /**
  * Geometry version 1 is the first remote caddy algorithm: rounded shell,
- * dividers at solved positions, lowered front wall. Increase it whenever
- * equal parameters would produce a different mesh, and re-record the golden
- * test.
+ * dividers at solved positions, lowered front wall. Version 2 keeps patterned
+ * floor openings inside the rounded cavity. Increase it whenever equal
+ * parameters would produce a different mesh.
  */
-export const REMOTE_CADDY_GEOMETRY_VERSION = 1;
+export const REMOTE_CADDY_GEOMETRY_VERSION = 2;
 
 function signature(parameters: RemoteCaddyParameters): string {
   return signatureFromSpecs(

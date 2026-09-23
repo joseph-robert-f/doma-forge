@@ -19,8 +19,10 @@ export interface PlaneSurfaceZone {
   v: Pair;
   thickness: number;
   keepouts?: readonly SurfaceKeepout[];
-  /** Restricts a rectangular planning area to a circular floor. */
-  boundary?: { kind: "circle"; center: Pair; radius: number };
+  /** Restricts a rectangular planning area to the usable floor outline. */
+  boundary?:
+    | { kind: "circle"; center: Pair; radius: number }
+    | { kind: "roundedRect"; min: Pair; max: Pair; radius: number };
   segments?: number;
 }
 
@@ -97,18 +99,29 @@ function planeCenter(axis: PlaneSurfaceZone["axis"], normal: number, u: number, 
   return [u, v, normal];
 }
 
+function boundaryDistance(u: number, v: number, boundary: NonNullable<PlaneSurfaceZone["boundary"]>): number {
+  if (boundary.kind === "circle") {
+    return Math.hypot(u - boundary.center[0], v - boundary.center[1]) - boundary.radius;
+  }
+  const halfU = (boundary.max[0] - boundary.min[0]) / 2;
+  const halfV = (boundary.max[1] - boundary.min[1]) / 2;
+  const centerU = (boundary.min[0] + boundary.max[0]) / 2;
+  const centerV = (boundary.min[1] + boundary.max[1]) / 2;
+  const qU = Math.abs(u - centerU) - halfU + boundary.radius;
+  const qV = Math.abs(v - centerV) - halfV + boundary.radius;
+  return Math.hypot(Math.max(qU, 0), Math.max(qV, 0)) +
+    Math.min(Math.max(qU, qV), 0) - boundary.radius;
+}
+
 function planPlane(zone: PlaneSurfaceZone, settings: SurfacePatternSettings): PlannedSurfaceCell[] {
   const us = grid(zone.u[0], zone.u[1], settings.opening, settings.web, settings.margin);
   const vs = grid(zone.v[0], zone.v[1], settings.opening, settings.web, settings.margin);
   const clearance = settings.opening / 2 + settings.web;
+  const boundaryClearance = settings.opening / 2 + settings.margin;
   const cells: PlannedSurfaceCell[] = [];
   for (const u of us) {
     for (const v of vs) {
-      if (
-        zone.boundary &&
-        Math.hypot(u - zone.boundary.center[0], v - zone.boundary.center[1]) +
-          settings.opening / 2 + settings.margin > zone.boundary.radius
-      ) continue;
+      if (zone.boundary && boundaryDistance(u, v, zone.boundary) > -boundaryClearance) continue;
       if (zone.keepouts?.some((keepout) => insideKeepout(u, v, clearance, keepout))) continue;
       cells.push({ center: planeCenter(zone.axis, zone.center, u, v) });
       if (cells.length > MAX_SURFACE_PATTERN_CELLS) {
@@ -121,23 +134,41 @@ function planPlane(zone: PlaneSurfaceZone, settings: SurfacePatternSettings): Pl
 
 function planRadial(zone: RadialSurfaceZone, settings: SurfacePatternSettings): PlannedSurfaceCell[] {
   const zs = grid(zone.z[0], zone.z[1], settings.opening, settings.web, settings.margin);
-  const minRadius = Math.min(
+  const innerRadius = Math.min(
     zone.radiusAtZero + zone.slope * zone.z[0],
     zone.radiusAtZero + zone.slope * zone.z[1],
-  );
-  if (minRadius <= 0) return [];
+  ) - zone.thickness / 2;
+  const halfOpening = settings.opening / 2;
+  if (zs.length === 0 || !Number.isFinite(innerRadius) || innerRadius <= halfOpening ||
+      settings.web >= 2 * innerRadius) return [];
   const [start, end] = zone.angle ?? [0, 360];
   const span = end - start;
   const fullRing = Math.abs(span - 360) < 1e-7;
-  const arcLength = (span * Math.PI * minRadius) / 180;
-  const pitch = settings.opening + settings.web;
+  const spanRadians = (span * Math.PI) / 180;
+  const apertureHalfAngle = Math.asin(halfOpening / innerRadius);
+  // The radial cutter is wider in angle at the inner wall. Leave the requested
+  // web between the aperture edges there, including across a full-ring seam.
+  const pitchAngle = 2 * apertureHalfAngle + 2 * Math.asin(settings.web / (2 * innerRadius));
   const angles: number[] = [];
   if (fullRing) {
-    const count = Math.floor(arcLength / pitch);
+    const count = Math.floor(spanRadians / pitchAngle);
+    if (count * zs.length > MAX_SURFACE_PATTERN_CELLS) {
+      throw new Error(`The surface pattern has more than ${MAX_SURFACE_PATTERN_CELLS} openings. Increase opening size or spacing.`);
+    }
     for (let i = 0; i < count; i += 1) angles.push(start + (span * (i + 0.5)) / count);
   } else {
-    for (const arc of grid(0, arcLength, settings.opening, settings.web, settings.margin)) {
-      angles.push(start + (arc / minRadius) * 180 / Math.PI);
+    if (settings.margin >= 2 * innerRadius) return [];
+    const edgeInset = apertureHalfAngle + 2 * Math.asin(settings.margin / (2 * innerRadius));
+    const available = spanRadians - 2 * edgeInset;
+    if (available >= 0) {
+      const count = Math.floor(available / pitchAngle) + 1;
+      if (count * zs.length > MAX_SURFACE_PATTERN_CELLS) {
+        throw new Error(`The surface pattern has more than ${MAX_SURFACE_PATTERN_CELLS} openings. Increase opening size or spacing.`);
+      }
+      const first = start + ((spanRadians - (count - 1) * pitchAngle) * 90) / Math.PI;
+      for (let i = 0; i < count; i += 1) {
+        angles.push(first + ((i * pitchAngle) * 180) / Math.PI);
+      }
     }
   }
   const cells: PlannedSurfaceCell[] = [];

@@ -23,11 +23,11 @@ import { validatePlantPot } from "./validate";
 
 /**
  * Geometry version 1 is the first pot algorithm: a revolved shell with a
- * rolled rim, minus the drainage holes through the flat base. Increase it
- * whenever equal parameters would produce a different mesh, and re-record the
- * golden test.
+ * rolled rim, minus the drainage holes through the flat base. Version 2 keeps
+ * enough material between patterned wall openings on the inner face. Increase
+ * it whenever equal parameters would produce a different mesh.
  */
-export const PLANT_POT_GEOMETRY_VERSION = 1;
+export const PLANT_POT_GEOMETRY_VERSION = 2;
 
 /** The id of the derived row that names the saucer for this pot. */
 export const SAUCER_DERIVED_ID = "saucer-inner-diameter";

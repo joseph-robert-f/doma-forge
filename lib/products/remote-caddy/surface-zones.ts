@@ -6,12 +6,19 @@ export function remoteCaddySurfaceZones(parameters: RemoteCaddyParameters): Surf
   const zones: SurfaceZone[] = [];
   const innerLeft = -parameters.caddyWidth / 2 + parameters.wallThickness;
   const innerFront = -parameters.caddyDepth / 2 + parameters.wallThickness;
+  const floorBoundary = {
+    kind: "roundedRect" as const,
+    min: [innerLeft, innerFront] as const,
+    max: [-innerLeft, -innerFront] as const,
+    radius: Math.max(0, parameters.cornerRadius - parameters.wallThickness),
+  };
   let nextX = innerLeft;
   for (const width of layout.wellWidths) {
     zones.push({
       kind: "plane", id: "floor", axis: "z", center: layout.floorZ / 2,
       u: [nextX, nextX + width],
       v: [innerFront, -innerFront], thickness: layout.floorZ,
+      boundary: floorBoundary,
     });
     nextX += width + parameters.dividerThickness;
   }

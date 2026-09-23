@@ -37,8 +37,8 @@ import {
 
 const { normalize, validate, generate } = partsBin;
 
-// Recorded at geometryVersion 1 for the defaults. A change here is a geometry
-// change: bump PARTS_BIN_GEOMETRY_VERSION and re-record on purpose.
+// Recorded at geometryVersion 1 for the defaults; version 2 changes only
+// patterned floor openings, so the solid-default mesh remains the same.
 const GOLDEN_TRIANGLES = 688;
 const GOLDEN_VOLUME = 154444.59;
 
@@ -729,9 +729,9 @@ describe("parts bin geometry", () => {
     geometry.dispose();
   });
 
-  it("matches the geometry version 1 golden record for the defaults", async () => {
+  it("matches the solid-default golden record at geometry version 2", async () => {
     const model = await generate(normalize(PARTS_BIN_DEFAULTS));
-    expect(partsBin.geometryVersion).toBe(1);
+    expect(partsBin.geometryVersion).toBe(2);
     expect(model.mesh.triVerts.length / 3).toBe(GOLDEN_TRIANGLES);
     expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(
       0.001,
