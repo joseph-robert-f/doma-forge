@@ -8,12 +8,19 @@ export function entrywayValetSurfaceZones(parameters: EntrywayValetParameters): 
   // phone rest occupy the rear zone and remain unperforated.
   const zones: SurfaceZone[] = [];
   const frontWellEnd = layout.backDividerY - dividerThickness / 2;
+  const floorBoundary = {
+    kind: "roundedRect" as const,
+    min: [-layout.innerWidth / 2, -layout.innerDepth / 2] as const,
+    max: [layout.innerWidth / 2, layout.innerDepth / 2] as const,
+    radius: Math.max(0, parameters.cornerRadius - parameters.wallThickness),
+  };
   let nextX = -layout.innerWidth / 2;
   for (const width of layout.wellWidths) {
     zones.push({
       kind: "plane", id: "floor", axis: "z", center: baseThickness / 2,
       u: [nextX, nextX + width], v: [layout.frontInner, frontWellEnd],
       thickness: baseThickness,
+      boundary: floorBoundary,
     });
     nextX += width + dividerThickness;
   }

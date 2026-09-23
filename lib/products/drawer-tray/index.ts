@@ -22,11 +22,11 @@ import {
 import { validateDrawerTray } from "./validate";
 
 /**
- * Geometry version 1 is the original DrawerForge tray algorithm. Increase it
- * whenever equal parameters would produce a different mesh, and add a golden
- * test for the new version.
+ * Geometry version 1 is the original DrawerForge tray algorithm. Version 2
+ * keeps patterned floor openings inside the rounded cavity. Increase it
+ * whenever equal parameters would produce a different mesh.
  */
-export const DRAWER_TRAY_GEOMETRY_VERSION = 1;
+export const DRAWER_TRAY_GEOMETRY_VERSION = 2;
 
 function signature(parameters: DrawerTrayParameters): string {
   return signatureFromSpecs(

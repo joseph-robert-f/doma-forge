@@ -18,6 +18,12 @@ export function drawerTraySurfaceZones(parameters: DrawerTrayParameters): Surfac
   const zones: SurfaceZone[] = [];
   const innerLeft = -derived.outsideWidth / 2 + parameters.wallThickness;
   const innerFront = -derived.outsideDepth / 2 + parameters.wallThickness;
+  const floorBoundary = {
+    kind: "roundedRect" as const,
+    min: [innerLeft, innerFront] as const,
+    max: [-innerLeft, -innerFront] as const,
+    radius: Math.max(0, parameters.cornerRadius - parameters.wallThickness),
+  };
   const columnCenters = Array.from({ length: parameters.columns }, (_, column) =>
     innerLeft + column * (derived.compartmentWidth + parameters.dividerThickness) +
     derived.compartmentWidth / 2,
@@ -33,6 +39,7 @@ export function drawerTraySurfaceZones(parameters: DrawerTrayParameters): Surfac
         u: [x - derived.compartmentWidth / 2, x + derived.compartmentWidth / 2],
         v: [y - derived.compartmentDepth / 2, y + derived.compartmentDepth / 2],
         thickness: parameters.baseThickness,
+        boundary: floorBoundary,
       });
     }
   }

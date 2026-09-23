@@ -26,10 +26,10 @@ import { validatePartsBin } from "./validate";
 /**
  * Geometry version 1 is the first parts bin algorithm: the rounded shell,
  * the stacking lip, the underside recess, the front scoop, and the label
- * ledge. Increase it whenever equal parameters would produce a different
- * mesh, and re-record the golden test.
+ * ledge. Version 2 keeps patterned floor openings inside the rounded cavity.
+ * Increase it whenever equal parameters would produce a different mesh.
  */
-export const PARTS_BIN_GEOMETRY_VERSION = 1;
+export const PARTS_BIN_GEOMETRY_VERSION = 2;
 
 function signature(parameters: PartsBinParameters): string {
   return signatureFromSpecs(

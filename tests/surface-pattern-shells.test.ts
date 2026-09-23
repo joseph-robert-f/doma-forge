@@ -67,6 +67,40 @@ function withPattern(
 }
 
 describe("permeable shell and vessel surfaces", () => {
+  it("keeps floor openings out of rounded bin corners", async () => {
+    const baseline = partsBin.normalize({
+      ...partsBin.defaults,
+      binWidth: 60,
+      binDepth: 60,
+      cornerRadius: 20,
+      wallThickness: 1.2,
+      stacking: false,
+      frontScoop: false,
+      labelLedge: false,
+    });
+    const parameters = partsBin.normalize({
+      ...baseline,
+      surfaceTreatments: {
+        enabled: true,
+        zones: {
+          ...baseline.surfaceTreatments.zones,
+          floor: { mode: "holes", opening: 4, web: 0.8, margin: 0.8 },
+        },
+      },
+    });
+    expect(partsBin.validate(parameters).issues).toEqual([]);
+
+    const plan = planSurfacePatterns(parameters.surfaceTreatments, partsBin.surfaceZones!(parameters));
+    const centers = plan.flatMap(({ cells }) => cells.map(({ center }) => center));
+    expect(centers.length).toBeGreaterThan(0);
+    for (const x of [-24, 24]) {
+      for (const y of [-24, 24]) {
+        expect(centers).not.toContainEqual([x, y, parameters.baseThickness / 2]);
+      }
+    }
+    expect((await partsBin.generate(parameters)).status).toBe("NoError");
+  }, 90_000);
+
   it("keeps sloped-wall openings above lift-rib roots", () => {
     const baseline = plantSaucer.normalize({
       ...plantSaucer.defaults,
