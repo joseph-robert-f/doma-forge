@@ -391,7 +391,12 @@ describe("product allocation chains", () => {
     const { generateBatteryOrganizer } = await import("../lib/products/battery-organizer/geometry");
     const { BATTERY_ORGANIZER_DEFAULTS } = await import("../lib/products/battery-organizer/schema");
     const builds = [
-      () => generateDrawerTray({ ...DRAWER_TRAY_DEFAULTS, rows: 1, columns: 1, fingerScoop: false }),
+      () => generateDrawerTray({
+        ...DRAWER_TRAY_DEFAULTS,
+        rowLayout: { mode: "even", count: 1 },
+        columnLayout: { mode: "even", count: 1 },
+        fingerScoop: false,
+      }),
       () => generateRemoteCaddy({ ...REMOTE_CADDY_DEFAULTS, frontWallHeight: REMOTE_CADDY_DEFAULTS.caddyHeight }),
       () => generateShelfRiser({ ...SHELF_RISER_DEFAULTS, lightenDeck: false }),
       () => generateBatteryOrganizer({ ...BATTERY_ORGANIZER_DEFAULTS, fingerRelief: false, lightenUnderside: false }),

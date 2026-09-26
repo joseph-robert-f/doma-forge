@@ -3,6 +3,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { drawerTray } from "../lib/products/drawer-tray";
+import { getProduct } from "../lib/products/registry";
 import { createDesignFile, readFileText } from "../lib/design-file";
 import { LEGACY_DESIGN_KEY, WORKSPACE_KEY } from "../lib/workspace";
 import { mockDownloads, renderReadyApp, setupAppTest } from "./helpers/app";
@@ -150,7 +151,7 @@ describe("DrawerForge workspace and design files", () => {
     await renderReadyApp();
     const viewer = screen.getByTestId("model-viewer");
     const key = viewer.getAttribute("data-model-key");
-    const malformed = createDesignFile(drawerTray, drawerTray.defaults, "Bad sizes");
+    const malformed = createDesignFile(getProduct(drawerTray.id), drawerTray.defaults, "Bad sizes");
     const file = new File([
       JSON.stringify({
         ...malformed,
