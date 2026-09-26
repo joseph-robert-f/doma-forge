@@ -4,7 +4,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { PLANT_POT_ID } from "../lib/products/plant-pot";
 import { readFileText } from "../lib/design-file";
-import { WORKSPACE_KEY } from "../lib/workspace";
+import { WORKSPACE_KEY, WORKSPACE_VERSION } from "../lib/workspace";
 import { renderProductApp, mockDownloads, renderReadyApp, setupAppTest } from "./helpers/app";
 
 describe("DrawerForge printer profile", () => {
@@ -177,7 +177,7 @@ describe("DrawerForge printer profile", () => {
       WORKSPACE_KEY,
       JSON.stringify({
         format: "drawerforge-workspace",
-        version: 3,
+        version: WORKSPACE_VERSION,
         updatedAt: "2026-09-02T12:00:00.000Z",
         designs: {},
         printer: {
