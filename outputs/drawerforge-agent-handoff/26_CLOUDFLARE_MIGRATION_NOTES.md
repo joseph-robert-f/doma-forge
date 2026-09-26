@@ -8,6 +8,13 @@ Reads with: sprints/S11_CLOUDFLARE_MIGRATION.md, 07_OPERATIONS_AND_MIGRATION.md,
 12_WEB_WORKER_GENERATION_NOTES.md (open issue 1), 14_WORKSPACE_STORAGE_NOTES.md
 (the version 1 key), 25_BROWSER_QA_NOTES.md
 
+Update (2026-09-26): The CI origin check now reads `PUBLIC_ORIGIN` from the
+resolved Wrangler config for the build being deployed, renders the Worker with
+that value, and fails if the Open Graph or Twitter URLs differ. On `main`, CI
+builds the production config before checking it. The original warning-based
+design and repository-variable instructions below are retained as the S11
+decision record; the current behavior is documented in `README.md`.
+
 This document records sprint S11: the direct-Cloudflare migration described in
 document 07, Phases 1 through 3. It removes the OpenAI Sites coupling, adds a
 source-controlled `wrangler.jsonc`, replaces the forwarded-host origin with a
