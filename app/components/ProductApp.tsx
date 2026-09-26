@@ -39,9 +39,11 @@ import { isSurfacePatternActive, type SurfaceTreatments } from "../../lib/surfac
 import { formatMillimeters } from "../../lib/products/shared";
 import type {
   AnyParameters,
+  AxisLayout,
   BoundsContract,
   DerivedValue,
 } from "../../lib/products/types";
+import type { DrawerTrayParameters } from "../../lib/products/drawer-tray";
 import {
   readDesign,
   readPrinterEntry,
@@ -55,10 +57,38 @@ import { ModelViewer } from "./ModelViewer";
 import { useProductGeneration } from "./useProductGeneration";
 import { useStlExport } from "./useStlExport";
 import { ParameterControl } from "./ParameterControls";
+import { TrayLayoutMap } from "./TrayLayoutMap";
 
 const CUSTOM_PRESET_ID = "custom";
 
 type Parameters = AnyParameters;
+
+interface LayoutSnapshot {
+  columnLayout: AxisLayout;
+  rowLayout: AxisLayout;
+}
+
+interface LayoutHistory {
+  past: LayoutSnapshot[];
+  future: LayoutSnapshot[];
+}
+
+function cloneAxisLayout(layout: AxisLayout): AxisLayout {
+  return layout.mode === "even"
+    ? { mode: "even", count: layout.count }
+    : { mode: "custom", fixedSizesMm: [...layout.fixedSizesMm] };
+}
+
+function layoutSnapshot(parameters: Parameters): LayoutSnapshot {
+  return {
+    columnLayout: cloneAxisLayout(parameters.columnLayout as AxisLayout),
+    rowLayout: cloneAxisLayout(parameters.rowLayout as AxisLayout),
+  };
+}
+
+function sameLayout(a: LayoutSnapshot, b: LayoutSnapshot): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
 
 interface FileMessage {
   tone: "info" | "warning" | "error";
@@ -170,6 +200,8 @@ function PrinterNumberInput({
 export function ProductApp({ productId }: { productId: string }) {
   const product = useMemo(() => getProduct(productId), [productId]);
   const [parameters, setParameters] = useState<Parameters>(() => product.normalize(product.defaults));
+  const [layoutHistory, setLayoutHistory] = useState<LayoutHistory>({ past: [], future: [] });
+  const pendingLayoutEdit = useRef<LayoutSnapshot | null>(null);
   const [selectedPreset, setSelectedPreset] = useState(CUSTOM_PRESET_ID);
   const [hasLoadedStorage, setHasLoadedStorage] = useState(false);
   const [saveMessage, setSaveMessage] = useState("Saved on this device");
@@ -451,6 +483,8 @@ export function ProductApp({ productId }: { productId: string }) {
         const stored = readDesign(window.localStorage, product);
         if (stored) {
           setParameters(product.normalize(stored.parameters));
+          setLayoutHistory({ past: [], future: [] });
+          pendingLayoutEdit.current = null;
           setDesignName(stored.name);
           savedDesignRef.current = designKey(stored.name, stored.parameters);
           setSaveMessage("Restored your last valid design");
@@ -499,9 +533,62 @@ export function ProductApp({ productId }: { productId: string }) {
     return () => window.clearTimeout(timer);
   }, [printer, hasLoadedStorage]);
 
-  const updateParameter = (key: string, value: unknown) => {
+  const recordLayoutChange = (before: LayoutSnapshot, after: LayoutSnapshot) => {
+    if (sameLayout(before, after)) return;
+    setLayoutHistory((current) => ({
+      past: [...current.past, before].slice(-20),
+      future: [],
+    }));
+  };
+
+  const beginLayoutEdit = () => {
+    if (product.id !== "drawer-tray" || pendingLayoutEdit.current) return;
+    pendingLayoutEdit.current = layoutSnapshot(parameters);
+  };
+
+  const commitLayoutEdit = () => {
+    const before = pendingLayoutEdit.current;
+    pendingLayoutEdit.current = null;
+    if (before) recordLayoutChange(before, layoutSnapshot(parameters));
+  };
+
+  const updateParameter = (key: string, value: unknown, commitNow = false) => {
     setSelectedPreset(CUSTOM_PRESET_ID);
-    setParameters((current) => product.normalize({ ...current, [key]: value }));
+    const axisEdit = product.id === "drawer-tray" && (key === "columnLayout" || key === "rowLayout");
+    if (!axisEdit) {
+      setParameters((current) => product.normalize({ ...current, [key]: value }));
+      return;
+    }
+    if (axisEdit && commitNow) commitLayoutEdit();
+    const next = product.normalize({ ...parameters, [key]: value });
+    if (axisEdit && (commitNow || !pendingLayoutEdit.current)) {
+      recordLayoutChange(layoutSnapshot(parameters), layoutSnapshot(next));
+    }
+    setParameters(next);
+  };
+
+  const undoLayout = () => {
+    const previous = layoutHistory.past.at(-1);
+    if (!previous) return;
+    pendingLayoutEdit.current = null;
+    setLayoutHistory({
+      past: layoutHistory.past.slice(0, -1),
+      future: [layoutSnapshot(parameters), ...layoutHistory.future].slice(0, 20),
+    });
+    setSelectedPreset(CUSTOM_PRESET_ID);
+    setParameters(product.normalize({ ...parameters, ...previous }));
+  };
+
+  const redoLayout = () => {
+    const next = layoutHistory.future[0];
+    if (!next) return;
+    pendingLayoutEdit.current = null;
+    setLayoutHistory({
+      past: [...layoutHistory.past, layoutSnapshot(parameters)].slice(-20),
+      future: layoutHistory.future.slice(1),
+    });
+    setSelectedPreset(CUSTOM_PRESET_ID);
+    setParameters(product.normalize({ ...parameters, ...next }));
   };
 
   // normalize() copies every array value, so state never holds the array of
@@ -511,11 +598,17 @@ export function ProductApp({ productId }: { productId: string }) {
     const preset = product.presets.find(
       (candidate) => candidate.id === presetId,
     );
-    if (preset) setParameters(product.normalize(preset.parameters));
+    if (preset) {
+      pendingLayoutEdit.current = null;
+      setLayoutHistory({ past: [], future: [] });
+      setParameters(product.normalize(preset.parameters));
+    }
   };
 
   const resetDefaults = () => {
     setSelectedPreset(CUSTOM_PRESET_ID);
+    pendingLayoutEdit.current = null;
+    setLayoutHistory({ past: [], future: [] });
     setParameters(product.normalize(product.defaults));
     setDesignName("");
     setFileMessage(null);
@@ -583,6 +676,8 @@ export function ProductApp({ productId }: { productId: string }) {
       return;
     }
     setSelectedPreset(CUSTOM_PRESET_ID);
+    pendingLayoutEdit.current = null;
+    setLayoutHistory({ past: [], future: [] });
     setParameters(product.normalize(result.design.parameters));
     setDesignName(result.design.name);
     const loaded = result.design.name
@@ -1018,10 +1113,43 @@ export function ProductApp({ productId }: { productId: string }) {
                     errors={validation.byField[key]}
                     surfaceAvailability={key === "surfaceTreatments" ? patternAvailability : undefined}
                     suggestedSurfacePattern={key === "surfaceTreatments" ? suggestedPattern : undefined}
+                    axisInsideSizeMm={key === "columnLayout"
+                      ? (parameters.drawerWidth as number) - 2 * (parameters.clearancePerSide as number) - 2 * (parameters.wallThickness as number)
+                      : key === "rowLayout"
+                        ? (parameters.drawerDepth as number) - 2 * (parameters.clearancePerSide as number) - 2 * (parameters.wallThickness as number)
+                        : undefined}
+                    axisDividerThicknessMm={parameters.dividerThickness as number | undefined}
+                    onBeginAxisEdit={beginLayoutEdit}
+                    onCommitAxisEdit={commitLayoutEdit}
                     onChange={updateParameter}
                   />
                 ))}
               </div>
+              {product.id === "drawer-tray" && group.id === "divide" ? (
+                <div className="tray-layout-extras">
+                  <div className="tray-layout-history" role="group" aria-label="Compartment layout history">
+                    <button
+                      type="button"
+                      className="button button--quiet"
+                      data-testid="tray-layout-undo"
+                      disabled={layoutHistory.past.length === 0}
+                      onClick={undoLayout}
+                    >
+                      Undo layout
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--quiet"
+                      data-testid="tray-layout-redo"
+                      disabled={layoutHistory.future.length === 0}
+                      onClick={redoLayout}
+                    >
+                      Redo layout
+                    </button>
+                  </div>
+                  <TrayLayoutMap parameters={parameters as DrawerTrayParameters} valid={validation.valid} />
+                </div>
+              ) : null}
             </section>
           ))}
 

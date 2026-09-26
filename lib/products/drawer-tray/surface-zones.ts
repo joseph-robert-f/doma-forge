@@ -1,5 +1,5 @@
 import type { SurfaceZone } from "../../surface-pattern-plan";
-import { deriveDimensions, type DrawerTrayParameters } from "./schema";
+import { deriveTrayLayout, type DrawerTrayParameters } from "./schema";
 
 /** Solid rim left between the scoop and either side of its front compartment. */
 export const FINGER_SCOOP_SIDE_CLEARANCE = 2;
@@ -10,7 +10,12 @@ export interface FingerScoopLayout {
 }
 
 export function getFingerScoopLayout(parameters: DrawerTrayParameters): FingerScoopLayout {
-  const derived = deriveDimensions(parameters);
+  const derived = deriveTrayLayout(parameters);
+  const columns = derived.columns.spans;
+  // The front cell covering X=0 gets the scoop. When X=0 falls on a
+  // divider or cell boundary, prefer the cell to its left.
+  const firstRight = columns.findIndex((span) => span.start >= 0);
+  const selected = columns[Math.max(0, firstRight < 0 ? columns.length - 1 : firstRight - 1)];
   const availableWallHeight =
     parameters.organizerHeight - parameters.baseThickness;
   const radius = Math.max(
@@ -19,14 +24,13 @@ export function getFingerScoopLayout(parameters: DrawerTrayParameters): FingerSc
       12,
       derived.outsideWidth * 0.075,
       availableWallHeight - 2,
-      derived.compartmentWidth / 2 - FINGER_SCOOP_SIDE_CLEARANCE,
+      selected.size / 2 - FINGER_SCOOP_SIDE_CLEARANCE,
     ),
   );
-  // An even grid has a divider at X=0. Put the one notch just to the left
-  // of it; the radius cap also leaves the same clearance at the far edge.
-  const centerX = parameters.columns % 2 === 0
-    ? -(parameters.dividerThickness / 2 + FINGER_SCOOP_SIDE_CLEARANCE + radius)
-    : 0;
+  const centerX = Math.max(
+    selected.start + FINGER_SCOOP_SIDE_CLEARANCE + radius,
+    Math.min(0, selected.end - FINGER_SCOOP_SIDE_CLEARANCE - radius),
+  );
   return { centerX, radius };
 }
 
@@ -35,7 +39,7 @@ export function getFingerScoopRadius(parameters: DrawerTrayParameters): number {
 }
 
 export function drawerTraySurfaceZones(parameters: DrawerTrayParameters): SurfaceZone[] {
-  const derived = deriveDimensions(parameters);
+  const derived = deriveTrayLayout(parameters);
   const scoop = parameters.fingerScoop ? getFingerScoopLayout(parameters) : null;
   // One floor patch per compartment keeps the wall and divider roots intact.
   // Each straight wall is a separate patch so the rounded corners stay solid.
@@ -48,20 +52,12 @@ export function drawerTraySurfaceZones(parameters: DrawerTrayParameters): Surfac
     max: [-innerLeft, -innerFront] as const,
     radius: Math.max(0, parameters.cornerRadius - parameters.wallThickness),
   };
-  const columnCenters = Array.from({ length: parameters.columns }, (_, column) =>
-    innerLeft + column * (derived.compartmentWidth + parameters.dividerThickness) +
-    derived.compartmentWidth / 2,
-  );
-  const rowCenters = Array.from({ length: parameters.rows }, (_, row) =>
-    innerFront + row * (derived.compartmentDepth + parameters.dividerThickness) +
-    derived.compartmentDepth / 2,
-  );
-  for (const x of columnCenters) {
-    for (const y of rowCenters) {
+  for (const column of derived.columns.spans) {
+    for (const row of derived.rows.spans) {
       zones.push({
         kind: "plane", id: "floor", axis: "z", center: parameters.baseThickness / 2,
-        u: [x - derived.compartmentWidth / 2, x + derived.compartmentWidth / 2],
-        v: [y - derived.compartmentDepth / 2, y + derived.compartmentDepth / 2],
+        u: [column.start, column.end],
+        v: [row.start, row.end],
         thickness: parameters.baseThickness,
         boundary: floorBoundary,
       });
@@ -71,12 +67,10 @@ export function drawerTraySurfaceZones(parameters: DrawerTrayParameters): Surfac
   const straightY = Math.max(0, derived.outsideDepth / 2 - parameters.cornerRadius - 2);
   const wallBottom = parameters.baseThickness + 2;
   const wallTop = parameters.organizerHeight - 2;
-  const xJoints = columnCenters.slice(0, -1).map((_, index) => {
-    const x = columnCenters[index] + derived.compartmentWidth / 2 + parameters.dividerThickness / 2;
+  const xJoints = derived.columns.dividerCenters.map((x) => {
     return { kind: "rect" as const, min: [x - parameters.dividerThickness / 2 - 2, wallBottom] as const, max: [x + parameters.dividerThickness / 2 + 2, wallTop] as const };
   });
-  const yJoints = rowCenters.slice(0, -1).map((_, index) => {
-    const y = rowCenters[index] + derived.compartmentDepth / 2 + parameters.dividerThickness / 2;
+  const yJoints = derived.rows.dividerCenters.map((y) => {
     return { kind: "rect" as const, min: [y - parameters.dividerThickness / 2 - 2, wallBottom] as const, max: [y + parameters.dividerThickness / 2 + 2, wallTop] as const };
   });
   for (const y of [-1, 1]) {
@@ -98,22 +92,20 @@ export function drawerTraySurfaceZones(parameters: DrawerTrayParameters): Surfac
       thickness: parameters.wallThickness, keepouts: yJoints,
     });
   }
-  for (let index = 0; index < parameters.columns - 1; index += 1) {
-    const x = columnCenters[index] + derived.compartmentWidth / 2 + parameters.dividerThickness / 2;
-    for (const y of rowCenters) {
+  for (const x of derived.columns.dividerCenters) {
+    for (const row of derived.rows.spans) {
       zones.push({
         kind: "plane", id: "dividers", axis: "x", center: x,
-        u: [y - derived.compartmentDepth / 2, y + derived.compartmentDepth / 2],
+        u: [row.start, row.end],
         v: [wallBottom, wallTop], thickness: parameters.dividerThickness,
       });
     }
   }
-  for (let index = 0; index < parameters.rows - 1; index += 1) {
-    const y = rowCenters[index] + derived.compartmentDepth / 2 + parameters.dividerThickness / 2;
-    for (const x of columnCenters) {
+  for (const y of derived.rows.dividerCenters) {
+    for (const column of derived.columns.spans) {
       zones.push({
         kind: "plane", id: "dividers", axis: "y", center: y,
-        u: [x - derived.compartmentWidth / 2, x + derived.compartmentWidth / 2],
+        u: [column.start, column.end],
         v: [wallBottom, wallTop], thickness: parameters.dividerThickness,
       });
     }

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DRAWER_TRAY_DEFAULTS as DEFAULT_PARAMETERS,
   deriveDimensions,
+  deriveTrayLayout,
   drawerTray,
   type DrawerTrayParameters,
 } from "../lib/products/drawer-tray";
@@ -29,10 +30,12 @@ const GOLDEN_TRIANGLES = 360;
 const GOLDEN_VOLUME = 277462.54;
 
 const fixtures: Array<[string, Partial<DrawerTrayParameters>]> = [
-  ["1x1", { rows: 1, columns: 1, fingerScoop: false }],
-  ["1x3", { rows: 1, columns: 3, fingerScoop: false }],
-  ["2x3 scoop", { rows: 2, columns: 3, fingerScoop: true }],
-  ["4x4", { rows: 4, columns: 4, fingerScoop: false }],
+  ["1x1", { rowLayout: { mode: "even", count: 1 }, columnLayout: { mode: "even", count: 1 }, fingerScoop: false }],
+  ["1x3", { rowLayout: { mode: "even", count: 1 }, columnLayout: { mode: "even", count: 3 }, fingerScoop: false }],
+  ["2x3 scoop", { rowLayout: { mode: "even", count: 2 }, columnLayout: { mode: "even", count: 3 }, fingerScoop: true }],
+  ["4x4", { rowLayout: { mode: "even", count: 4 }, columnLayout: { mode: "even", count: 4 }, fingerScoop: false }],
+  ["unequal 2x3", { rowLayout: { mode: "custom", fixedSizesMm: [70] }, columnLayout: { mode: "custom", fixedSizesMm: [60, 100] }, fingerScoop: true }],
+  ["dense 6x8", { rowLayout: { mode: "even", count: 6 }, columnLayout: { mode: "even", count: 8 }, fingerScoop: false }],
 ];
 
 function expectRoundedCornerWallIsContinuous(
@@ -123,9 +126,9 @@ describe("organizer geometry", () => {
   });
 
   it.each([
-    ["even columns", { drawerWidth: 80, drawerDepth: 80, clearancePerSide: 0, organizerHeight: 20, cornerRadius: 4, rows: 2, columns: 2 }],
-    ["narrow odd columns", { drawerWidth: 86, drawerDepth: 80, clearancePerSide: 0, organizerHeight: 20, cornerRadius: 4, rows: 1, columns: 7 }],
-    ["rounded front", { drawerWidth: 80, drawerDepth: 80, clearancePerSide: 0, organizerHeight: 20, cornerRadius: 40, rows: 2, columns: 2 }],
+    ["even columns", { drawerWidth: 80, drawerDepth: 80, clearancePerSide: 0, organizerHeight: 20, cornerRadius: 4, rowLayout: { mode: "even", count: 2 }, columnLayout: { mode: "even", count: 2 } }],
+    ["narrow odd columns", { drawerWidth: 86, drawerDepth: 80, clearancePerSide: 0, organizerHeight: 20, cornerRadius: 4, rowLayout: { mode: "even", count: 1 }, columnLayout: { mode: "even", count: 7 } }],
+    ["rounded front", { drawerWidth: 80, drawerDepth: 80, clearancePerSide: 0, organizerHeight: 20, cornerRadius: 40, rowLayout: { mode: "even", count: 2 }, columnLayout: { mode: "even", count: 2 } }],
   ] satisfies Array<[string, Partial<DrawerTrayParameters>]>) (
     "opens the scoop without removing a divider in %s",
     async (_name, changes) => {
@@ -150,20 +153,47 @@ describe("organizer geometry", () => {
       );
       expect(belowNotch.containsSolid([scoop.centerX, scoopWallY])).toBe(true);
 
-      const derived = deriveDimensions(parameters);
-      const frontDividerY = -derived.outsideDepth / 2 + parameters.wallThickness +
-        derived.compartmentDepth + parameters.dividerThickness / 2;
-      if (parameters.rows > 1) {
+      const layout = deriveTrayLayout(parameters);
+      const frontDividerY = layout.rows.dividerCenters[0];
+      if (layout.rows.spans.length > 1) {
         expect(throughNotch.containsSolid([scoop.centerX, frontDividerY])).toBe(true);
       }
-      if (parameters.columns % 2 === 0) {
+      if (layout.columns.spans.length % 2 === 0) {
         expect(throughNotch.containsSolid([0, frontWallMidY(parameters, 0)])).toBe(true);
       } else {
-        const dividerX = derived.compartmentWidth / 2 + parameters.dividerThickness / 2;
+        const dividerX = layout.columns.dividerCenters.find((center) => center > 0)!;
         expect(throughNotch.containsSolid([dividerX, frontWallMidY(parameters, dividerX)])).toBe(true);
       }
     },
   );
+
+  it("places unequal dividers at the measured boundaries", async () => {
+    const parameters = normalize({
+      ...DEFAULT_PARAMETERS,
+      rowLayout: { mode: "custom", fixedSizesMm: [70] },
+      columnLayout: { mode: "custom", fixedSizesMm: [60, 100] },
+      fingerScoop: false,
+    });
+    const layout = deriveTrayLayout(parameters);
+    const model = await generate(parameters);
+    const slice = horizontalSliceTopology(model.mesh, parameters.baseThickness + 0.731);
+    expect({ contours: slice.contours, holes: slice.holes, components: slice.solidComponents }).toEqual({
+      contours: 7,
+      holes: 6,
+      components: 1,
+    });
+    for (const column of layout.columns.spans) {
+      for (const row of layout.rows.spans) {
+        expect(slice.containsSolid([column.center, row.center])).toBe(false);
+      }
+    }
+    for (const x of layout.columns.dividerCenters) {
+      expect(slice.containsSolid([x, layout.rows.spans[0].center])).toBe(true);
+    }
+    for (const y of layout.rows.dividerCenters) {
+      expect(slice.containsSolid([layout.columns.spans[0].center, y])).toBe(true);
+    }
+  });
 
   it("increases round-feature fidelity with mesh quality", async () => {
     const counts: number[] = [];
@@ -189,9 +219,9 @@ describe("organizer geometry", () => {
       solidComponents: topology.solidComponents,
       holes: topology.holes,
     }).toEqual({
-      contours: 1 + parameters.rows * parameters.columns,
+      contours: 1 + deriveTrayLayout(parameters).rows.spans.length * deriveTrayLayout(parameters).columns.spans.length,
       solidComponents: 1,
-      holes: parameters.rows * parameters.columns,
+      holes: deriveTrayLayout(parameters).rows.spans.length * deriveTrayLayout(parameters).columns.spans.length,
     });
     expectRoundedCornerWallIsContinuous(model);
   });
@@ -207,8 +237,8 @@ describe("organizer geometry", () => {
         ...DEFAULT_PARAMETERS,
         cornerRadius,
         wallThickness,
-        rows: 1,
-        columns: 1,
+        rowLayout: { mode: "even", count: 1 },
+        columnLayout: { mode: "even", count: 1 },
         fingerScoop: false,
       });
       const model = await generate(parameters);
@@ -224,11 +254,11 @@ describe("organizer geometry", () => {
       expectRoundedCornerWallIsContinuous(model);
     },
   );
-  it("matches the solid-default golden record at geometry version 3", async () => {
-    // Version 3 changes the Boolean order; the default solid keeps its volume
-    // and bounds, while its triangulation has two fewer faces.
+  it("matches the solid-default golden record at geometry version 4", async () => {
+    // The default equal layout keeps its old mesh while the signature moves
+    // to version 4 for measured unequal layouts.
     const model = await generate(normalize(DEFAULT_PARAMETERS));
-    expect(drawerTray.geometryVersion).toBe(3);
+    expect(drawerTray.geometryVersion).toBe(4);
     expect(model.mesh.triVerts.length / 3).toBe(GOLDEN_TRIANGLES);
     expect(Math.abs(model.volume - GOLDEN_VOLUME) / GOLDEN_VOLUME).toBeLessThan(
       0.001,

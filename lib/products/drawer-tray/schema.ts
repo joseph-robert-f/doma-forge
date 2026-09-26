@@ -1,5 +1,7 @@
 import { defaultSurfaceTreatments, surfaceTreatmentSpec } from "../../surface-patterns";
 import type {
+  AxisLayout,
+  AxisLayoutSpec,
   BooleanSpec,
   EnumSpec,
   MeshQuality,
@@ -81,26 +83,28 @@ export const DRAWER_TRAY_SPECS = {
     step: 0.5,
     unit: "mm",
   } satisfies NumberSpec,
-  rows: {
-    kind: "number",
-    label: "Compartment rows",
+  rowLayout: {
+    kind: "axisLayout",
+    label: "Row depths",
     shortLabel: "Rows",
-    min: 1,
-    max: 6,
-    step: 1,
-    unit: "",
-    integer: true,
-  } satisfies NumberSpec,
-  columns: {
-    kind: "number",
-    label: "Compartment columns",
+    itemLabel: "Row",
+    direction: "front-to-back",
+    minCount: 1,
+    maxCount: 6,
+    minSizeMm: 10,
+    step: 0.1,
+  } satisfies AxisLayoutSpec,
+  columnLayout: {
+    kind: "axisLayout",
+    label: "Column widths",
     shortLabel: "Columns",
-    min: 1,
-    max: 8,
-    step: 1,
-    unit: "",
-    integer: true,
-  } satisfies NumberSpec,
+    itemLabel: "Column",
+    direction: "left-to-right",
+    minCount: 1,
+    maxCount: 8,
+    minSizeMm: 10,
+    step: 0.1,
+  } satisfies AxisLayoutSpec,
   meshQuality: {
     kind: "enum",
     label: "Mesh quality",
@@ -136,8 +140,8 @@ export const DRAWER_TRAY_DEFAULTS: DrawerTrayParameters = {
   baseThickness: 2,
   dividerThickness: 2,
   cornerRadius: 8,
-  rows: 2,
-  columns: 3,
+  rowLayout: { mode: "even", count: 2 },
+  columnLayout: { mode: "even", count: 3 },
   meshQuality: "standard",
   fingerScoop: true,
   surfaceTreatments: defaultSurfaceTreatments(DRAWER_TRAY_SPECS.surfaceTreatments),
@@ -162,8 +166,8 @@ export const DRAWER_TRAY_GROUPS: ParameterGroup<DrawerTrayKey>[] = [
     id: "divide",
     index: "03",
     title: "Divide",
-    description: "Create an even grid of practical compartments.",
-    keys: ["rows", "columns", "dividerThickness"],
+    description: "Set even or measured widths and depths for your compartments.",
+    keys: ["rowLayout", "columnLayout", "dividerThickness"],
   },
   {
     id: "finish",
@@ -195,27 +199,89 @@ export interface DerivedDimensions {
   compartmentDepth: number;
 }
 
-export function deriveDimensions(
-  parameters: DrawerTrayParameters,
-): DerivedDimensions {
+export interface AxisSpan {
+  start: number;
+  end: number;
+  center: number;
+  size: number;
+}
+
+export interface DerivedAxisLayout {
+  sizesMm: number[];
+  spans: AxisSpan[];
+  dividerCenters: number[];
+}
+
+export interface DerivedTrayLayout {
+  outsideWidth: number;
+  outsideDepth: number;
+  outsideHeight: number;
+  insideWidth: number;
+  insideDepth: number;
+  columns: DerivedAxisLayout;
+  rows: DerivedAxisLayout;
+}
+
+function deriveAxisLayout(
+  layout: AxisLayout,
+  outsideSize: number,
+  wallThickness: number,
+  dividerThickness: number,
+  maxCount: number,
+): DerivedAxisLayout {
+  const insideSize = outsideSize - wallThickness * 2;
+  // Validation reports a corrupt count. Bound derivation so an invalid edit
+  // or imported value cannot allocate an enormous array before that check.
+  const requestedCount = layout.mode === "even" ? layout.count : layout.fixedSizesMm.length + 1;
+  const count = Number.isFinite(requestedCount)
+    ? Math.max(1, Math.min(maxCount, Math.floor(requestedCount)))
+    : 1;
+  const availableForCompartments = insideSize - (count - 1) * dividerThickness;
+  const sizesMm = layout.mode === "even"
+    ? Array.from({ length: count }, () => availableForCompartments / count)
+    : [
+        ...layout.fixedSizesMm.slice(0, count - 1),
+        availableForCompartments - layout.fixedSizesMm.slice(0, count - 1).reduce((sum, size) => sum + size, 0),
+      ];
+  let cursor = -outsideSize / 2 + wallThickness;
+  const spans = sizesMm.map((size) => {
+    const start = cursor;
+    const end = start + size;
+    cursor = end + dividerThickness;
+    return { start, end, center: (start + end) / 2, size };
+  });
+  return {
+    sizesMm,
+    spans,
+    dividerCenters: spans.slice(0, -1).map((span) => span.end + dividerThickness / 2),
+  };
+}
+
+/** One coordinate system for the editor, validation, zones, and solid. */
+export function deriveTrayLayout(parameters: DrawerTrayParameters): DerivedTrayLayout {
   const outsideWidth = parameters.drawerWidth - parameters.clearancePerSide * 2;
   const outsideDepth = parameters.drawerDepth - parameters.clearancePerSide * 2;
-  const compartmentWidth =
-    (outsideWidth -
-      parameters.wallThickness * 2 -
-      (parameters.columns - 1) * parameters.dividerThickness) /
-    parameters.columns;
-  const compartmentDepth =
-    (outsideDepth -
-      parameters.wallThickness * 2 -
-      (parameters.rows - 1) * parameters.dividerThickness) /
-    parameters.rows;
   return {
     outsideWidth,
     outsideDepth,
     outsideHeight: parameters.organizerHeight,
-    compartmentWidth,
-    compartmentDepth,
+    insideWidth: outsideWidth - parameters.wallThickness * 2,
+    insideDepth: outsideDepth - parameters.wallThickness * 2,
+    columns: deriveAxisLayout(parameters.columnLayout, outsideWidth, parameters.wallThickness, parameters.dividerThickness, 8),
+    rows: deriveAxisLayout(parameters.rowLayout, outsideDepth, parameters.wallThickness, parameters.dividerThickness, 6),
+  };
+}
+
+export function deriveDimensions(
+  parameters: DrawerTrayParameters,
+): DerivedDimensions {
+  const layout = deriveTrayLayout(parameters);
+  return {
+    outsideWidth: layout.outsideWidth,
+    outsideDepth: layout.outsideDepth,
+    outsideHeight: layout.outsideHeight,
+    compartmentWidth: layout.columns.sizesMm[0] ?? Number.NaN,
+    compartmentDepth: layout.rows.sizesMm[0] ?? Number.NaN,
   };
 }
 

@@ -12,6 +12,8 @@ import {
 } from "../../lib/surface-patterns";
 import { parameterSlug } from "../../lib/products/shared";
 import type {
+  AxisLayout,
+  AxisLayoutSpec,
   BooleanSpec,
   EnumSpec,
   LayoutSpec,
@@ -24,7 +26,7 @@ interface ControlProps<S extends ParameterSpec, V> {
   spec: S;
   value: V;
   errors?: string[];
-  onChange: (key: string, value: V) => void;
+  onChange: (key: string, value: V, commitNow?: boolean) => void;
 }
 
 export function NumberControl({
@@ -281,6 +283,221 @@ export function LayoutControl({
   );
 }
 
+function axisCount(layout: AxisLayout): number {
+  return layout.mode === "even" ? layout.count : layout.fixedSizesMm.length + 1;
+}
+
+function roundMillimeter(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
+/** Measured tray compartments; the final segment absorbs the remaining space. */
+export function AxisLayoutControl({
+  parameterKey,
+  spec,
+  value,
+  errors,
+  insideSizeMm,
+  dividerThicknessMm,
+  onChange,
+  onBeginEdit,
+  onCommitEdit,
+}: ControlProps<AxisLayoutSpec, AxisLayout> & {
+  insideSizeMm: number;
+  dividerThicknessMm: number;
+  onBeginEdit?: () => void;
+  onCommitEdit?: () => void;
+}) {
+  const slug = parameterSlug(parameterKey);
+  const count = axisCount(value);
+  const fixed = value.mode === "custom" ? value.fixedSizesMm : [];
+  const available = insideSizeMm - (count - 1) * dividerThicknessMm;
+  const remaining = value.mode === "custom"
+    ? roundMillimeter(available - fixed.reduce((sum, size) => sum + size, 0))
+    : roundMillimeter(available / count);
+  const isInvalid = Boolean(errors?.length);
+  const exactError = (index: number) => errors?.find((message) =>
+    message.startsWith(`${spec.itemLabel} ${index + 1} `) ||
+    message.startsWith(`${spec.itemLabel} ${index + 1}:`)
+  );
+  const specificErrors = new Set(
+    Array.from({ length: Number.isFinite(count) ? Math.max(0, Math.min(spec.maxCount, count)) : 0 }, (_, index) => exactError(index)).filter(Boolean),
+  );
+  const groupErrors = value.mode === "even"
+    ? errors
+    : errors?.filter((message) => !specificErrors.has(message));
+
+  const changeMode = (mode: AxisLayout["mode"]) => {
+    if (mode === value.mode) return;
+    if (mode === "even") {
+      onChange(parameterKey, { mode: "even", count: fixed.length + 1 }, true);
+      return;
+    }
+    const safeCount = Number.isInteger(count) ? Math.max(spec.minCount, Math.min(spec.maxCount, count)) : spec.minCount;
+    const equalSize = roundMillimeter((insideSizeMm - (safeCount - 1) * dividerThicknessMm) / safeCount);
+    onChange(parameterKey, {
+      mode: "custom",
+      fixedSizesMm: Array.from({ length: safeCount - 1 }, () => equalSize),
+    }, true);
+  };
+  const addSegment = () => {
+    if (value.mode !== "custom") return;
+    const newSize = roundMillimeter((remaining - dividerThicknessMm) / 2);
+    onChange(parameterKey, { mode: "custom", fixedSizesMm: [...fixed, newSize] }, true);
+  };
+  const removeSegment = () => {
+    if (value.mode !== "custom") return;
+    onChange(parameterKey, { mode: "custom", fixedSizesMm: fixed.slice(0, -1) }, true);
+  };
+  const updateFixed = (index: number, text: string) => {
+    const next = [...fixed];
+    next[index] = text === "" ? Number.NaN : Number(text);
+    onChange(parameterKey, { mode: "custom", fixedSizesMm: next });
+  };
+
+  return (
+    <div
+      className={`parameter-control axis-layout-control${isInvalid ? " parameter-control--invalid" : ""}`}
+      role="group"
+      aria-labelledby={`${slug}-label`}
+      aria-describedby={`${slug}-direction${groupErrors?.length ? ` ${slug}-error` : ""}`}
+    >
+      <div className="parameter-label-row">
+        <span id={`${slug}-label`} className="parameter-label">{spec.label}</span>
+        <span className="parameter-range-hint">{spec.minCount}–{spec.maxCount} {spec.itemLabel.toLowerCase()}s</span>
+      </div>
+      <p id={`${slug}-direction`} className="axis-layout-direction">
+        Sizes run {spec.direction.replaceAll("-", " ")} in millimeters.
+      </p>
+      <div className="axis-layout-modes" role="radiogroup" aria-label={`${spec.label} spacing`}>
+        {(["even", "custom"] as const).map((mode) => (
+          <label className={`quality-option${value.mode === mode ? " quality-option--active" : ""}`} key={mode}>
+            <input
+              type="radio"
+              name={`${slug}-mode`}
+              value={mode}
+              data-testid={`param-${slug}-${mode}`}
+              checked={value.mode === mode}
+              onChange={() => changeMode(mode)}
+            />
+            <span>{mode === "even" ? "Even" : "Custom"}</span>
+          </label>
+        ))}
+      </div>
+      {value.mode === "even" ? (
+        <label className="axis-layout-count">
+          <span>{spec.itemLabel}s</span>
+          <div className="number-input-wrap">
+            <input
+              className="parameter-number"
+              data-testid={`param-${slug}-count`}
+              type="number"
+              inputMode="numeric"
+              min={spec.minCount}
+              max={spec.maxCount}
+              step={1}
+              value={Number.isFinite(value.count) ? value.count : ""}
+              aria-invalid={isInvalid || undefined}
+              aria-errormessage={isInvalid ? `${slug}-error` : undefined}
+              onFocus={onBeginEdit}
+              onBlur={onCommitEdit}
+              onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
+              onChange={(event) => onChange(parameterKey, {
+                mode: "even",
+                count: event.target.value === "" ? Number.NaN : Number(event.target.value),
+              })}
+            />
+          </div>
+        </label>
+      ) : (
+        <>
+          <div className="axis-layout-sizes">
+            {fixed.map((size, index) => {
+              const message = exactError(index);
+              const messageId = `${slug}-size-${index + 1}-error`;
+              const steps = (size - spec.minSizeMm) / spec.step;
+              const inputStep = Number.isFinite(steps) && Math.abs(steps - Math.round(steps)) < 1e-7
+                ? spec.step : "any";
+              return (
+                <label className="axis-layout-size" key={index}>
+                  <span>{spec.itemLabel} {index + 1}</span>
+                  <div className="number-input-wrap">
+                    <input
+                      className="parameter-number"
+                      data-testid={`param-${slug}-size-${index + 1}`}
+                      type="number"
+                      inputMode="decimal"
+                      min={spec.minSizeMm}
+                      step={inputStep}
+                      value={Number.isFinite(size) ? size : ""}
+                      aria-invalid={Boolean(message) || undefined}
+                      aria-errormessage={message ? messageId : undefined}
+                      onFocus={onBeginEdit}
+                      onBlur={onCommitEdit}
+                      onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
+                      onChange={(event) => updateFixed(index, event.target.value)}
+                    />
+                    <span className="number-unit">mm</span>
+                  </div>
+                  {message ? <span className="field-error" id={messageId}>{message}</span> : null}
+                </label>
+              );
+            })}
+            <label className="axis-layout-size">
+              <span>{spec.itemLabel} {count} <span className="layout-solved">Remaining</span></span>
+              <div className="number-input-wrap">
+                <input
+                  className="parameter-number"
+                  data-testid={`param-${slug}-remaining`}
+                  type="number"
+                  value={Number.isFinite(remaining) ? remaining : ""}
+                  readOnly
+                  aria-readonly="true"
+                  aria-invalid={Boolean(exactError(count - 1)) || undefined}
+                  aria-errormessage={exactError(count - 1) ? `${slug}-remaining-error` : undefined}
+                />
+                <span className="number-unit">mm</span>
+              </div>
+              {exactError(count - 1) ? (
+                <span className="field-error" id={`${slug}-remaining-error`}>{exactError(count - 1)}</span>
+              ) : null}
+            </label>
+          </div>
+          <div className="layout-actions axis-layout-actions">
+            <button
+              type="button"
+              className="button button--quiet"
+              data-testid={`param-${slug}-add`}
+              disabled={count >= spec.maxCount || !Number.isFinite(remaining) || remaining < spec.minSizeMm * 2 + dividerThicknessMm}
+              onClick={addSegment}
+            >
+              Add {spec.itemLabel.toLowerCase()}
+            </button>
+            <button
+              type="button"
+              className="button button--quiet"
+              data-testid={`param-${slug}-remove`}
+              disabled={count <= spec.minCount}
+              onClick={removeSegment}
+            >
+              Remove {spec.itemLabel.toLowerCase()}
+            </button>
+            <button
+              type="button"
+              className="button button--quiet"
+              data-testid={`param-${slug}-redistribute`}
+              onClick={() => changeMode("even")}
+            >
+              Redistribute evenly
+            </button>
+          </div>
+        </>
+      )}
+      <FieldError slug={slug} errors={groupErrors} />
+    </div>
+  );
+}
+
 export function EnumControl({
   parameterKey,
   spec,
@@ -469,6 +686,10 @@ export function ParameterControl({
   errors,
   surfaceAvailability,
   suggestedSurfacePattern,
+  axisInsideSizeMm,
+  axisDividerThicknessMm,
+  onBeginAxisEdit,
+  onCommitAxisEdit,
   onChange,
 }: {
   parameterKey: string;
@@ -477,7 +698,11 @@ export function ParameterControl({
   errors?: string[];
   surfaceAvailability?: Record<string, string>;
   suggestedSurfacePattern?: SuggestedSurfacePattern | null;
-  onChange: (key: string, value: unknown) => void;
+  axisInsideSizeMm?: number;
+  axisDividerThicknessMm?: number;
+  onBeginAxisEdit?: () => void;
+  onCommitAxisEdit?: () => void;
+  onChange: (key: string, value: unknown, commitNow?: boolean) => void;
 }) {
   switch (spec.kind) {
     case "number":
@@ -507,6 +732,20 @@ export function ParameterControl({
           spec={spec}
           value={value as number[]}
           errors={errors}
+          onChange={onChange}
+        />
+      );
+    case "axisLayout":
+      return (
+        <AxisLayoutControl
+          parameterKey={parameterKey}
+          spec={spec}
+          value={value as AxisLayout}
+          errors={errors}
+          insideSizeMm={axisInsideSizeMm ?? Number.NaN}
+          dividerThicknessMm={axisDividerThicknessMm ?? Number.NaN}
+          onBeginEdit={onBeginAxisEdit}
+          onCommitEdit={onCommitAxisEdit}
           onChange={onChange}
         />
       );

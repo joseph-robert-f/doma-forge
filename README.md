@@ -32,15 +32,33 @@ npm run deploy:preview   # build under CLOUDFLARE_ENV=preview, then deploy to th
 
 ## Parameters and validation
 
-All dimensions are millimeters. Each product defines its own measurements, layout, and construction rules. For the drawer organizer tray, width and depth are calculated as the drawer interior dimension minus the selected clearance on both sides. Internal compartment dimensions account for the two perimeter walls and every divider. Its rows and columns are evenly spaced; other products offer individual well widths, bores, slots, hooks, or revolved profiles.
+All dimensions are millimeters. Each product defines its own measurements, layout, and construction rules. For the drawer organizer tray, width and depth are calculated as the drawer interior dimension minus the selected clearance on both sides. Internal compartment dimensions account for the two perimeter walls and every divider. The tray starts with evenly spaced rows and columns; either axis can instead use individually measured compartments. Other products offer individual well widths, bores, slots, hooks, or revolved profiles.
 
 DrawerForge rejects non-finite or out-of-range values and applies each product's construction rules. For the drawer organizer tray, those rules reject a base that leaves too little wall, a corner radius larger than the tray, and layouts with compartments under 10 mm. Invalid edits never replace the last valid preview and always disable STL download. The latest valid normalized design for each product is stored locally in the browser and can be reset to practical defaults.
 
 Draft, Standard, and Fine change curved-feature tessellation only. Standard is the recommended balance for editing and export.
 
-The drawer tray's front finger scoop stays within one front compartment. On
-even-column grids it sits just left of the center divider; in narrow grids it
-shrinks to leave solid rim between the notch and neighboring dividers.
+The drawer tray's front finger scoop stays within one front compartment. If a
+divider crosses the tray center, the scoop uses the compartment to its left.
+In narrow compartments it shrinks to leave solid rim beside the dividers.
+
+### Unequal tray compartments
+
+In **Divide**, keep **Even** for equal spacing or choose **Custom** separately
+for column widths and row depths. Columns run left to right; rows run front to
+back. Enter the inside size of each compartment in millimeters. The final
+column or row takes the space left after the outer walls, other compartments,
+and dividers. For example, the default tray has 291 mm of usable width and
+193 mm of usable depth: columns of 60 and 100 mm leave 131 mm for the last
+column, while a 70 mm front row leaves 123 mm for the back row. The layout map
+and calculated results show the built sizes.
+
+Adding a compartment splits the final one; removing one merges it back.
+**Redistribute evenly** restores equal spacing along one axis. In Custom mode,
+changing the drawer size keeps the entered sizes and changes the final
+compartment. Every compartment must remain at least 10 mm wide and deep.
+Invalid edits keep the last valid preview and disable the STL download. Layout
+undo and redo are available during the current editing session.
 
 ### Permeable surfaces
 
@@ -56,7 +74,7 @@ A design file holds one product's settings in millimeters. Use it to move a desi
 2. Select **Save design file**. The browser downloads `<name>-<product-id>-<hash>.drawerforge.json`.
 3. On any device, select **Open design file** and choose the file. The design replaces the current settings only after every check passes.
 
-A file with an unknown format, an unsupported version, a missing parameter, or an out-of-range value is refused with a message. The current design does not change. Version 2 files retain each surface pattern; version 1 files still open with every surface solid. A file saved by a different app version loads with a warning that the mesh may differ.
+A file with an unknown format, an unsupported version, a missing parameter, or an out-of-range value is refused with a message. The current design does not change. Version 3 saves unequal tray layouts. Version 2 files retain each surface pattern and open older tray grids with even spacing; version 1 files still open with every surface solid. A file saved by a different app version loads with a warning that the mesh may differ.
 
 The design file never holds printer data. Printer corrections belong to a local printer profile.
 
@@ -374,7 +392,7 @@ See [`outputs/drawerforge-agent-handoff/26_CLOUDFLARE_MIGRATION_NOTES.md`](outpu
 
 ## Current limitations
 
-- Layouts follow each product's parameters: tray grids, individual wells, bores, slots, fins, hooks, and revolved forms
+- Layouts follow each product's parameters: full-length tray rows and columns, individual wells, bores, slots, fins, hooks, and revolved forms
 - One product per design; automatic splitting is supported for shelf-riser legs, but there is no general-purpose splitting for other products
 - No arbitrary divider drawing, slicer settings, or multi-model projects
 - The last valid design for each product persists in the current browser’s local storage; use a design file to move it

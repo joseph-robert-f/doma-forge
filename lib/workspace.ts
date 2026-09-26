@@ -1,4 +1,8 @@
-import { normalizeDesignName } from "./design-file";
+import {
+  axisLayoutFileIssue,
+  migrateLegacyTrayParameters,
+  normalizeDesignName,
+} from "./design-file";
 import {
   PRINTER_PROFILE_DEFAULTS,
   normalizePrinterProfile,
@@ -9,10 +13,9 @@ import { getProduct } from "./products/registry";
 import type { AnyParameters, AnyProduct } from "./products/types";
 
 /**
- * The local workspace: everything this browser origin remembers. Version 3
- * has its own key so an old open tab cannot overwrite pattern settings. The
- * version 2 envelope and version 1 single-design record migrate on first
- * load and remain in place for an older build of the app.
+ * The local workspace: everything this browser origin remembers. Version 4
+ * has its own key so an old open tab cannot overwrite measured tray layouts.
+ * Earlier envelopes and the version 1 single-design record remain in place.
  */
 export interface StoredDesign {
   productId: string;
@@ -22,9 +25,9 @@ export interface StoredDesign {
   updatedAt: string;
 }
 
-export interface WorkspaceV3 {
+export interface WorkspaceV4 {
   format: typeof WORKSPACE_FORMAT;
-  version: 3;
+  version: 4;
   updatedAt: string;
   designs: Record<string, StoredDesign>;
   /**
@@ -34,8 +37,9 @@ export interface WorkspaceV3 {
 }
 
 export const WORKSPACE_FORMAT = "drawerforge-workspace";
-export const WORKSPACE_VERSION = 3;
-export const WORKSPACE_KEY = "drawerforge-workspace-v3";
+export const WORKSPACE_VERSION = 4;
+export const WORKSPACE_KEY = "drawerforge-workspace-v4";
+export const PREVIOUS_WORKSPACE_KEY = "drawerforge-workspace-v3";
 export const LEGACY_WORKSPACE_KEY = "drawerforge-workspace-v2";
 export const LEGACY_DESIGN_KEY = "drawerforge-design-v1";
 /** Written into the version 1 record once it has been migrated. */
@@ -56,13 +60,13 @@ export type ResolveProduct = (id: string) => AnyProduct;
  * writing in either case could destroy data.
  */
 export type WorkspaceRead =
-  | { state: "ok"; workspace: WorkspaceV3 }
+  | { state: "ok"; workspace: WorkspaceV4 }
   | { state: "absent" }
   | { state: "unreadable" }
   | { state: "newer" };
 
 interface LoadedWorkspace {
-  workspace: WorkspaceV3;
+  workspace: WorkspaceV4;
   writable: boolean;
 }
 
@@ -70,7 +74,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function emptyWorkspace(now: () => Date): WorkspaceV3 {
+function emptyWorkspace(now: () => Date): WorkspaceV4 {
   return {
     format: WORKSPACE_FORMAT,
     version: WORKSPACE_VERSION,
@@ -99,6 +103,25 @@ function legacyParameters(value: unknown): unknown {
   return Object.fromEntries(Object.entries(value).filter(([key]) => key !== "surfaceTreatments"));
 }
 
+/** Older tray records used number parameters, which accepted numeric strings. */
+function migrateStoredLegacyTrayParameters(parameters: Record<string, unknown>): Record<string, unknown> {
+  const migrated = migrateLegacyTrayParameters(parameters);
+  for (const key of ["rowLayout", "columnLayout"] as const) {
+    const layout = migrated[key];
+    if (!isRecord(layout) || layout.mode !== "even") continue;
+    try {
+      const raw = layout.count;
+      const numeric = raw === "" ? Number.NaN : typeof raw === "number" ? raw : Number(raw);
+      layout.count = Number.isFinite(numeric)
+        ? Math.round(Math.round(numeric * 1000) / 1000)
+        : numeric;
+    } catch {
+      // Keep an unconvertible count so strict layout validation rejects it.
+    }
+  }
+  return migrated;
+}
+
 /**
  * Reads the envelope. Corrupt JSON or a foreign format under our key is
  * removed, because it cannot be repaired and would block every later save.
@@ -120,7 +143,7 @@ export function readWorkspace(storage: StorageLike): WorkspaceRead {
   }
   if (isRecord(parsed) && parsed.format === WORKSPACE_FORMAT) {
     if (parsed.version === WORKSPACE_VERSION && isRecord(parsed.designs)) {
-      const workspace: WorkspaceV3 = {
+      const workspace: WorkspaceV4 = {
         format: WORKSPACE_FORMAT,
         version: WORKSPACE_VERSION,
         updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
@@ -145,11 +168,16 @@ export function readWorkspace(storage: StorageLike): WorkspaceRead {
   return { state: "absent" };
 }
 
-/** Reads the previous envelope without changing it. */
-function readLegacyWorkspace(storage: StorageLike, resolveProduct: ResolveProduct): WorkspaceRead {
+/** Reads a previous envelope without changing it. */
+function readLegacyWorkspace(
+  storage: StorageLike,
+  resolveProduct: ResolveProduct,
+  key: string,
+  version: 2 | 3,
+): WorkspaceRead {
   let text: string | null;
   try {
-    text = storage.getItem(LEGACY_WORKSPACE_KEY);
+    text = storage.getItem(key);
   } catch {
     return { state: "unreadable" };
   }
@@ -161,9 +189,9 @@ function readLegacyWorkspace(storage: StorageLike, resolveProduct: ResolveProduc
     return { state: "absent" };
   }
   if (!isRecord(parsed) || parsed.format !== WORKSPACE_FORMAT) return { state: "absent" };
-  if (typeof parsed.version === "number" && parsed.version > 2) return { state: "newer" };
-  if (parsed.version !== 2 || !isRecord(parsed.designs)) return { state: "absent" };
-  const workspace: WorkspaceV3 = {
+  if (typeof parsed.version === "number" && parsed.version > version) return { state: "newer" };
+  if (parsed.version !== version || !isRecord(parsed.designs)) return { state: "absent" };
+  const workspace: WorkspaceV4 = {
     format: WORKSPACE_FORMAT,
     version: WORKSPACE_VERSION,
     updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
@@ -171,10 +199,16 @@ function readLegacyWorkspace(storage: StorageLike, resolveProduct: ResolveProduc
   };
   if (isRecord(parsed.printer)) workspace.printer = normalizePrinterProfile(parsed.printer);
   // Validate each entry independently. A damaged design cannot hide the
-  // other products, and normalization gives all migrated designs solid zones.
+  // other products. Version 2 gains solid zones; version 3 retains patterns.
   for (const [id, entry] of Object.entries(parsed.designs)) {
+    const parameters = isRecord(entry) && isRecord(entry.parameters)
+      ? version === 2 ? legacyParameters(entry.parameters) : entry.parameters
+      : null;
+    const migrated = isRecord(parameters) && id === DRAWER_TRAY_ID
+      ? migrateStoredLegacyTrayParameters(parameters)
+      : parameters;
     const checked = validateStoredDesign(
-      isRecord(entry) ? { ...entry, parameters: legacyParameters(entry.parameters) } : entry,
+      isRecord(entry) ? { ...entry, parameters: migrated } : entry,
       resolveProduct,
     );
     if (checked && checked.product.id === id) setDesign(workspace.designs, id, checked.design);
@@ -183,7 +217,7 @@ function readLegacyWorkspace(storage: StorageLike, resolveProduct: ResolveProduc
 }
 
 /** Writes the envelope. Returns false when storage refuses, e.g. on quota. */
-export function writeWorkspace(storage: StorageLike, workspace: WorkspaceV3): boolean {
+export function writeWorkspace(storage: StorageLike, workspace: WorkspaceV4): boolean {
   try {
     storage.setItem(WORKSPACE_KEY, JSON.stringify(workspace));
     return true;
@@ -204,6 +238,7 @@ export function validateStoredDesign(
   try {
     const product = resolveProduct(entry.productId);
     if (!isRecord(entry.parameters)) return null;
+    if (axisLayoutFileIssue(product, entry.parameters)) return null;
     const parameters = product.normalize(entry.parameters);
     if (!product.validate(parameters).valid) return null;
     return {
@@ -249,7 +284,11 @@ export function readLegacyDesign(
       {
         productId: parsed.productId ?? DRAWER_TRAY_ID,
         name: parsed.name,
-        parameters: legacyParameters(parsed.parameters),
+        parameters: isRecord(parsed.parameters)
+          ? (parsed.productId ?? DRAWER_TRAY_ID) === DRAWER_TRAY_ID
+            ? migrateStoredLegacyTrayParameters(legacyParameters(parsed.parameters) as Record<string, unknown>)
+            : legacyParameters(parsed.parameters)
+          : parsed.parameters,
       },
       resolveProduct,
     );
@@ -286,12 +325,18 @@ export function loadWorkspace(
   const read = readWorkspace(storage);
   if (read.state === "ok") return { workspace: read.workspace, writable: true };
   if (read.state !== "absent") return { workspace: emptyWorkspace(now), writable: false };
-  const previous = readLegacyWorkspace(storage, resolveProduct);
+  const previous = readLegacyWorkspace(storage, resolveProduct, PREVIOUS_WORKSPACE_KEY, 3);
   if (previous.state === "ok") {
     const writable = writeWorkspace(storage, previous.workspace);
     return { workspace: previous.workspace, writable };
   }
   if (previous.state !== "absent") return { workspace: emptyWorkspace(now), writable: false };
+  const earlier = readLegacyWorkspace(storage, resolveProduct, LEGACY_WORKSPACE_KEY, 2);
+  if (earlier.state === "ok") {
+    const writable = writeWorkspace(storage, earlier.workspace);
+    return { workspace: earlier.workspace, writable };
+  }
+  if (earlier.state !== "absent") return { workspace: emptyWorkspace(now), writable: false };
   const workspace = emptyWorkspace(now);
   const legacy = readLegacyDesign(storage, resolveProduct);
   if (legacy) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { drawerTray } from "../lib/products/drawer-tray";
+import { deriveTrayLayout, drawerTray } from "../lib/products/drawer-tray";
 import { drawerRiser } from "../lib/products/drawer-riser";
 import { partsBin } from "../lib/products/parts-bin";
 import { remoteCaddy } from "../lib/products/remote-caddy";
@@ -67,6 +67,31 @@ function withPattern(
 }
 
 describe("permeable shell and vessel surfaces", () => {
+  it("keeps unequal tray pattern zones inside their measured compartments", async () => {
+    const baseline = drawerTray.normalize({
+      ...drawerTray.defaults,
+      rowLayout: { mode: "custom", fixedSizesMm: [70] },
+      columnLayout: { mode: "custom", fixedSizesMm: [60, 100] },
+    });
+    const layout = deriveTrayLayout(baseline);
+    const zones = drawerTray.surfaceZones!(baseline);
+    const floors = zones.filter((zone) => zone.kind === "plane" && zone.id === "floor");
+    const dividers = zones.filter((zone) => zone.kind === "plane" && zone.id === "dividers");
+    expect(floors).toHaveLength(6);
+    expect(dividers).toHaveLength(7);
+    for (const column of layout.columns.spans) {
+      for (const row of layout.rows.spans) {
+        expect(floors).toContainEqual(expect.objectContaining({
+          u: [column.start, column.end],
+          v: [row.start, row.end],
+        }));
+      }
+    }
+    const patterned = withPattern(drawerTray as unknown as AnyProduct, baseline, "floor", "holes", 8, 4);
+    expect(drawerTray.validate(patterned as typeof baseline).issues).toEqual([]);
+    await assertProductContract(drawerTray as unknown as AnyProduct, patterned, "unequal floor holes", 1);
+  }, 90_000);
+
   it("keeps floor openings out of rounded bin corners", async () => {
     const baseline = partsBin.normalize({
       ...partsBin.defaults,

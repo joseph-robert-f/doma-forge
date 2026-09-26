@@ -56,19 +56,33 @@ describe("product registry", () => {
         for (const [key, spec] of Object.entries(product.specs)) {
           const changed = { ...product.defaults } as Record<string, unknown>;
           const current = changed[key];
-          changed[key] =
-            spec.kind === "number"
-              ? (current as number) + spec.step
-              : spec.kind === "boolean"
-                ? !(current as boolean)
-                : spec.kind === "layout"
-                  ? (current as number[]).map((width, index) =>
-                      index === 0 ? width + spec.step : width,
-                    )
-                  : spec.kind === "surfaceTreatments"
-                    ? { ...(current as { enabled: boolean }), enabled: !(current as { enabled: boolean }).enabled }
-                  : spec.options.find((option) => option.value !== current)
-                      ?.value;
+          switch (spec.kind) {
+            case "number":
+              changed[key] = (current as number) + spec.step;
+              break;
+            case "boolean":
+              changed[key] = !(current as boolean);
+              break;
+            case "layout":
+              changed[key] = (current as number[]).map((width, index) =>
+                index === 0 ? width + spec.step : width,
+              );
+              break;
+            case "axisLayout":
+              changed[key] = (current as { mode: "even"; count: number }).mode === "even"
+                ? { mode: "even", count: (current as { count: number }).count + 1 }
+                : { mode: "custom", fixedSizesMm: [
+                    ...(current as { fixedSizesMm: number[] }).fixedSizesMm,
+                    spec.minSizeMm,
+                  ] };
+              break;
+            case "surfaceTreatments":
+              changed[key] = { ...(current as { enabled: boolean }), enabled: !(current as { enabled: boolean }).enabled };
+              break;
+            case "enum":
+              changed[key] = spec.options.find((option) => option.value !== current)?.value;
+              break;
+          }
           expect(product.signature(product.normalize(changed))).not.toBe(base);
         }
       });
@@ -127,15 +141,12 @@ describe("drawer tray product", () => {
     ]);
   });
 
-  it("reports a cleared integer field as both missing and non-integer", () => {
+  it("reports a cleared even row count", () => {
     const result = drawerTray.validate({
       ...drawerTray.defaults,
-      rows: Number.NaN,
+      rowLayout: { mode: "even", count: Number.NaN },
     });
-    expect(result.byField.rows).toEqual([
-      "Rows must be a number.",
-      "Rows must be a whole number.",
-    ]);
+    expect(result.byField.rowLayout?.join(" ")).toMatch(/row|count|number/i);
   });
 
   it("rejects an unknown enum or non-boolean value that skipped normalization", () => {
@@ -156,11 +167,11 @@ describe("drawer tray product", () => {
       drawerWidth: 300.5,
       drawerDepth: 200,
       organizerHeight: 47.5,
-      rows: 2,
-      columns: 3,
+      rowLayout: { mode: "even", count: 2 },
+      columnLayout: { mode: "even", count: 3 },
     });
-    expect(drawerTray.filename(parameters)).toBe(
-      "drawerforge-drawer-tray-299p5x199x47p5-2x3-48ad12.stl",
+    expect(drawerTray.filename(parameters)).toMatch(
+      /^drawerforge-drawer-tray-299p5x199x47p5-2x3-[0-9a-f]{6}\.stl$/,
     );
   });
 

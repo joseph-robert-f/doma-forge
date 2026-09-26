@@ -27,10 +27,10 @@ describe("design file export", () => {
     );
     expect(design).toMatchObject({
       format: DESIGN_FILE_FORMAT,
-      version: 2,
+      version: 3,
       units: "mm",
       productId: "drawer-tray",
-      geometryVersion: 3,
+      geometryVersion: drawerTray.geometryVersion,
       name: "Workshop drawer",
       createdAt: "2026-09-02T12:00:00.000Z",
     });
@@ -71,6 +71,15 @@ describe("design file export", () => {
 
 describe("design file import", () => {
   const good = serializeDesignFile(createDesignFile(drawerTray, drawerTray.defaults, "Round trip", fixedNow));
+  function legacy(version: 1 | 2) {
+    const data = JSON.parse(good);
+    data.version = version;
+    delete data.parameters.rowLayout;
+    delete data.parameters.columnLayout;
+    data.parameters.rows = 2;
+    data.parameters.columns = 3;
+    return data;
+  }
 
   it("round-trips to the same signature", () => {
     const result = parseDesignFile(good);
@@ -85,21 +94,22 @@ describe("design file import", () => {
   });
 
   it("imports a v1 design with every surface solid", () => {
-    const data = JSON.parse(good);
-    data.version = 1;
+    const data = legacy(1);
     data.parameters.surfaceTreatments.enabled = true;
     data.parameters.surfaceTreatments.zones.floor.mode = "holes";
     const result = parseDesignFile(JSON.stringify(data));
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("unreachable");
-    expect(result.design.version).toBe(2);
+    expect(result.design.version).toBe(3);
+    expect(result.design.parameters.rowLayout).toEqual({ mode: "even", count: 2 });
+    expect(result.design.parameters.columnLayout).toEqual({ mode: "even", count: 3 });
     const treatment = result.design.parameters.surfaceTreatments as SurfaceTreatments;
     expect(treatment.enabled).toBe(false);
     expect(treatment.zones.floor.mode).toBe("solid");
   });
 
   it("rejects unknown v2 surface zones and modes before normalization", () => {
-    const unknownZone = JSON.parse(good);
+    const unknownZone = legacy(2);
     unknownZone.parameters.surfaceTreatments.zones.future = {
       mode: "holes", opening: 10, web: 2.4, margin: 6,
     };
@@ -107,7 +117,7 @@ describe("design file import", () => {
     expect(zoneResult.ok).toBe(false);
     if (!zoneResult.ok) expect(zoneResult.error).toMatch(/unknown surface zone: future/);
 
-    const unknownMode = JSON.parse(good);
+    const unknownMode = legacy(2);
     unknownMode.parameters.surfaceTreatments.zones.floor.mode = "magic";
     const modeResult = parseDesignFile(JSON.stringify(unknownMode));
     expect(modeResult.ok).toBe(false);
@@ -123,11 +133,39 @@ describe("design file import", () => {
       },
     });
     const design = createDesignFile(drawerTray, parameters, "Permeable", fixedNow);
-    const imported = parseDesignFile(serializeDesignFile(design));
+    const legacyFile = JSON.parse(serializeDesignFile(design));
+    legacyFile.version = 2;
+    delete legacyFile.parameters.rowLayout;
+    delete legacyFile.parameters.columnLayout;
+    legacyFile.parameters.rows = 2;
+    legacyFile.parameters.columns = 3;
+    const imported = parseDesignFile(JSON.stringify(legacyFile));
     expect(imported.ok).toBe(true);
     if (!imported.ok) throw new Error("unreachable");
     expect((imported.design.parameters.surfaceTreatments as SurfaceTreatments).zones.floor.mode).toBe("holes");
     expect(drawerTray.signature(imported.design.parameters)).toBe(drawerTray.signature(parameters));
+  });
+
+  it("round-trips custom axes in v3 and rejects malformed custom arrays", () => {
+    const parameters = drawerTray.normalize({
+      ...drawerTray.defaults,
+      columnLayout: { mode: "custom", fixedSizesMm: [60, 100] },
+      rowLayout: { mode: "custom", fixedSizesMm: [70] },
+    });
+    const design = createDesignFile(drawerTray, parameters, "Measured", fixedNow);
+    const imported = parseDesignFile(serializeDesignFile(design));
+    expect(imported.ok).toBe(true);
+    if (!imported.ok) throw new Error("unreachable");
+    expect(imported.design.parameters.columnLayout).toEqual(parameters.columnLayout);
+    expect(imported.design.parameters.rowLayout).toEqual(parameters.rowLayout);
+
+    for (const fixedSizesMm of [null, [60, "wide"], [60, null], Array(8).fill(10)]) {
+      const bad = JSON.parse(serializeDesignFile(design));
+      bad.parameters.columnLayout = { mode: "custom", fixedSizesMm };
+      const result = parseDesignFile(JSON.stringify(bad));
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error).toMatch(/fixed sizes/);
+    }
   });
 
   it("ignores unknown fields and unknown parameters", () => {
@@ -144,7 +182,7 @@ describe("design file import", () => {
     ["not JSON", "{oops", /not valid JSON/],
     ["an array", "[]", /design object/],
     ["wrong format", JSON.stringify({ format: "other", version: 1 }), /file format/],
-    ["wrong version", JSON.stringify({ format: DESIGN_FILE_FORMAT, version: 3 }), /version 3 is not supported/],
+    ["wrong version", JSON.stringify({ format: DESIGN_FILE_FORMAT, version: 4 }), /version 4 is not supported/],
     ["wrong units", JSON.stringify({ format: DESIGN_FILE_FORMAT, version: 1, units: "in" }), /Only millimeters/],
     ["no product", JSON.stringify({ format: DESIGN_FILE_FORMAT, version: 1, units: "mm" }), /name a product/],
     [
@@ -166,12 +204,20 @@ describe("design file import", () => {
 
   it("rejects a file with missing parameters instead of filling defaults", () => {
     const data = JSON.parse(good);
-    delete data.parameters.rows;
+    delete data.parameters.rowLayout;
     delete data.parameters.fingerScoop;
     const result = parseDesignFile(JSON.stringify(data));
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("unreachable");
-    expect(result.error).toMatch(/missing required parameters: rows, finger scoop/);
+    expect(result.error).toMatch(/missing required parameters:.*row layout.*finger scoop/);
+  });
+
+  it("reports a missing legacy row count instead of using the new default", () => {
+    const data = legacy(2);
+    delete data.parameters.rows;
+    const result = parseDesignFile(JSON.stringify(data));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/missing required parameters: rows/);
   });
 
   it("rejects out-of-range values with the product's own message", () => {

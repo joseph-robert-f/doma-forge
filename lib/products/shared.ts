@@ -7,6 +7,8 @@ import {
   type SurfaceTreatments,
 } from "../surface-patterns";
 import type {
+  AxisLayout,
+  AxisLayoutSpec,
   LayoutSpec,
   ParameterSpec,
   ParametersOf,
@@ -47,6 +49,31 @@ export function normalizeLayout(
   return widths;
 }
 
+/** Copies a tray-axis layout while retaining invalid entered numbers for validation. */
+export function normalizeAxisLayout(
+  spec: AxisLayoutSpec,
+  value: unknown,
+  fallback: AxisLayout,
+): AxisLayout {
+  if (!value || typeof value !== "object") return normalizeAxisLayout(spec, fallback, { mode: "even", count: spec.minCount });
+  const candidate = value as Record<string, unknown>;
+  if (candidate.mode === "even") {
+    const count = normalizeNumber(candidate.count);
+    return { mode: "even", count: Number.isFinite(count) ? Math.round(count) : count };
+  }
+  if (candidate.mode === "custom" && Array.isArray(candidate.fixedSizesMm)) {
+    return {
+      mode: "custom",
+      fixedSizesMm: candidate.fixedSizesMm
+        // Keep one excess entry so validation can report an oversized file
+        // instead of silently accepting a truncated layout.
+        .slice(0, spec.maxCount)
+        .map((entry) => normalizeNumber(entry)),
+    };
+  }
+  return normalizeAxisLayout(spec, fallback, { mode: "even", count: spec.minCount });
+}
+
 /**
  * Coerces unknown input into a full parameter object. Unknown keys are
  * dropped, missing keys take the default, numbers are rounded to 0.001 and
@@ -71,6 +98,8 @@ export function normalizeFromSpecs<Specs extends Record<string, ParameterSpec>>(
       // share it with every normalized parameter set.
       if (spec.kind === "layout") {
         result[key] = normalizeLayout(spec, result[key], []);
+      } else if (spec.kind === "axisLayout") {
+        result[key] = normalizeAxisLayout(spec, result[key], { mode: "even", count: spec.minCount });
       } else if (spec.kind === "surfaceTreatments") {
         result[key] = normalizeSurfaceTreatments(spec, undefined, result[key] as SurfaceTreatments);
       }
@@ -89,6 +118,13 @@ export function normalizeFromSpecs<Specs extends Record<string, ParameterSpec>>(
           spec,
           value,
           Array.isArray(defaults[key]) ? (defaults[key] as number[]) : [],
+        );
+        break;
+      case "axisLayout":
+        result[key] = normalizeAxisLayout(
+          spec,
+          value,
+          defaults[key] as AxisLayout,
         );
         break;
       case "boolean":
@@ -184,6 +220,36 @@ export function validateAgainstSpecs<Specs extends Record<string, ParameterSpec>
         });
         break;
       }
+      case "axisLayout": {
+        const layout = value as AxisLayout;
+        if (!layout || typeof layout !== "object" || (layout.mode !== "even" && layout.mode !== "custom")) {
+          collector.add(key, `${spec.shortLabel} needs an even or custom layout.`);
+          break;
+        }
+        if (layout.mode === "even") {
+          if (!Number.isInteger(layout.count) || layout.count < spec.minCount || layout.count > spec.maxCount) {
+            collector.add(key, `${spec.shortLabel} must have ${spec.minCount}–${spec.maxCount} ${spec.itemLabel.toLowerCase()}s.`);
+          }
+          break;
+        }
+        if (!Array.isArray(layout.fixedSizesMm)) {
+          collector.add(key, `${spec.shortLabel} sizes must be a list of numbers.`);
+          break;
+        }
+        const count = layout.fixedSizesMm.length + 1;
+        if (count < spec.minCount || count > spec.maxCount) {
+          collector.add(key, `${spec.shortLabel} must have ${spec.minCount}–${spec.maxCount} ${spec.itemLabel.toLowerCase()}s.`);
+        }
+        layout.fixedSizesMm.forEach((size, index) => {
+          const label = `${spec.itemLabel} ${index + 1}`;
+          if (typeof size !== "number" || !Number.isFinite(size)) {
+            collector.add(key, `${label} must be a number.`);
+          } else if (size < spec.minSizeMm) {
+            collector.add(key, `${label} must be at least ${spec.minSizeMm} mm.`);
+          }
+        });
+        break;
+      }
       case "boolean":
         if (typeof value !== "boolean") {
           collector.add(key, `${spec.label} must be on or off.`);
@@ -224,6 +290,12 @@ export function signatureFromSpecs<Specs extends Record<string, ParameterSpec>>(
     const spec = specs[key];
     if (spec.kind === "surfaceTreatments") {
       return surfaceTreatmentsSignature(spec, value as SurfaceTreatments);
+    }
+    if (spec.kind === "axisLayout") {
+      const layout = value as AxisLayout;
+      return layout.mode === "even"
+        ? `even:${String(layout.count)}`
+        : `custom:[${layout.fixedSizesMm.map((entry) => String(entry)).join(",")}]`;
     }
     if (Array.isArray(value)) {
       return `[${value.map((entry) => String(entry)).join(",")}]`;
