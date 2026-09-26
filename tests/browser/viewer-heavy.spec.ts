@@ -20,15 +20,15 @@ test.describe("viewer under a heavy regeneration", () => {
     const viewer = page.getByTestId("model-viewer");
     const heavyParameters = {
       ...drawerTray.defaults,
-      rows: 6,
-      columns: 8,
+      rowLayout: { mode: "even" as const, count: 6 },
+      columnLayout: { mode: "even" as const, count: 8 },
       drawerWidth: 600,
       drawerDepth: 600,
       meshQuality: "fine" as const,
     };
 
-    await page.getByTestId("param-rows-number").fill("6");
-    await page.getByTestId("param-columns-number").fill("8");
+    await page.getByTestId("param-row-layout-count").fill("6");
+    await page.getByTestId("param-column-layout-count").fill("8");
     await page.getByTestId("param-drawer-width-number").fill("600");
     await page.getByTestId("param-drawer-depth-number").fill("600");
     await page.getByTestId("param-mesh-quality-fine").click();

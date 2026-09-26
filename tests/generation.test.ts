@@ -148,12 +148,12 @@ describe("worker generation client", () => {
     const client = new WorkerGenerationClient({ createWorker: () => worker });
 
     const first = client.generate(drawerTray.id, defaults);
-    const second = client.generate(drawerTray.id, { ...defaults, rows: 1 });
+    const second = client.generate(drawerTray.id, { ...defaults, rowLayout: { mode: "even", count: 1 } });
     await expect(first).rejects.toBeInstanceOf(GenerationCancelledError);
 
     await worker.release(2);
     const model = await second;
-    expect(model.parameters.rows).toBe(1);
+    expect(model.parameters.rowLayout).toEqual({ mode: "even", count: 1 });
     expect(worker.requests.map((request) => request.id)).toEqual([1, 2]);
     expect(worker.terminated).toBe(false);
   });
@@ -306,10 +306,10 @@ describe("inline generation client", () => {
   it("generates on the calling thread with latest-wins semantics", async () => {
     const client = new InlineGenerationClient();
     const first = client.generate(drawerTray.id, defaults);
-    const second = client.generate(drawerTray.id, { ...defaults, columns: 1 });
+    const second = client.generate(drawerTray.id, { ...defaults, columnLayout: { mode: "even", count: 1 } });
     await expect(first).rejects.toBeInstanceOf(GenerationCancelledError);
     const model = await second;
-    expect(model.parameters.columns).toBe(1);
+    expect(model.parameters.columnLayout).toEqual({ mode: "even", count: 1 });
     client.dispose();
     await expect(client.generate(drawerTray.id, defaults)).rejects.toThrow(
       /disposed/,

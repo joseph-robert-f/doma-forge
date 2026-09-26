@@ -1,16 +1,16 @@
 import { getProduct } from "./products/registry";
 import { parameterSlug, shortHash } from "./products/shared";
 import { surfaceTreatmentFileIssue } from "./surface-patterns";
-import type { AnyParameters, AnyProduct } from "./products/types";
+import type { AnyParameters, AnyProduct, AxisLayoutSpec } from "./products/types";
 
 /**
- * The portable design file. Version 2 adds per-surface pattern settings to
- * each product. Version 1 imports with every surface solid. Machine-specific
- * data such as printer corrections stays in the local workspace.
+ * The portable design file. Version 2 adds per-surface pattern settings;
+ * version 3 adds measured drawer-tray axes. Version 1 imports with every
+ * surface solid. Machine-specific data stays in the local workspace.
  */
-export interface DesignFileV2 {
+export interface DesignFileV3 {
   format: typeof DESIGN_FILE_FORMAT;
-  version: 2;
+  version: 3;
   name: string;
   units: "mm";
   productId: string;
@@ -20,12 +20,12 @@ export interface DesignFileV2 {
 }
 
 export const DESIGN_FILE_FORMAT = "drawerforge-design";
-export const DESIGN_FILE_VERSION = 2;
+export const DESIGN_FILE_VERSION = 3;
 export const DESIGN_FILE_EXTENSION = ".drawerforge.json";
 export const DESIGN_NAME_MAX_LENGTH = 60;
 
 export type DesignFileImport =
-  | { ok: true; design: DesignFileV2; product: AnyProduct; warnings: string[] }
+  | { ok: true; design: DesignFileV3; product: AnyProduct; warnings: string[] }
   | { ok: false; error: string };
 
 /** Trims, collapses whitespace, and caps the design name. */
@@ -63,7 +63,7 @@ export function createDesignFile(
   parameters: AnyParameters,
   name: string,
   now: () => Date = () => new Date(),
-): DesignFileV2 {
+): DesignFileV3 {
   const normalized = product.normalize(parameters);
   const validation = product.validate(normalized);
   if (!validation.valid) {
@@ -81,13 +81,13 @@ export function createDesignFile(
   };
 }
 
-export function serializeDesignFile(design: DesignFileV2): string {
+export function serializeDesignFile(design: DesignFileV3): string {
   return `${JSON.stringify(design, null, 2)}\n`;
 }
 
 /** `<name-slug>-<product>-<hash>.drawerforge.json`, name omitted when empty. */
 export function designFilename(
-  design: DesignFileV2,
+  design: DesignFileV3,
   resolveProduct: (id: string) => AnyProduct = getProduct,
 ): string {
   const product = resolveProduct(design.productId);
@@ -117,6 +117,51 @@ function shown(value: unknown): string {
   } catch {
     return "[unreadable]";
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+/** Legacy tray files stored a row and column count instead of axis layouts. */
+export function migrateLegacyTrayParameters(parameters: Record<string, unknown>): Record<string, unknown> {
+  const migrated = { ...parameters };
+  if (Object.prototype.hasOwnProperty.call(parameters, "rows")) {
+    migrated.rowLayout = { mode: "even", count: parameters.rows };
+  }
+  if (Object.prototype.hasOwnProperty.call(parameters, "columns")) {
+    migrated.columnLayout = { mode: "even", count: parameters.columns };
+  }
+  delete migrated.rows;
+  delete migrated.columns;
+  return migrated;
+}
+
+/** Reject malformed new-layout data before normalization can replace it. */
+export function axisLayoutFileIssue(product: AnyProduct, parameters: Record<string, unknown>): string | null {
+  for (const [key, spec] of Object.entries(product.specs)) {
+    if (spec.kind !== "axisLayout") continue;
+    const axis = spec as AxisLayoutSpec;
+    const value = parameters[key];
+    if (!isRecord(value)) return `${axis.label} must be an axis layout object.`;
+    if (value.mode === "even") {
+      if (typeof value.count !== "number" || !Number.isInteger(value.count) ||
+          value.count < axis.minCount || value.count > axis.maxCount) {
+        return `${axis.label} must have a whole-number count between ${axis.minCount} and ${axis.maxCount}.`;
+      }
+      continue;
+    }
+    if (value.mode === "custom") {
+      const fixed = value.fixedSizesMm;
+      if (!Array.isArray(fixed) || fixed.length < axis.minCount - 1 || fixed.length > axis.maxCount - 1 ||
+          fixed.some((size) => typeof size !== "number" || !Number.isFinite(size))) {
+        return `${axis.label} must have ${axis.minCount - 1} to ${axis.maxCount - 1} finite fixed sizes in millimeters.`;
+      }
+      continue;
+    }
+    return `${axis.label} mode must be even or custom.`;
+  }
+  return null;
 }
 
 /**
@@ -157,10 +202,10 @@ function parseDesignFileUnsafe(
       error: `The file format is not "${DESIGN_FILE_FORMAT}". Choose a file saved by DrawerForge.`,
     };
   }
-  if (data.version !== 1 && data.version !== DESIGN_FILE_VERSION) {
+  if (data.version !== 1 && data.version !== 2 && data.version !== DESIGN_FILE_VERSION) {
     return {
       ok: false,
-      error: `Design file version ${shown(data.version)} is not supported. This app reads versions 1 and ${DESIGN_FILE_VERSION}.`,
+      error: `Design file version ${shown(data.version)} is not supported. This app reads versions 1 through ${DESIGN_FILE_VERSION}.`,
     };
   }
   if (data.units !== "mm") {
@@ -180,18 +225,42 @@ function parseDesignFileUnsafe(
   }
 
   const parameters = data.parameters as Record<string, unknown>;
-  const missing = Object.keys(product.specs).filter(
-    (key) =>
-      !(data.version === 1 && product.specs[key].kind === "surfaceTreatments") &&
-      !Object.prototype.hasOwnProperty.call(parameters, key),
-  );
+  const legacyTray = product.id === "drawer-tray" && (data.version === 1 || data.version === 2);
+  const migratedTray = legacyTray ? migrateLegacyTrayParameters(parameters) : parameters;
+  // Legacy files must still supply their original counts; translating before
+  // this check must not let a missing row or column silently use a default.
+  const missing = Object.keys(product.specs).flatMap((key) => {
+    if (data.version === 1 && product.specs[key].kind === "surfaceTreatments") return [];
+    const sourceKey = legacyTray
+      ? key === "rowLayout" ? "rows" : key === "columnLayout" ? "columns" : key
+      : key;
+    return Object.prototype.hasOwnProperty.call(
+      legacyTray ? parameters : migratedTray,
+      sourceKey,
+    ) ? [] : [sourceKey];
+  });
   if (missing.length > 0) {
     return { ok: false, error: `The file is missing required parameters: ${fieldList(missing)}.` };
   }
-  if (data.version === 2) {
+  // Preserve the old number normalizer's acceptance of numeric strings in
+  // v1/v2, while v3 requires typed axis values and exact array shape.
+  if (legacyTray) {
+    for (const [key, label] of [["rowLayout", "Rows"], ["columnLayout", "Columns"]] as const) {
+      const layout = migratedTray[key] as { mode: "even"; count: unknown };
+      const count = layout.count === "" ? Number.NaN : Number(layout.count);
+      const normalizedCount = Number.isFinite(count) ? Math.round(count) : count;
+      layout.count = normalizedCount;
+      if (!Number.isInteger(normalizedCount)) {
+        return { ok: false, error: `${label} must be a whole number.` };
+      }
+    }
+  }
+  const axisIssue = axisLayoutFileIssue(product, migratedTray);
+  if (axisIssue) return { ok: false, error: axisIssue };
+  if (data.version >= 2) {
     const spec = product.specs.surfaceTreatments;
     if (spec?.kind === "surfaceTreatments") {
-      const issue = surfaceTreatmentFileIssue(spec, parameters.surfaceTreatments);
+      const issue = surfaceTreatmentFileIssue(spec, migratedTray.surfaceTreatments);
       if (issue) return { ok: false, error: issue };
     }
   }
@@ -199,8 +268,8 @@ function parseDesignFileUnsafe(
   // Version 1 had no surface semantics. Treat even an unknown field with this
   // name as absent, so a v1 file always opens with solid surfaces.
   const migratedParameters = data.version === 1
-    ? Object.fromEntries(Object.entries(parameters).filter(([key]) => key !== "surfaceTreatments"))
-    : parameters;
+    ? Object.fromEntries(Object.entries(migratedTray).filter(([key]) => key !== "surfaceTreatments"))
+    : migratedTray;
   const normalized = product.normalize(migratedParameters);
   const validation = product.validate(normalized);
   if (!validation.valid) {

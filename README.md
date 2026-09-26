@@ -25,22 +25,40 @@ npm run test:integration # all tests/*.integration.test.tsx suites
 npm run build            # production/Cloudflare Worker build
 npm run test:ssr         # production build plus server-render smoke test
 npm run test:deploy-config  # proves a preview build targets the separate preview Worker
-npm run check:public-origin # warns if the built page still ships the localhost default
+npm run check:public-origin # verifies metadata against the built Worker's PUBLIC_ORIGIN
 npm run deploy           # build, then deploy to Cloudflare Workers (production)
 npm run deploy:preview   # build under CLOUDFLARE_ENV=preview, then deploy to the "preview" Worker environment
 ```
 
 ## Parameters and validation
 
-All dimensions are millimeters. Each product defines its own measurements, layout, and construction rules. For the drawer organizer tray, width and depth are calculated as the drawer interior dimension minus the selected clearance on both sides. Internal compartment dimensions account for the two perimeter walls and every divider. Its rows and columns are evenly spaced; other products offer individual well widths, bores, slots, hooks, or revolved profiles.
+All dimensions are millimeters. Each product defines its own measurements, layout, and construction rules. For the drawer organizer tray, width and depth are calculated as the drawer interior dimension minus the selected clearance on both sides. Internal compartment dimensions account for the two perimeter walls and every divider. The tray starts with evenly spaced rows and columns; either axis can instead use individually measured compartments. Other products offer individual well widths, bores, slots, hooks, or revolved profiles.
 
 DrawerForge rejects non-finite or out-of-range values and applies each product's construction rules. For the drawer organizer tray, those rules reject a base that leaves too little wall, a corner radius larger than the tray, and layouts with compartments under 10 mm. Invalid edits never replace the last valid preview and always disable STL download. The latest valid normalized design for each product is stored locally in the browser and can be reset to practical defaults.
 
 Draft, Standard, and Fine change curved-feature tessellation only. Standard is the recommended balance for editing and export.
 
-The drawer tray's front finger scoop stays within one front compartment. On
-even-column grids it sits just left of the center divider; in narrow grids it
-shrinks to leave solid rim between the notch and neighboring dividers.
+The drawer tray's front finger scoop stays within one front compartment. If a
+divider crosses the tray center, the scoop uses the compartment to its left.
+In narrow compartments it shrinks to leave solid rim beside the dividers.
+
+### Unequal tray compartments
+
+In **Divide**, keep **Even** for equal spacing or choose **Custom** separately
+for column widths and row depths. Columns run left to right; rows run front to
+back. Enter the inside size of each compartment in millimeters. The final
+column or row takes the space left after the outer walls, other compartments,
+and dividers. For example, the default tray has 291 mm of usable width and
+193 mm of usable depth: columns of 60 and 100 mm leave 131 mm for the last
+column, while a 70 mm front row leaves 123 mm for the back row. The layout map
+and calculated results show the built sizes.
+
+Adding a compartment splits the final one; removing one merges it back.
+**Redistribute evenly** restores equal spacing along one axis. In Custom mode,
+changing the drawer size keeps the entered sizes and changes the final
+compartment. Every compartment must remain at least 10 mm wide and deep.
+Invalid edits keep the last valid preview and disable the STL download. Layout
+undo and redo are available during the current editing session.
 
 ### Permeable surfaces
 
@@ -56,7 +74,7 @@ A design file holds one product's settings in millimeters. Use it to move a desi
 2. Select **Save design file**. The browser downloads `<name>-<product-id>-<hash>.drawerforge.json`.
 3. On any device, select **Open design file** and choose the file. The design replaces the current settings only after every check passes.
 
-A file with an unknown format, an unsupported version, a missing parameter, or an out-of-range value is refused with a message. The current design does not change. Version 2 files retain each surface pattern; version 1 files still open with every surface solid. A file saved by a different app version loads with a warning that the mesh may differ.
+A file with an unknown format, an unsupported version, a missing parameter, or an out-of-range value is refused with a message. The current design does not change. Version 3 saves unequal tray layouts. Version 2 files retain each surface pattern and open older tray grids with even spacing; version 1 files still open with every surface solid. A file saved by a different app version loads with a warning that the mesh may differ.
 
 The design file never holds printer data. Printer corrections belong to a local printer profile.
 
@@ -366,15 +384,15 @@ DrawerForge deploys to Cloudflare Workers, from `wrangler.jsonc` at the reposito
 
 The Cloudflare environment (production or `preview`) is selected at build time, through the `CLOUDFLARE_ENV` variable, not at deploy time. `npm run deploy:preview` sets it for you (`CLOUDFLARE_ENV=preview vinext deploy --preview`) — do not replace it with a plain `vinext deploy --preview`, which silently deploys production under the preview label instead. `npm run test:deploy-config` proves this stays correct.
 
-CI deploys a preview on every pull request and production on every push to `main`. It also runs the preview-config proof above and a `PUBLIC_ORIGIN` warning check (below) on every push and pull request, with no Cloudflare account needed; only the two actual deploy commands are skipped when the `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` repository secrets are not set.
+CI deploys a preview on every pull request and production on every push to `main`. It also runs the preview-config proof above and verifies the deployment target's `PUBLIC_ORIGIN` metadata on every push and pull request, with no Cloudflare account needed; only the two actual deploy commands are skipped when the `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` repository secrets are not set.
 
-`app/layout.tsx` builds every absolute URL (Open Graph, canonical links) from a configured `PUBLIC_ORIGIN` Worker variable, resolved by `lib/origin.ts`. It defaults to `http://localhost:3000`. `wrangler.jsonc` sets `vars.PUBLIC_ORIGIN` to the production Worker's address and `env.preview.vars.PUBLIC_ORIGIN` to the preview Worker's address (Wrangler does not inherit `vars` into a named environment); change both if a Worker gets a custom domain — this is a config-file edit, not something CI can set for you. CI separately reads a `PUBLIC_ORIGIN` **repository variable** (not a secret) and runs `npm run check:public-origin`, which prints a visible warning (never a failure) if the built page would still ship the `localhost:3000` default; setting that repository variable silences the warning but does not, by itself, change the real deployed origin.
+`app/layout.tsx` builds every absolute URL (Open Graph, canonical links) from a configured `PUBLIC_ORIGIN` Worker variable, resolved by `lib/origin.ts`. It defaults to `http://localhost:3000`. `wrangler.jsonc` sets `vars.PUBLIC_ORIGIN` to the production Worker's address and `env.preview.vars.PUBLIC_ORIGIN` to the preview Worker's address (Wrangler does not inherit `vars` into a named environment); change both if a Worker gets a custom domain. CI reads the resolved value from the built Worker's Wrangler config, renders the page with that value, and fails if its Open Graph or Twitter image URLs do not match. It checks the preview build on pull requests and the production build on pushes to `main`.
 
 See [`outputs/drawerforge-agent-handoff/26_CLOUDFLARE_MIGRATION_NOTES.md`](outputs/drawerforge-agent-handoff/26_CLOUDFLARE_MIGRATION_NOTES.md) for the rollback plan and the deployed-origin acceptance checklist.
 
 ## Current limitations
 
-- Layouts follow each product's parameters: tray grids, individual wells, bores, slots, fins, hooks, and revolved forms
+- Layouts follow each product's parameters: full-length tray rows and columns, individual wells, bores, slots, fins, hooks, and revolved forms
 - One product per design; automatic splitting is supported for shelf-riser legs, but there is no general-purpose splitting for other products
 - No arbitrary divider drawing, slicer settings, or multi-model projects
 - The last valid design for each product persists in the current browser’s local storage; use a design file to move it

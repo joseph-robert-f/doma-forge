@@ -16,6 +16,7 @@ import {
   FIT_TEST_COUPON_HEIGHT,
   DRAWER_TRAY_SPECS,
   deriveDimensions,
+  deriveTrayLayout,
   type DrawerTrayParameters,
   type DrawerTraySpecs,
 } from "./schema";
@@ -24,10 +25,10 @@ import { validateDrawerTray } from "./validate";
 /**
  * Geometry version 1 is the original DrawerForge tray algorithm. Version 2
  * keeps patterned floor openings inside the rounded cavity. Version 3 keeps
- * the finger scoop clear of grid dividers. Increase it whenever equal
- * parameters would produce a different mesh.
+ * the finger scoop clear of grid dividers. Version 4 adds measured unequal
+ * compartment spans. Increase it whenever equal parameters change the mesh.
  */
-export const DRAWER_TRAY_GEOMETRY_VERSION = 3;
+export const DRAWER_TRAY_GEOMETRY_VERSION = 4;
 
 function signature(parameters: DrawerTrayParameters): string {
   return signatureFromSpecs(
@@ -55,17 +56,30 @@ export const drawerTray: ProductDefinition<DrawerTraySpecs> = {
   signature,
   derive: (parameters) => {
     const derived = deriveDimensions(parameters);
+    const layout = deriveTrayLayout(parameters);
+    const even = parameters.rowLayout.mode === "even" && parameters.columnLayout.mode === "even";
     return [
       {
         id: "outside-dimensions",
         label: "Outside",
         value: `${formatMillimeters(derived.outsideWidth)} × ${formatMillimeters(derived.outsideDepth)} × ${formatMillimeters(derived.outsideHeight)} mm`,
       },
-      {
+      ...(even ? [{
         id: "compartment-dimensions",
         label: "Each compartment",
         value: `≈ ${formatMillimeters(derived.compartmentWidth)} × ${formatMillimeters(derived.compartmentDepth)} mm`,
-      },
+      }] : [
+        {
+          id: "column-widths",
+          label: "Column widths",
+          value: `${layout.columns.sizesMm.map((size) => formatMillimeters(size)).join(" / ")} mm`,
+        },
+        {
+          id: "row-depths",
+          label: "Row depths",
+          value: `${layout.rows.sizesMm.map((size) => formatMillimeters(size)).join(" / ")} mm`,
+        },
+      ]),
     ];
   },
   generate: (parameters) =>
@@ -107,6 +121,7 @@ export const drawerTray: ProductDefinition<DrawerTraySpecs> = {
   },
   filename: (parameters) => {
     const derived = deriveDimensions(parameters);
+    const layout = deriveTrayLayout(parameters);
     const size = [
       derived.outsideWidth,
       derived.outsideDepth,
@@ -114,11 +129,12 @@ export const drawerTray: ProductDefinition<DrawerTraySpecs> = {
     ]
       .map(filenameNumber)
       .join("x");
-    return `drawerforge-${DRAWER_TRAY_ID}-${size}-${parameters.rows}x${parameters.columns}-${shortHash(signature(parameters))}.stl`;
+    return `drawerforge-${DRAWER_TRAY_ID}-${size}-${layout.rows.spans.length}x${layout.columns.spans.length}-${shortHash(signature(parameters))}.stl`;
   },
   summary: (parameters) => {
     const derived = deriveDimensions(parameters);
-    return `${formatMillimeters(derived.outsideWidth)} × ${formatMillimeters(derived.outsideDepth)} × ${formatMillimeters(derived.outsideHeight)} mm · ${parameters.rows} × ${parameters.columns}`;
+    const layout = deriveTrayLayout(parameters);
+    return `${formatMillimeters(derived.outsideWidth)} × ${formatMillimeters(derived.outsideDepth)} × ${formatMillimeters(derived.outsideHeight)} mm · ${layout.rows.spans.length} × ${layout.columns.spans.length}`;
   },
 };
 
@@ -129,8 +145,12 @@ export {
   FIT_TEST_COUPON_HEIGHT,
   FIT_TEST_COUPON_MINIMUM_WALL,
   deriveDimensions,
+  deriveTrayLayout,
   getCouponWallThickness,
+  type AxisSpan,
+  type DerivedAxisLayout,
   type DerivedDimensions,
+  type DerivedTrayLayout,
   type DrawerTrayParameters,
 } from "./schema";
 export { validateDrawerTray } from "./validate";

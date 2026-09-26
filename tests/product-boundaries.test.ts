@@ -34,8 +34,8 @@ interface Plan {
 const PLANS: Record<string, Plan> = {
   "drawer-tray": {
     minimum: 31,
-    anchors: [{ rows: 1, columns: 1, clearancePerSide: 0 }],
-    pairs: [{ keys: ["drawerWidth", "columns"], rejected: ["min/max"] },
+    anchors: [{ rowLayout: { mode: "even", count: 1 }, columnLayout: { mode: "even", count: 1 }, clearancePerSide: 0 }],
+    pairs: [{ keys: ["drawerWidth", "columnLayout"], rejected: ["min/max"] },
       { keys: ["organizerHeight", "baseThickness"] }],
   },
   "socket-tray": {
@@ -171,7 +171,11 @@ function endpoints(product: AnyProduct, key: string): [AnyParameters[string], An
   const spec = product.specs[key];
   if (spec?.kind === "number") return [spec.min, spec.max];
   if (spec?.kind === "boolean") return [false, true];
-  throw new Error(`${product.id}: ${key} is not a numeric/boolean pair parameter`);
+  if (spec?.kind === "axisLayout") return [
+    { mode: "even", count: spec.minCount },
+    { mode: "even", count: spec.maxCount },
+  ];
+  throw new Error(`${product.id}: ${key} has no pair endpoints`);
 }
 
 function fixturesFor(product: AnyProduct, plan: Plan) {
@@ -203,6 +207,8 @@ function fixturesFor(product: AnyProduct, plan: Plan) {
         const kept = Array.isArray(requested)
           ? Array.isArray(actual) && actual.length === requested.length &&
             requested.slice(0, -1).every((value, index) => value === actual[index])
+          : requested !== null && typeof requested === "object"
+            ? JSON.stringify(actual) === JSON.stringify(requested)
           : actual === requested;
         if (!kept) missing.push(`${name}: normalization changed ${key} from ${JSON.stringify(requested)} to ${JSON.stringify(actual)}`);
       }
@@ -214,7 +220,7 @@ function fixturesFor(product: AnyProduct, plan: Plan) {
 
   for (const [key, spec] of Object.entries(product.specs)) {
     if (spec.kind === "surfaceTreatments") continue;
-    if (spec.kind === "number" || spec.kind === "boolean") {
+    if (spec.kind === "number" || spec.kind === "boolean" || spec.kind === "axisLayout") {
       const values = endpoints(product, key);
       for (const [i, end] of ["min", "max"].entries()) {
         // The socket tray keeps dormant row diameters in its parameters.
@@ -223,6 +229,15 @@ function fixturesFor(product: AnyProduct, plan: Plan) {
           ? bases.map((base) => ({ ...base, rows: 4, trayDepth: 300 })) : bases;
         const name = `${key}:${end}`;
         choose(name, { [key]: values[i] }, name in (plan.rejectedEndpoints ?? {}), contexts);
+      }
+      if (spec.kind === "axisLayout") {
+        choose(`${key}:customMinCount`, { [key]: { mode: "custom", fixedSizesMm: [] } });
+        choose(`${key}:customMaxCount`, {
+          [key]: { mode: "custom", fixedSizesMm: Array(spec.maxCount - 1).fill(spec.minSizeMm) },
+        });
+        choose(`${key}:customUnequal`, {
+          [key]: { mode: "custom", fixedSizesMm: [30, 20] },
+        });
       }
     } else if (spec.kind === "enum") {
       for (const option of spec.options) choose(`${key}:${option.value}`, { [key]: option.value });

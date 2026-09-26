@@ -6,7 +6,7 @@ import { BOOLEAN_OVERLAP, roundedShell } from "../../kernel/shell";
 import { applySurfacePatterns } from "../../kernel/surface-pattern";
 import {
   QUALITY_SEGMENTS,
-  deriveDimensions,
+  deriveTrayLayout,
   type DrawerTrayParameters,
 } from "./schema";
 import { validateDrawerTray } from "./validate";
@@ -29,7 +29,7 @@ export async function generateDrawerTray(
     }
 
     const kernel = await getKernel();
-    const derived = deriveDimensions(parameters);
+    const derived = deriveTrayLayout(parameters);
     const segments = QUALITY_SEGMENTS[parameters.meshQuality];
 
     // The shell module reproduces the original construction step for step:
@@ -95,12 +95,7 @@ export async function generateDrawerTray(
       unionInputs.push(clippedDivider);
     };
 
-    for (let column = 1; column < parameters.columns; column += 1) {
-      const centerX =
-        -derived.outsideWidth / 2 +
-        parameters.wallThickness +
-        column * (derived.compartmentWidth + parameters.dividerThickness) -
-        parameters.dividerThickness / 2;
+    for (const centerX of derived.columns.dividerCenters) {
       addClippedDivider(
         [
           parameters.dividerThickness,
@@ -111,12 +106,7 @@ export async function generateDrawerTray(
       );
     }
 
-    for (let row = 1; row < parameters.rows; row += 1) {
-      const centerY =
-        -derived.outsideDepth / 2 +
-        parameters.wallThickness +
-        row * (derived.compartmentDepth + parameters.dividerThickness) -
-        parameters.dividerThickness / 2;
+    for (const centerY of derived.rows.dividerCenters) {
       addClippedDivider(
         [
           derived.outsideWidth + BOOLEAN_OVERLAP * 2,

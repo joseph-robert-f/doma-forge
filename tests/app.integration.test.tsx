@@ -96,7 +96,7 @@ describe("DrawerForge controls, generation, and export", () => {
     fireEvent.change(screen.getByTestId("param-drawer-width-number"), {
       target: { value: "80" },
     });
-    fireEvent.change(screen.getByTestId("param-columns-number"), {
+    fireEvent.change(screen.getByTestId("param-column-layout-count"), {
       target: { value: "8" },
     });
 
@@ -104,13 +104,86 @@ describe("DrawerForge controls, generation, and export", () => {
       "disabled",
       true,
     );
-    expect(screen.getByTestId("param-columns-error").textContent).toMatch(
+    expect(screen.getByTestId("param-column-layout-error").textContent).toMatch(
       /at least 10 mm/i,
     );
     expect(viewer.getAttribute("data-model-key")).toBe(lastValidKey);
     await waitFor(() =>
       expect(screen.getByTestId("preview-status").textContent).toMatch(/^paused:/),
     );
+  });
+
+  it("solves custom compartment remainders and lists the measured cells", async () => {
+    await renderReadyApp();
+    fireEvent.click(screen.getByTestId("param-column-layout-custom"));
+    fireEvent.click(screen.getByTestId("param-row-layout-custom"));
+
+    fireEvent.change(screen.getByTestId("param-column-layout-size-1"), {
+      target: { value: "60" },
+    });
+    fireEvent.change(screen.getByTestId("param-column-layout-size-2"), {
+      target: { value: "100" },
+    });
+    fireEvent.change(screen.getByTestId("param-row-layout-size-1"), {
+      target: { value: "70" },
+    });
+
+    expect(screen.getByTestId("param-column-layout-remaining")).toHaveProperty("value", "131");
+    expect(screen.getByTestId("param-row-layout-remaining")).toHaveProperty("value", "123");
+    expect(screen.getByTestId("tray-layout-map").textContent).toContain("3 columns × 2 rows");
+    expect(screen.getByTestId("tray-layout-cell-list").textContent).toContain("Row 1, column 1: 60 × 70 mm");
+  });
+
+  it("groups a completed size edit into one layout undo step and can redo it", async () => {
+    await renderReadyApp();
+    fireEvent.click(screen.getByTestId("param-column-layout-custom"));
+    const first = screen.getByTestId("param-column-layout-size-1");
+    expect(first).toHaveProperty("value", "97");
+
+    fireEvent.focus(first);
+    fireEvent.change(first, { target: { value: "50" } });
+    fireEvent.change(first, { target: { value: "60" } });
+    fireEvent.blur(first);
+
+    fireEvent.click(screen.getByTestId("tray-layout-undo"));
+    expect(screen.getByTestId("param-column-layout-size-1")).toHaveProperty("value", "97");
+    expect(screen.getByTestId("param-column-layout-custom")).toHaveProperty("checked", true);
+    fireEvent.click(screen.getByTestId("tray-layout-redo"));
+    expect(screen.getByTestId("param-column-layout-size-1")).toHaveProperty("value", "60");
+  });
+
+  it("keeps the last valid mesh and blocks export for an invalid solved compartment", async () => {
+    await renderReadyApp();
+    fireEvent.click(screen.getByTestId("param-column-layout-custom"));
+    await waitFor(() => expect(screen.getByTestId("preview-status").textContent).toMatch(/^ready:/));
+    const viewer = screen.getByTestId("model-viewer");
+    const lastValidKey = viewer.getAttribute("data-model-key");
+
+    fireEvent.change(screen.getByTestId("param-column-layout-size-1"), {
+      target: { value: "280" },
+    });
+
+    expect(screen.getByTestId("param-column-layout-remaining")).toHaveProperty("value", "-86");
+    expect(screen.getByTestId("param-column-layout-remaining").getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByTestId("download-stl-button")).toHaveProperty("disabled", true);
+    expect(viewer.getAttribute("data-model-key")).toBe(lastValidKey);
+    await waitFor(() => expect(screen.getByTestId("preview-status").textContent).toMatch(/^paused:/));
+  });
+
+  it("limits layout undo history to the 20 most recent completed edits", async () => {
+    await renderReadyApp();
+    fireEvent.click(screen.getByTestId("param-column-layout-custom"));
+    const first = screen.getByTestId("param-column-layout-size-1");
+    for (let size = 60; size <= 81; size += 1) {
+      fireEvent.focus(first);
+      fireEvent.change(first, { target: { value: String(size) } });
+      fireEvent.blur(first);
+    }
+    for (let step = 0; step < 20; step += 1) {
+      fireEvent.click(screen.getByTestId("tray-layout-undo"));
+    }
+    expect(screen.getByTestId("param-column-layout-size-1")).toHaveProperty("value", "61");
+    expect(screen.getByTestId("tray-layout-undo")).toHaveProperty("disabled", true);
   });
 
   it("loads a preset and marks manual edits as Custom", async () => {
@@ -121,7 +194,7 @@ describe("DrawerForge controls, generation, and export", () => {
       "value",
       "360",
     );
-    expect(screen.getByTestId("param-columns-number")).toHaveProperty(
+    expect(screen.getByTestId("param-column-layout-count")).toHaveProperty(
       "value",
       "4",
     );
@@ -269,11 +342,11 @@ describe("DrawerForge controls, generation, and export", () => {
       "value",
       "200",
     );
-    expect(screen.getByTestId("param-rows-number")).toHaveProperty(
+    expect(screen.getByTestId("param-row-layout-count")).toHaveProperty(
       "value",
       "2",
     );
-    expect(screen.getByTestId("param-columns-number")).toHaveProperty(
+    expect(screen.getByTestId("param-column-layout-count")).toHaveProperty(
       "value",
       "3",
     );

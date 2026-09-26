@@ -3,7 +3,8 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { drawerTray } from "../lib/products/drawer-tray";
-import { readFileText } from "../lib/design-file";
+import { getProduct } from "../lib/products/registry";
+import { createDesignFile, readFileText } from "../lib/design-file";
 import { LEGACY_DESIGN_KEY, WORKSPACE_KEY } from "../lib/workspace";
 import { mockDownloads, renderReadyApp, setupAppTest } from "./helpers/app";
 
@@ -15,7 +16,7 @@ describe("DrawerForge workspace and design files", () => {
       WORKSPACE_KEY,
       JSON.stringify({
         format: "drawerforge-workspace",
-        version: 3,
+        version: 4,
         updatedAt: "",
         designs: {
           "some-other-product": {
@@ -49,7 +50,7 @@ describe("DrawerForge workspace and design files", () => {
       WORKSPACE_KEY,
       JSON.stringify({
         format: "drawerforge-workspace",
-        version: 3,
+        version: 4,
         updatedAt: "",
         designs: {
           "drawer-tray": {
@@ -91,7 +92,7 @@ describe("DrawerForge workspace and design files", () => {
     const design = JSON.parse(text);
     expect(design).toMatchObject({
       format: "drawerforge-design",
-      version: 2,
+      version: 3,
       units: "mm",
       productId: "drawer-tray",
       name: "Left bench",
@@ -146,6 +147,30 @@ describe("DrawerForge workspace and design files", () => {
     expect(screen.getByTestId("download-stl-button")).toHaveProperty("disabled", false);
   });
 
+  it("keeps the current preview when a version 3 file has malformed measured sizes", async () => {
+    await renderReadyApp();
+    const viewer = screen.getByTestId("model-viewer");
+    const key = viewer.getAttribute("data-model-key");
+    const malformed = createDesignFile(getProduct(drawerTray.id), drawerTray.defaults, "Bad sizes");
+    const file = new File([
+      JSON.stringify({
+        ...malformed,
+        parameters: {
+          ...malformed.parameters,
+          columnLayout: { mode: "custom", fixedSizesMm: [60, "wide"] },
+        },
+      }),
+    ], "bad-sizes.drawerforge.json", { type: "application/json" });
+
+    fireEvent.change(screen.getByTestId("open-design-input"), { target: { files: [file] } });
+    await waitFor(() =>
+      expect(screen.getByTestId("design-file-message").textContent).toMatch(/fixed sizes/i),
+    );
+    expect(viewer.getAttribute("data-model-key")).toBe(key);
+    expect(screen.getByTestId("param-column-layout-even")).toHaveProperty("checked", true);
+    expect(screen.getByTestId("download-stl-button")).toHaveProperty("disabled", false);
+  });
+
   it("persists a renamed design without a geometry edit", async () => {
     const first = await renderReadyApp();
     fireEvent.change(screen.getByTestId("design-name-input"), {
@@ -160,17 +185,20 @@ describe("DrawerForge workspace and design files", () => {
   });
 
   it("migrates a version 1 record on first load and marks it in place", async () => {
+    const legacyDefaults: Record<string, unknown> = { ...drawerTray.defaults };
+    delete legacyDefaults.rowLayout;
+    delete legacyDefaults.columnLayout;
     const legacy = JSON.stringify({
       version: 1,
       productId: "drawer-tray",
       name: "From v1",
-      parameters: { ...drawerTray.defaults, drawerDepth: 260, columns: 4 },
+      parameters: { ...legacyDefaults, drawerDepth: 260, rows: 2, columns: 4 },
     });
     window.localStorage.setItem(LEGACY_DESIGN_KEY, legacy);
 
     await renderReadyApp();
     expect(screen.getByTestId("param-drawer-depth-number")).toHaveProperty("value", "260");
-    expect(screen.getByTestId("param-columns-number")).toHaveProperty("value", "4");
+    expect(screen.getByTestId("param-column-layout-count")).toHaveProperty("value", "4");
     expect(screen.getByTestId("design-name-input")).toHaveProperty("value", "From v1");
     await waitFor(() => {
       const envelope = window.localStorage.getItem(WORKSPACE_KEY) ?? "";

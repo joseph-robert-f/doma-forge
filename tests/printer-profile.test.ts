@@ -592,8 +592,12 @@ describe("compensated geometry", () => {
 
     const widthChange = shifted.compartmentWidth - plain.compartmentWidth;
     const depthChange = shifted.compartmentDepth - plain.compartmentDepth;
-    expect(widthChange).toBeCloseTo(0.6 / target.columns, 6);
-    expect(depthChange).toBeCloseTo(0.6 / target.rows, 6);
+    expect(target.columnLayout.mode).toBe("even");
+    expect(target.rowLayout.mode).toBe("even");
+    const columnCount = target.columnLayout.mode === "even" ? target.columnLayout.count : 1;
+    const rowCount = target.rowLayout.mode === "even" ? target.rowLayout.count : 1;
+    expect(widthChange).toBeCloseTo(0.6 / columnCount, 6);
+    expect(depthChange).toBeCloseTo(0.6 / rowCount, 6);
     expect(widthChange).toBeLessThanOrEqual(0.6);
     expect(depthChange).toBeLessThanOrEqual(0.6);
   });

@@ -59,11 +59,30 @@ export interface LayoutSpec {
   newValue: number;
 }
 
-export type ParameterSpec = NumberSpec | BooleanSpec | EnumSpec | LayoutSpec | SurfaceTreatmentsSpec;
+/** A tray axis is either an even grid or measured segments with a solved last segment. */
+export type AxisLayout =
+  | { mode: "even"; count: number }
+  | { mode: "custom"; fixedSizesMm: number[] };
+
+export interface AxisLayoutSpec {
+  kind: "axisLayout";
+  label: string;
+  shortLabel: string;
+  itemLabel: "Row" | "Column";
+  direction: "front-to-back" | "left-to-right";
+  minCount: number;
+  maxCount: number;
+  minSizeMm: number;
+  step: number;
+}
+
+export type ParameterSpec = NumberSpec | BooleanSpec | EnumSpec | LayoutSpec | AxisLayoutSpec | SurfaceTreatmentsSpec;
 
 export type ParameterValue<S extends ParameterSpec> = S extends LayoutSpec
   ? number[]
-  : S extends SurfaceTreatmentsSpec
+  : S extends AxisLayoutSpec
+    ? AxisLayout
+    : S extends SurfaceTreatmentsSpec
     ? SurfaceTreatments
   : S extends NumberSpec
     ? number

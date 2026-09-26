@@ -62,8 +62,8 @@ function randomCandidate(random: () => number): DrawerTrayParameters {
     baseThickness: Math.round(randomBetween(random, 1.2, 4) * 10) / 10,
     dividerThickness: Math.round(randomBetween(random, 1.2, 3.5) * 10) / 10,
     cornerRadius: Math.round(randomBetween(random, 1, 16) * 2) / 2,
-    rows: randomInt(random, 1, 4),
-    columns: randomInt(random, 1, 5),
+    rowLayout: { mode: "even", count: randomInt(random, 1, 4) },
+    columnLayout: { mode: "even", count: randomInt(random, 1, 5) },
     // Fine quality is the slowest to generate; drawing it a fifth of the
     // time keeps the whole 200-sample run well under the 60-second budget
     // while still exercising every quality level.
