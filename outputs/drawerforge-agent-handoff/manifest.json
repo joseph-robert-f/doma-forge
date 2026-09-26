@@ -165,6 +165,10 @@
       "purpose": "S16 drawer-tray scoop placement, geometry, verification, review, and physical print follow-up"
     },
     {
+      "path": "33_UNEQUAL_TRAY_LAYOUT_NOTES.md",
+      "purpose": "Merged unequal drawer-tray layout, migrations, CI verification, and physical print follow-up"
+    },
+    {
       "path": "sprints/S01_FIT_TEST_COUPON.md",
       "purpose": "Sprint spec: fit-test coupon export"
     },

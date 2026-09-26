@@ -458,3 +458,27 @@ holds its load.
 | Fit result | whether the scoop opens into the left front compartment with a full-height central divider beside it |
 | Photo | file name |
 | Notes | Print base down, without supports, with at least three perimeters. Inspect the front notch and central divider from above. Record any merged plastic or missing 2 mm rim. This is a full small tray because the existing fit-test ring has no scoop. |
+
+## Unequal drawer tray compartments
+
+### Record 20: Small measured layout sample (PR #21)
+
+| Field | Value |
+|---|---|
+| Date | |
+| Product and geometry version | Drawer tray, geometry version 4 |
+| Preset or parameters | Custom. drawerWidth 100, drawerDepth 90, clearancePerSide 0, organizerHeight 20, wallThickness 2, baseThickness 2, dividerThickness 2, cornerRadius 6, rowLayout custom with fixedSizesMm [30], columnLayout custom with fixedSizesMm [24, 36], meshQuality standard, fingerScoop true, surface treatments off |
+| Exported STL file name | fill after export |
+| Printer, nozzle, material | |
+| Perimeters, layer height | |
+| Target outside width × depth × height, mm | 100 × 90 × 20 |
+| Target clear column widths, left to right, mm | 24, 36, 32 (last width solved after walls and two dividers) |
+| Target clear row depths, front to back, mm | 30, 54 (last depth solved after walls and one divider) |
+| Measured outside width × depth × height, mm | |
+| Measured clear column widths, mm | |
+| Measured clear row depths, mm | |
+| Scoop and corner-cell inspection | |
+| Correction applied, X and Y, mm | |
+| Fit result | |
+| Photo | file name |
+| Notes | Print base down without supports. Check that all dividers are continuous, the scoop opens into a front compartment, and each rounded corner cell retains a usable floor. Measure the clear widths and depths at the floor above any corner curve. Record any shrinkage or merged divider joints; the fit-test coupon does not test these features. |

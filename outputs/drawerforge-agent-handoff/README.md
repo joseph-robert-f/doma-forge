@@ -15,6 +15,10 @@ This package describes the DrawerForge application as implemented in the accompa
 | Current hosting model | OpenAI Sites packaging around a Cloudflare Worker build |
 | Application data model | Browser-only; no backend, account, database, or cloud persistence |
 
+This table is the 2026-09-01 packaging snapshot. For the merged unequal tray
+layout and current Cloudflare CI behavior, read document 33 and the repository
+root `README.md`.
+
 ## What exists today
 
 DrawerForge lets a non-CAD user enter drawer dimensions, choose construction and grid parameters, preview a rounded, divided organizer in 3D, and download the exact preview mesh as a binary STL. Generation happens entirely in the browser using `manifold-3d` WebAssembly. Three.js renders the preview. The most recent valid design is stored in `localStorage`.
@@ -73,8 +77,9 @@ The user has reported that a generated STL imports and slices successfully in Ba
 31. [`30_OWED_REVIEWS_NOTES.md`](30_OWED_REVIEWS_NOTES.md) — the primary reviews of S09 and S13 run on the merged code, every finding and its disposition, and decisions from sprint S15.
 32. [`31_SESSION_HANDOFF.md`](31_SESSION_HANDOFF.md) — the architecture handoff through S15: constraints, decisions, open issues, and priorities. Start here with document 32 for the S16 change; it supersedes document 09.
 33. [`32_FRONT_SCOOP_GRID_NOTES.md`](32_FRONT_SCOOP_GRID_NOTES.md) — the S16 drawer tray scoop placement, geometry change, verification, review, and print follow-up.
-34. [`sprints/`](sprints/) — one spec per sprint, S01 to S16, plus the print records.
-35. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
+34. [`33_UNEQUAL_TRAY_LAYOUT_NOTES.md`](33_UNEQUAL_TRAY_LAYOUT_NOTES.md) — the merged unequal drawer tray layout, migration rules, CI verification, and physical print follow-up.
+35. [`sprints/`](sprints/) — one spec per sprint, S01 to S16, plus the print records.
+36. [`manifest.json`](manifest.json) — machine-readable package metadata and document inventory.
 
 `CHECKSUMS.sha256` contains SHA-256 hashes for every document and the manifest so a copied or extracted package can be verified.
 
